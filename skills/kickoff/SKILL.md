@@ -107,7 +107,7 @@ grep/command the user can run to re-confirm the finding themselves: trust, but v
 **Status: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT** (+ one line when not DONE)
 ```
 
-**Checkpoint (optional).** Offer to save the report as `docs/JOURNAL/KICKOFF_<YYMMDD>.md` — the project's dated logbook (see doctos' standard structure). If previous `KICKOFF_*` or `STANDUP_*` entries exist there, read the latest first and note what changed since — a kickoff that diffs against its predecessor turns "where was I?" into a 10-second answer. JOURNAL entries are append-only: new file per run, never edit old ones.
+**Checkpoint (optional).** Offer to save the report as `docs/JOURNAL/KICKOFF_<YYMMDD>.md` — the project's dated logbook (see doctos' standard structure). If previous `KICKOFF_*` or `STANDUP_*` entries exist there, read the latest first and note what changed since — a kickoff that diffs against its predecessor turns "where was I?" into a 10-second answer. JOURNAL convention: one file per day per type; a same-day re-run appends a timestamped section; past days are closed records, never edited.
 
 ## Boundaries
 
