@@ -47,6 +47,7 @@ The core editorial move: group commits by **outcome**, not chronology, and write
 - `feat(decks): add Puck editor` + `fix(decks): save flow` + `refactor(decks): share config` → **"Decks editor: shipped the slide editor with working save and share"**
 - Don't list every commit — a reader wants the 3-7 things that MATTER
 - Distinguish shipped (merged/deployed) from in-progress (open PR, unmerged branch)
+- **Link the evidence inline** (internal variant): each shipped/in-progress bullet links its PR or key commit (`[#12](url)`) so the reader can drill in without asking. Skip links in the client-facing variant
 - If commit messages are cryptic and trs is available, use the `--since` digest to see what actually changed
 
 ## Step 4: The Standup Report

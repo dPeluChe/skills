@@ -56,6 +56,10 @@ This is the heart of the skill. Compare what the docs SAY against what the code 
 
 Every mismatch is a finding for `/doctos` — a doc that names the wrong auth library or lists features that were deleted actively sabotages both humans and agents.
 
+**Offer the CLAUDE.md fix.** When the mismatches live in CLAUDE.md / AGENTS.md, don't stop at reporting: offer to correct those specific facts right there (with the user's confirmation), since every future agent session inherits the lie. This is the one write kickoff may perform — only agent instruction files, only verified facts, only with explicit OK. Everything else stays routed to `/doctos`.
+
+**Flag uncertainty explicitly.** When something can't be determined (no manifest, ambiguous entry point, unreachable remote), say "could not determine X" in the report instead of guessing. A wrong confident claim in a kickoff poisons the whole session that follows it.
+
 ## Step 4: Health quick-scan
 
 Light checks (full audits belong to the specialized skills):
@@ -99,7 +103,7 @@ Recent work (last N commits summarized in human language), unfinished threads
 
 ## Boundaries
 
-- **Read-only, always.** Kickoff never moves files, never edits docs, never touches tasks. It reports and routes.
+- **Read-only, with one exception.** Kickoff never moves files, never reorganizes docs, never touches tasks. It reports and routes. The single allowed write: correcting verified factual errors in CLAUDE.md / AGENTS.md, with explicit user confirmation (see Reality check).
 - **Routes, doesn't duplicate.** One-line findings for doctos/pm-tasks — their full audits do the deep work. Kickoff findings are pointers, not diagnoses.
 - **Works standalone.** The pipeline kickoff → doctos → pm-tasks is optional composition, not a dependency chain. Each skill functions alone.
 

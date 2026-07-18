@@ -8,7 +8,7 @@ I run ~80 repos as a solo builder + small studio ([Iteris](https://iteris.tech))
 
 | Skill | What it does |
 |-------|-------------|
-| [`kickoff`](./skills/kickoff/) | Project state analysis before starting work — real stack vs docs claims, git/PR state, hot modules, routed findings |
+| [`kickoff`](./skills/kickoff/) | Resume-your-own-project analysis — where you left off, real stack vs docs claims, git/PR state, routed findings. (Onboarding skills brief strangers; kickoff briefs the returning owner) |
 | [`doctos`](./skills/doctos/) | Documentation hygiene — audits .md files, enforces root rules, archives obsolete docs, standardizes `docs/` structure |
 | [`pm-tasks`](./skills/pm-tasks/) | Task lifecycle — audits `TASK_TODO.md`, archives completed work to monthly files, scans code and markdown for stray tasks |
 | [`standup`](./skills/standup/) | Recent-progress report — what shipped, what's in flight, new pendings; internal or client-facing |
