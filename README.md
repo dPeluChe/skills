@@ -13,6 +13,21 @@ I run ~80 repos as a solo builder + small studio ([Iteris](https://iteris.tech))
 | [`pm-tasks`](./skills/pm-tasks/) | Task lifecycle — audits `TASK_TODO.md`, archives completed work to monthly files, scans code and markdown for stray tasks |
 | [`standup`](./skills/standup/) | Recent-progress report — what shipped, what's in flight, new pendings; internal or client-facing |
 
+### What each one buys you
+
+- **`kickoff`** — resume any repo in minutes with a *verified* picture instead of a stale mental model. Catches the two things that burn you when returning: work you left unpushed, and docs that lie about the stack (every claim ships with a one-line grep so you can re-verify it yourself).
+- **`doctos`** — every project's docs end up with the same structure, so you navigate any of your repos blind. Obsolete docs get archived with a note (never deleted), moved files get their inbound links repaired, and shipped-but-undocumented work surfaces as a finding.
+- **`pm-tasks`** — one trustworthy backlog. Code TODOs, README checklists and scattered task files all funnel into `docs/TASK_TODO.md`; completed work archives into dated monthly files; stale tasks get flagged by age instead of rotting silently.
+- **`standup`** — progress reports cheap enough to actually write. Outcomes instead of commit lists, evidence linked inline, and a client-facing variant ready to paste into an email. A quiet week reports as a quiet week — it never fabricates.
+
+### Built-in guarantees
+
+- **Boundaries are machine-enforced**: each skill declares `allowed-tools` — analysis skills literally cannot rewrite your project.
+- **Standard exit vocabulary**: every report ends `DONE / DONE_WITH_CONCERNS / BLOCKED / NEEDS_CONTEXT`, so results are consumable by scripts and other skills.
+- **Injection-guarded**: scanned TODOs, commit messages and PR bodies are treated as data, never as instructions.
+- **A project logbook**: `kickoff` and `standup` write dated, append-only entries to `docs/JOURNAL/` — "how I found the project" and "how it moved" accumulate into memory your next session reads.
+- **Tested before shipped**: each skill passed assertion-based evals and field-tests on real repos before landing here.
+
 ### How they compose
 
 Small skills that hand off to each other, not one mega-skill:
@@ -23,6 +38,8 @@ kickoff ──▶ doctos     (docs findings, filtered)
    └──────▶ pm-tasks   (task findings, filtered)
 
 standup  ◀── pm-tasks  (TASK_COMPLETED/ anchors "what shipped")
+
+kickoff + standup ──▶ docs/JOURNAL/   (dated logbook both write, and read on the next run)
 ```
 
 Each one works standalone; the pipeline is optional. Typical rhythm: `kickoff` when resuming a project, `doctos`/`pm-tasks` to act on what it found, `standup` at the end of the week.
