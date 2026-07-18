@@ -46,6 +46,8 @@ proyecto/
     │
     ├── RESEARCH/                ← investigation, analysis, benchmarks, comparisons
     │
+    ├── JOURNAL/                 ← dated project-state log: kickoff snapshots, standup reports
+    │
     └── ARCHIVED/                ← obsolete docs with archival note
 ```
 
@@ -120,6 +122,11 @@ Investigation, analysis, benchmarks, competitor research, technology evaluations
 
 **Examples:** `KNOWLEDGE_TOOLS.md`, `COMPETITOR_ANALYSIS.md`, `MODEL_BENCHMARKS.md`, `TECH_EVALUATION.md`
 
+### JOURNAL/
+The project's dated logbook: state-in-time reports, append-only, never edited after the fact. `KICKOFF_<YYMMDD>.md` (how the project was found when resuming — written by /kickoff) and `STANDUP_<YYMMDD>.md` (what happened in a window — written by /standup). Unlike RESEARCH/ (timeless investigations) or ARCHIVED/ (obsolete docs), JOURNAL/ entries are *born historical* — they describe a moment and stay valid as a record of it. Doctos never archives JOURNAL/ files by age; their age is the point.
+
+**Examples:** `KICKOFF_260718.md`, `STANDUP_260725.md`
+
 ### ARCHIVED/
 Documents that are no longer current but worth keeping for historical context. Every archived file must have an archival note at the top explaining why it was archived and what replaced it.
 
@@ -157,7 +164,7 @@ Full scan of the project's documentation health.
 2. **Scan docs/ folder** — check subfolder names, file names, structure
 3. **Check naming conventions** — find lowercase folders, inconsistent file names, .txt docs
 4. **Detect obsolete documents** — two signals:
-   - **Age**: files not modified in 90+ days (`git log -1 --format=%as -- <file>`)
+   - **Age**: files not modified in 90+ days (`git log -1 --format=%as -- <file>`). Exclude `docs/JOURNAL/` — dated logbook entries are meant to age
    - **Stale claims**: content that contradicts the project's reality — tech mentioned that is absent from package.json/Cargo.toml/deps, referenced files or routes that no longer exist, counts that no longer match ("22 prototypes" when 3 remain). Spot-check each doc's boldest claims against the codebase; a doc describing the wrong stack misleads every future reader (human or agent) and is worse than no doc
    - **Coverage gaps** (the inverse check): recent shipped work — new modules, features, commands visible in the last ~20 commits — that no doc mentions. Missing docs are findings too, not just misplaced ones. Report as "undocumented: X" with a suggested destination
 5. **Check for task-related issues** — if task folders/files use non-standard names, flag for renaming and suggest running `/pm-tasks` after
