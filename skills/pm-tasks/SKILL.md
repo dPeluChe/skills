@@ -32,7 +32,7 @@ docs/
 - Monthly archive files always use `YYMM.md` format (e.g., `2604.md` for April 2026)
 - One archive file per month, all completed tasks for that month in the same file
 - No code blocks in archive files — reference file paths and function names instead
-- **README.md and CHANGELOG.md are protected zones** — they must NEVER contain task tracking, progress logs, pending items, or completed task lists. These files have their own purpose (project overview and release history). Task tracking belongs exclusively in `docs/TASK_TODO.md` and `docs/TASK_COMPLETED/`. If tasks or progress are found in README/CHANGELOG, extract them and leave a clean reference like: `> Task tracking: see [docs/TASK_TODO.md](./docs/TASK_TODO.md)`
+- **README.md, CHANGELOG.md, CLAUDE.md and AGENTS.md are protected zones** — they must NEVER contain task tracking, progress logs, pending items, or completed task lists. These files have their own purpose (project overview, release history, agent instructions). Agent instruction files are especially sensitive: they load into every agent session, so a stale task list there misleads every future session. Task tracking belongs exclusively in `docs/TASK_TODO.md` and `docs/TASK_COMPLETED/`. If tasks or progress are found in a protected zone, extract them and leave a clean reference like: `> Task tracking: see [docs/TASK_TODO.md](./docs/TASK_TODO.md)`
 - **No task tracking in random .md files** — architecture docs, setup guides, feature specs, and other markdown files should not accumulate `- [ ]` / `- [x]` task checklists. If tasks are found scattered across .md files, centralize them into TASK_TODO.md (pending) or TASK_COMPLETED/ (done), and replace the original with a brief reference to where the task is now tracked
 
 If a project deviates from this, the skill should detect it and offer to standardize (see INIT mode).
@@ -126,6 +126,7 @@ Full health check of the task backlog and project structure. This should surface
 | **Missing README** | TASK_COMPLETED/ exists but no README.md | "Create README.md with format rules" |
 | **README contamination** | README.md contains task checklists or progress tracking | "Extract tasks, clean README, add reference link" |
 | **CHANGELOG contamination** | CHANGELOG.md has pending/completed task lists | "Extract tasks, keep CHANGELOG for release notes only" |
+| **Agent-file contamination** | CLAUDE.md / AGENTS.md carry task checklists or progress logs | "Extract tasks — agent files are instructions, not backlogs" |
 | **Markdown contamination** | Other .md files have `- [ ]`/`- [x]` task lists | "Run `/pm-tasks scan` for full sweep and centralization" |
 | **Missing dates** | Tasks without `added:` tag | "Add `added: YYYY-MM-DD` to enable staleness tracking" |
 
@@ -199,7 +200,7 @@ Ask the user which groups they want to merge. When merging:
 - Completed (ready to archive): 4 tasks
 
 ### Ready to archive:
-- [x] KB-CLIPPER-2: Browser clipper extension
+- [x] KB-004: Cross-domain search implementation
 - [x] PERF-002: SQL index optimization
 
 ### Stale tasks:
@@ -210,7 +211,7 @@ Ask the user which groups they want to merge. When merging:
 - Group 1: UI-003 + UI-007 + UI-012 → all touch LoginForm.tsx, suggest merge
 
 ### Structural issues:
-1. ⚠️ MIGRATION_TASKS.md found at extension_reporter/ — consolidate
+1. ⚠️ MIGRATION_TASKS.md found at packages/api/ — consolidate
 2. ⚠️ Archive file 2026_04.md uses non-standard naming — rename to 2604.md
 3. ⚠️ 3 tasks missing `added:` date — suggest adding today's date as baseline
 
@@ -234,7 +235,7 @@ Moves completed tasks from TASK_TODO.md into monthly archive files.
 3. **Determine target file**: `docs/TASK_COMPLETED/YYMM.md` using today's date
 4. **Create infrastructure if missing**:
    - `docs/TASK_COMPLETED/` directory
-   - `docs/TASK_COMPLETED/README.md` (use template from INIT section)
+   - `docs/TASK_COMPLETED/README.md` (use template from `references/templates.md`)
 5. **Write to the monthly file** using the archive entry format below
 6. **Remove archived tasks from TASK_TODO.md**:
    - Remove completed task blocks (header + sub-items)
@@ -267,27 +268,7 @@ When archiving, skim `git log --oneline -20` for recent commits related to the t
 
 ### Suggested rich format (optional)
 
-Some projects benefit from a richer session-based archive format. If the project already uses this or the changes are substantial, suggest it to the user:
-
-```markdown
-## YYYY-MM-DD: Session title
-
-### Context
-Why this work was done. What problem triggered it.
-
-### Completed
-### TASK-KEY: Task Title
-- [x] Items completed
-
-### Decisions
-What was decided and why. Include discarded alternatives if they matter.
-
-### Files Changed
-- `file.rs` — one-line description of change
-- `new_file.rs` — NEW: what it does
-```
-
-This format captures the "why" behind decisions and records alternatives that were considered and discarded. Evaluate whether the project would benefit — for small tasks, the simple format is fine. For architectural changes or multi-day work, the rich format preserves valuable context.
+Some projects benefit from a richer session-based archive format that captures the "why" behind decisions and the alternatives that were discarded. For small tasks the simple format above is fine; for architectural changes or multi-day work, read `references/templates.md` (section "Rich session-based archive format") and suggest it to the user.
 
 ---
 
@@ -332,7 +313,7 @@ This is critical for keeping task tracking centralized. Many projects accumulate
    - Files inside `node_modules/`, `.git/`, etc.
 
 10. **For each file with checkboxes**, classify what you find:
-    - **README.md or CHANGELOG.md** — these are protected zones. Task checklists here are always violations. Extract and clean.
+    - **README.md, CHANGELOG.md, CLAUDE.md or AGENTS.md** — these are protected zones. Task checklists here are always violations. Extract and clean.
     - **Feature specs / architecture docs** (e.g., `docs/features/*.md`, `ARCHITECTURE.md`) — checkboxes here might be task lists disguised as "requirements". If they look like actionable tasks, flag them.
     - **Setup / installation guides** — checkboxes might be legitimate step-by-step instructions (not tasks). Use judgment: "- [ ] Install Node.js 18+" is a guide step, not a task. "- [ ] Implement OAuth flow" is a task. Skip guide steps.
     - **Agent / prompt docs** — checkboxes in quality checklists or validation prompts are legitimate. Skip these.
@@ -345,11 +326,11 @@ This is critical for keeping task tracking centralized. Many projects accumulate
 
 12. **Recommended actions per file type**:
 
-    **For README.md / CHANGELOG.md:**
+    **For protected zones (README.md / CHANGELOG.md / CLAUDE.md / AGENTS.md):**
     - Extract all task items (pending → TASK_TODO.md, completed → TASK_COMPLETED/)
     - Remove the checklist section from the file
     - Add a reference line: `> Task tracking: see [docs/TASK_TODO.md](./docs/TASK_TODO.md)`
-    - This keeps README/CHANGELOG clean and focused on their actual purpose
+    - This keeps each file focused on its actual purpose (overview, releases, agent instructions)
 
     **For feature specs and other docs:**
     - Extract task items to TASK_TODO.md or TASK_COMPLETED/
@@ -383,7 +364,7 @@ This is critical for keeping task tracking centralized. Many projects accumulate
 
 ### Part 2: Scattered task files — 2 found
 
-#### extension_reporter/MIGRATION_TASKS.md
+#### packages/api/MIGRATION_TASKS.md
 - 8 tasks total: 6 completed, 2 pending
 - Recommendation: archive 6 → 2604.md, merge 2 pending → TASK_TODO.md
 
@@ -482,26 +463,7 @@ After confirmation:
 
 ### Templates
 
-**TASK_TODO.md:**
-```markdown
-# [Project Name] — Task Backlog
-
-> Active task tracking for [project name].
-> Completed tasks are archived in [TASK_COMPLETED/](./TASK_COMPLETED/) by month.
-
----
-
-## Priority 1 — Current Sprint
-
-### EXAMPLE-001: Task title `added: 2026-04-05`
-- [ ] Sub-task description
-
-## Priority 2 — Next Up
-
-## Backlog
-
-## Research & Ideas
-```
+The copy-paste templates for `TASK_TODO.md` and `TASK_COMPLETED/README.md` live in `references/templates.md` — read that file when executing INIT (or when ARCHIVE needs to create the archive README). Adapt project name and language.
 
 ### Task date format
 
@@ -521,24 +483,6 @@ Every task should carry its creation date using the `added:` tag. This enables s
 
 The `added:` tag goes at the end of the task title line, in backticks so it renders as inline code and is visually distinct from the task description. When creating new tasks (via SCAN or manually), always include the date. When running INIT on a project with existing tasks that lack dates, suggest adding `added: YYYY-MM-DD` using today's date as a baseline (the real creation date is unknown, but at least future staleness tracking starts now).
 
-**TASK_COMPLETED/README.md:**
-```markdown
-# Task Completed Archive
-
-## Structure
-- One file per month: `YYMM.md` (e.g., `2604.md` = April 2026)
-- Tasks grouped by completion date
-
-## Rules
-1. **One file per month** — All tasks completed in that month go in a single file
-2. **Date each section** — Group by completion date: `## YYYY-MM-DD: Description`
-3. **Use task keys** — Reference the key from TASK_TODO.md
-4. **Detail what was done** — Completed items as `- [x]` checkboxes
-5. **Include context** — Brief notes on decisions and changes made
-6. **No code blocks** — Reference file paths and function names, not code
-7. **Move, don't copy** — Remove completed tasks from TASK_TODO.md when archiving here
-8. **Preserve the `added:` date** — When archiving, keep the original creation date so the archive shows how long the task lived in the backlog
-```
 
 ---
 
