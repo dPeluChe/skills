@@ -6,6 +6,11 @@
   },
   "plugins": [
     {
+      "name": "kickoff",
+      "source": "./skills/kickoff",
+      "description": "Project state analysis before starting work — real stack vs docs claims, git state, routed findings."
+    },
+    {
       "name": "doctos",
       "source": "./skills/doctos",
       "description": "Documentation hygiene — audits .md files, enforces docs/ structure, archives obsolete docs."
@@ -14,6 +19,11 @@
       "name": "pm-tasks",
       "source": "./skills/pm-tasks",
       "description": "Task lifecycle — audits TASK_TODO.md, archives completed tasks monthly, scans code TODOs."
+    },
+    {
+      "name": "standup",
+      "source": "./skills/standup",
+      "description": "Recent-progress report for a project — shipped / in-flight / pendings, internal or client-facing."
     }
   ]
 }
