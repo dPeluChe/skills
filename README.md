@@ -33,16 +33,16 @@ I run ~80 repos as a solo builder + small studio ([Iteris](https://iteris.tech))
 Small skills that hand off to each other, not one mega-skill:
 
 ```
-kickoff ──▶ doctos     (docs findings, filtered)
-   │
-   └──────▶ pm-tasks   (task findings, filtered)
-
-standup  ◀── pm-tasks  (TASK_COMPLETED/ anchors "what shipped")
-
-kickoff + standup ──▶ docs/JOURNAL/   (dated logbook both write, and read on the next run)
+kickoff / standup ──▶ doctos      (scoped work orders: verify + act, no full audit)
+        │        └──▶ pm-tasks    (scoped work orders: verify + act, no full audit)
+        │
+        └──────────▶ docs/JOURNAL/   (dated logbook: kickoff/standup write it,
+                                      all four read it — shared project memory)
 ```
 
-Each one works standalone; the pipeline is optional. Typical rhythm: `kickoff` when resuming a project, `doctos`/`pm-tasks` to act on what it found, `standup` at the end of the week.
+Routed findings are **scoped work orders**, not suggestions: when doctos/pm-tasks are invoked right after a kickoff or standup, they verify the routed list and act on it only — the full audit stays for periodic hygiene passes. The journal is the shared bus: standup appends session entries, kickoff diffs against them, pm-tasks pulls archive context from them, doctos uses them to prioritize where docs lie first.
+
+Each one still works standalone; the pipeline is optional. Typical rhythm: `kickoff` when resuming, micro-`standup` closing each work session (routing what to update), `standup` full report at the end of the week.
 
 **Accelerator**: `kickoff` and `standup` use [trs](https://usetrs.dev) (`npm i -g @dpeluche/trs`) when available — `trs ingest` produces structure + dependency-graph digests in seconds instead of dozens of exploration calls. They degrade gracefully without it.
 

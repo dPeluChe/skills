@@ -49,6 +49,10 @@ If a project deviates from this, the skill should detect it and offer to standar
 | `/pm-tasks scan` | Scan | Find TODO/FIXME in code, detect non-standard task files |
 | `/pm-tasks init` | Init | Create structure from scratch OR standardize existing one |
 
+## Scoped invocation (routed findings)
+
+When pm-tasks is invoked right after `/kickoff` or `/standup` handed it routed findings ("these 2 tasks were completed by this change", "TODO.md at root"), don't run the full audit — **verify the routed list and act on it only**: confirm each finding against TASK_TODO.md and the code (the router saw a diff-scoped partial picture), execute the confirmed ones (archive, add, rename) with the usual confirmations, and report with the standard status line. The full audit remains the periodic health check.
+
 ---
 
 ## Step 0: Locate and assess project state
@@ -226,7 +230,12 @@ Notes: Brief context about why this was done, key decisions, dependencies resolv
 
 ### Enriching entries
 
-When archiving, skim `git log --oneline -20` for recent commits related to the tasks. If you find relevant ones, add commit references in the Notes section. This connects the archive to git history without duplicating code.
+The Notes section wants context — why the work was done, what was decided. Two sources, in order:
+
+1. **The journal first**: if `docs/JOURNAL/` has `STANDUP_*` entries covering when these tasks were completed, the context is already written there (delta, decisions, impact) — pull it instead of reconstructing.
+2. **Git as fallback**: skim `git log --oneline -20` for related commits and add commit references.
+
+This connects the archive to the project's own memory without duplicating code.
 
 ### What does NOT belong in archive entries
 

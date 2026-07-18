@@ -152,6 +152,17 @@ Managed exclusively by pm-tasks. Doctos only renames the folder if it uses a non
 | `/doctos clean` | Clean | Execute fixes: move, rename, archive |
 | `/doctos init` | Init | Create docs/ structure from scratch |
 
+## Scoped invocation (routed findings)
+
+When doctos is invoked right after `/kickoff` or `/standup` handed it routed findings ("README claim X went stale", "3 loose .md at root"), don't run the full project audit — **verify the routed list and act on it only**:
+
+1. Take each routed finding and verify it yourself (trust, but verify — the router saw a diff-scoped partial picture)
+2. Fix the confirmed ones (with the usual confirmation for moves/renames)
+3. Note anything adjacent you spotted while verifying, but don't expand into a full sweep
+4. Report with the standard status line
+
+This is what makes doctos usable *during* development: targeted work orders in minutes. The full audit remains the tool for periodic hygiene passes.
+
 ---
 
 ## Mode: AUDIT (default, no arguments)
@@ -167,6 +178,7 @@ Full scan of the project's documentation health.
    - **Age**: files not modified in 90+ days (`git log -1 --format=%as -- <file>`). Exclude `docs/JOURNAL/` — dated logbook entries are meant to age
    - **Stale claims**: content that contradicts the project's reality — tech mentioned that is absent from package.json/Cargo.toml/deps, referenced files or routes that no longer exist, counts that no longer match ("22 prototypes" when 3 remain). Spot-check each doc's boldest claims against the codebase; a doc describing the wrong stack misleads every future reader (human or agent) and is worse than no doc
    - **Coverage gaps** (the inverse check): recent shipped work — new modules, features, commands visible in the last ~20 commits — that no doc mentions. Missing docs are findings too, not just misplaced ones. Report as "undocumented: X" with a suggested destination
+   - **Prioritize via the journal**: if `docs/JOURNAL/` has recent `KICKOFF_*`/`STANDUP_*` entries, read the latest ones first and start the stale-claims and coverage checks on the files/features they mention — recently-moved areas are where docs lie first. The journal doesn't change what you detect, it changes where you look first
 5. **Check for task-related issues** — if task folders/files use non-standard names, flag for renaming and suggest running `/pm-tasks` after
 6. **Check docs/README.md** — does it exist? does it have documentation rules?
 7. **Audit agent instruction files** — apply the CLAUDE.md / AGENTS.md hygiene rules (see "Agent instruction files" section): flag embedded code blocks, stale tech claims, and task tracking inside them
