@@ -1,0 +1,19 @@
+{
+  "name": "dpeluche-skills",
+  "owner": {
+    "name": "Antonio Martinez (dPeluChe)",
+    "url": "https://dpeluche.dev"
+  },
+  "plugins": [
+    {
+      "name": "doctos",
+      "source": "./skills/doctos",
+      "description": "Documentation hygiene — audits .md files, enforces docs/ structure, archives obsolete docs."
+    },
+    {
+      "name": "pm-tasks",
+      "source": "./skills/pm-tasks",
+      "description": "Task lifecycle — audits TASK_TODO.md, archives completed tasks monthly, scans code TODOs."
+    }
+  ]
+}
