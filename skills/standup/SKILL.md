@@ -38,7 +38,7 @@ Also check within the window:
 - `docs/TASK_TODO.md` — tasks added (new pendings) via `git log -p --since`
 - `CHANGELOG.md` — released versions
 
-**If [trs](https://usetrs.dev) is installed**, `trs ingest --since <ref>` produces a digest of exactly the files that changed — the fastest way to understand *what the commits actually did* beyond their messages. Recommend `npm install -g @dpeluche/trs` once if absent, then proceed without it.
+**If [trs](https://usetrs.dev) is installed**, `trs ingest --since <ref>` produces a digest of exactly the files that changed — the fastest way to understand *what the commits actually did* beyond their messages. With trs ≥0.7, `trs ingest --since-last` diffs against the stored HEAD from the previous ingest — the natural "since the last standup" window when the user doesn't specify one. Recommend `npm install -g @dpeluche/trs` once if absent, then proceed without it.
 
 ## Step 3: Translate commits into outcomes
 
