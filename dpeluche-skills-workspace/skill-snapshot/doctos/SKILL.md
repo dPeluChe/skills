@@ -64,7 +64,7 @@ These are non-negotiable. Consistency across projects is the whole point.
 - `task_todo.md` or `TODO.md` → `TASK_TODO.md`
 - `agents.md` (lowercase) → `AGENTS.md`
 - `arquitectura-tecnica.md` → `ARCHITECTURE/ARQUITECTURA_TECNICA.md` (move + rename)
-- `project_evolution.md` → `PROJECT_EVOLUTION.md`
+- `postino_evolution.md` → `POSTINO_EVOLUTION.md`
 - `.txt` docs files → convert to `.md`
 
 ## Root-level rules
@@ -83,15 +83,6 @@ Only these files are allowed at the project root:
 | `SECURITY.md` | Optional | Security policy |
 
 **Everything else at root that is .md must move to docs/.** No exceptions. Files like `REFACTOR_PLAN.md`, `DATABASE_LOCK_FIX.md`, `UI_UX_ANALYSIS.md`, `PROJECT-SUMMARY.md` at root are violations — they belong in the appropriate docs/ subfolder.
-
-## Agent instruction files (CLAUDE.md, AGENTS.md)
-
-Allowed at root, but with their own hygiene rules — these files load into EVERY agent session, so every extra line is a recurring token cost, and agents trust them blindly:
-
-- **Lean**: instructions only. Long walkthroughs and background belong in `docs/GUIDES/` or `docs/ARCHITECTURE/` with a one-line pointer.
-- **No embedded code blocks**: reference scripts by path (`scripts/deploy.sh`) instead of pasting their content — pasted copies go stale silently and nobody notices until an agent follows the wrong version.
-- **No stale claims**: the stack, commands and structure they describe must match reality. Audit them with the same stale-claims check as any doc — a CLAUDE.md that names the wrong auth library actively sabotages every session.
-- **No task tracking**: pending/completed lists belong in `docs/TASK_TODO.md` (pm-tasks' protected-zone rule covers these files too).
 
 ## Subfolder purposes
 
@@ -153,13 +144,10 @@ Full scan of the project's documentation health.
 1. **List all .md files at project root** — identify which are allowed vs violations
 2. **Scan docs/ folder** — check subfolder names, file names, structure
 3. **Check naming conventions** — find lowercase folders, inconsistent file names, .txt docs
-4. **Detect obsolete documents** — two signals:
-   - **Age**: files not modified in 90+ days (`git log -1 --format=%as -- <file>`)
-   - **Stale claims**: content that contradicts the project's reality — tech mentioned that is absent from package.json/Cargo.toml/deps, referenced files or routes that no longer exist, counts that no longer match ("22 prototypes" when 3 remain). Spot-check each doc's boldest claims against the codebase; a doc describing the wrong stack misleads every future reader (human or agent) and is worse than no doc
+4. **Detect obsolete documents** — files not modified in 90+ days, or whose content references features/versions that no longer exist
 5. **Check for task-related issues** — if task folders/files use non-standard names, flag for renaming and suggest running `/pm-tasks` after
 6. **Check docs/README.md** — does it exist? does it have documentation rules?
-7. **Audit agent instruction files** — apply the CLAUDE.md / AGENTS.md hygiene rules (see "Agent instruction files" section): flag embedded code blocks, stale tech claims, and task tracking inside them
-8. **Report everything:**
+7. **Report everything:**
 
 ```
 ## Doctos Audit — [Project Name]
@@ -268,7 +256,6 @@ Proceed? (y/n)
    - Add archival notes to files moved to ARCHIVED/
    - Convert .txt files to .md
    - Rename hyphens to underscores in file names (`DEV-WORKFLOW.md` → `DEV_WORKFLOW.md`)
-   - **Repair inbound references**: after every move or rename, search the whole project for the old path/filename (other docs, CLAUDE.md pointers, code comments) and update each reference to the new location. Moving a file without fixing its inbound links converts organization into breakage — this step is what makes the clean safe
    - Create docs/README.md with documentation index and writing rules
    - If task-related files were renamed, remind user: "Task folders renamed. Run `/pm-tasks` to audit task content."
 
@@ -291,7 +278,7 @@ Proceed? (y/n)
 
 **Non-markdown files in docs/:** Shell scripts (`.sh`), config files, images — these are fine. Only audit `.md` and `.txt` files.
 
-**Nested project structures:** For workspaces with sub-projects (e.g., a monorepo with `backend_api/` and `browser_extension/`), audit each sub-project independently. Don't move sub-project docs to the workspace root.
+**Nested project structures:** For workspaces with sub-projects (like reporter-workspace with backend_dashboard_api/ and extension_reporter/), audit each sub-project independently. Don't move sub-project docs to the workspace root.
 
 ---
 

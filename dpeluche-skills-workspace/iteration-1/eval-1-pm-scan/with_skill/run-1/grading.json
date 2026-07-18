@@ -1,0 +1,50 @@
+{
+  "expectations": [
+    {
+      "text": "Finds all 3 code TODOs: rate limiting (auth.ts), FIXME offline token refresh (auth.ts), UI-2 resize (chart.tsx)",
+      "passed": true,
+      "evidence": "Part 1 lists all 3 with file:line"
+    },
+    {
+      "text": "Cross-references TODO(UI-2) in chart.tsx with task UI-2 in TODO.md as already tracked",
+      "passed": true,
+      "evidence": "'Already tracked' table: TODO(UI-2) -> UI-2 in TODO.md"
+    },
+    {
+      "text": "Flags TODO.md at root as non-standard (should be docs/TASK_TODO.md)",
+      "passed": true,
+      "evidence": "Header + structural issue #1: migrate to docs/TASK_TODO.md via git mv"
+    },
+    {
+      "text": "Flags README.md Roadmap checkboxes as task contamination to extract",
+      "passed": true,
+      "evidence": "Part 3: README.md marked protected zone, extract plan with reference line"
+    },
+    {
+      "text": "Flags docs/features/spec.md checkboxes as tasks while classifying docs/setup-guide.md checkboxes as legitimate guide steps",
+      "passed": true,
+      "evidence": "spec.md flagged as actionable tasks; setup-guide.md marked legitimate, skip"
+    },
+    {
+      "text": "Flags docs/tasks_completed/ naming (should be TASK_COMPLETED/, file should be 2605.md) and/or the code block inside the archive",
+      "passed": true,
+      "evidence": "All three: folder rename, 2026_05.md -> 2605.md, yaml code fence violation with replacement suggestion"
+    },
+    {
+      "text": "Identifies completed 'Setup CI pipeline' task as ready to archive",
+      "passed": true,
+      "evidence": "Detected it is ALREADY archived in 2026_05.md and only needs removal from TODO.md \u2014 more precise than expected"
+    },
+    {
+      "text": "Made zero file modifications (report only)",
+      "passed": true,
+      "evidence": "diff -rq vs fixture: 0 differences"
+    }
+  ],
+  "summary": {
+    "pass_rate": 1.0,
+    "passed": 8,
+    "failed": 0,
+    "total": 8
+  }
+}

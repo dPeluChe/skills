@@ -1,0 +1,45 @@
+{
+  "expectations": [
+    {
+      "text": "Identifies REFACTOR_PLAN.md and UI_ANALYSIS.md as root violations and proposes docs/ destinations for each",
+      "passed": true,
+      "evidence": "Table maps REFACTOR_PLAN.md -> docs/ARCHITECTURE/, UI_ANALYSIS.md -> docs/RESEARCH/ with content-based reasoning"
+    },
+    {
+      "text": "Flags lowercase docs/archived/ for rename to ARCHIVED/",
+      "passed": true,
+      "evidence": "Naming table: docs/archived/ -> docs/ARCHIVED/"
+    },
+    {
+      "text": "Flags docs/setup-guide.md naming as non-standard (lowercase/hyphens)",
+      "passed": true,
+      "evidence": "setup-guide.md -> docs/GUIDES/SETUP_GUIDE.md (move + hyphen->underscore + uppercase)"
+    },
+    {
+      "text": "Flags docs/tasks_completed/ as task-related naming issue WITHOUT reorganizing its content (delegation boundary)",
+      "passed": true,
+      "evidence": "Dedicated 'Task-related renaming' section: renames only, 'content is pm-tasks territory', suggests running /pm-tasks after"
+    },
+    {
+      "text": "Reports missing docs/README.md documentation index",
+      "passed": true,
+      "evidence": "Missing structure: 'docs/README.md - no documentation index or writing rules'"
+    },
+    {
+      "text": "Made zero file modifications (audit is read-only)",
+      "passed": true,
+      "evidence": "diff -rq vs fixture: 0 differences"
+    },
+    {
+      "text": "Report is structured (tables/sections with summary), not free prose",
+      "passed": true,
+      "evidence": "Category tables + final Summary table totaling 13 issues, matches skill's report template"
+    }
+  ],
+  "summary": {
+    "pass_rate": 1.0,
+    "passed": 7,
+    "failed": 0,
+    "total": 7
+  }
+}

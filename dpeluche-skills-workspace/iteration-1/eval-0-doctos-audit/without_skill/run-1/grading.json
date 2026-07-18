@@ -1,0 +1,45 @@
+{
+  "expectations": [
+    {
+      "text": "Identifies REFACTOR_PLAN.md and UI_ANALYSIS.md as root violations and proposes docs/ destinations for each",
+      "passed": true,
+      "evidence": "Both flagged as misplaced; destinations docs/architecture|plans and docs/research suggested"
+    },
+    {
+      "text": "Flags lowercase docs/archived/ for rename to ARCHIVED/",
+      "passed": false,
+      "evidence": "Notes case inconsistency but prescribes no standard: 'one convention...consistency matters more than the choice' \u2014 user left to decide"
+    },
+    {
+      "text": "Flags docs/setup-guide.md naming as non-standard (lowercase/hyphens)",
+      "passed": true,
+      "evidence": "Naming inconsistency section lists setup-guide.md; fix checklist normalizes it"
+    },
+    {
+      "text": "Flags docs/tasks_completed/ as task-related naming issue WITHOUT reorganizing its content (delegation boundary)",
+      "passed": false,
+      "evidence": "No delegation concept; proposed structure even invents a new divergent name 'TASKS_COMPLETED/' (with S), illustrating convention drift"
+    },
+    {
+      "text": "Reports missing docs/README.md documentation index",
+      "passed": false,
+      "evidence": "Mentions missing cross-links and CHANGELOG, but never a docs index/README with writing rules"
+    },
+    {
+      "text": "Made zero file modifications (audit is read-only)",
+      "passed": true,
+      "evidence": "diff -rq vs fixture: 0 differences"
+    },
+    {
+      "text": "Report is structured (tables/sections with summary), not free prose",
+      "passed": true,
+      "evidence": "Inventory table + numbered findings + ordered fix checklist; no summary count table but clearly structured"
+    }
+  ],
+  "summary": {
+    "pass_rate": 0.571,
+    "passed": 4,
+    "failed": 3,
+    "total": 7
+  }
+}
