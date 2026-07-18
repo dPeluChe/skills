@@ -9,6 +9,9 @@ description: >
   "dame un resumen del proyecto", "qué hay aquí", "catch me up on this codebase", "no he tocado
   este repo en semanas". Also trigger at the start of a session when the user asks to review the
   project before doing anything else, even if they don't say "kickoff".
+  Disambiguation: use standup instead when the user only wants recent progress (the delta, not full
+  state); use doctos/pm-tasks to ACT on findings — kickoff only analyzes and routes.
+allowed-tools: Read, Glob, Grep, Bash, Edit, Write
 ---
 
 # Kickoff — Project State Analysis
@@ -89,8 +92,9 @@ Recent work (last N commits summarized in human language), unfinished threads
 (branches, uncommitted changes, WIP markers), and anything that blocks starting.
 
 ## Reality-check findings
-| Doc claims | Code shows | Severity |
-(only mismatches — empty section means docs are trustworthy)
+| Doc claims | Code shows | Verify with | Severity |
+(only mismatches — empty section means docs are trustworthy. "Verify with" is a one-line
+grep/command the user can run to re-confirm the finding themselves: trust, but verifiable)
 
 ## Routed findings
 **For /doctos**: docs issues found (one line each)
@@ -99,7 +103,11 @@ Recent work (last N commits summarized in human language), unfinished threads
 ## Suggested next actions
 2-4 concrete options, most likely first. If routed findings exist, running
 /doctos or /pm-tasks is usually among them.
+
+**Status: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT** (+ one line when not DONE)
 ```
+
+**Checkpoint (optional).** Offer to save the report as `docs/RESEARCH/KICKOFF_<YYMMDD>.md`. If a previous kickoff report exists there, read it first and note what changed since — a kickoff that diffs against its predecessor turns "where was I?" into a 10-second answer.
 
 ## Boundaries
 
