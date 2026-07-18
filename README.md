@@ -6,10 +6,28 @@ I run ~80 repos as a solo builder + small studio ([Iteris](https://iteris.tech))
 
 ## Skills
 
-| Skill | What it does | Type |
-|-------|-------------|------|
-| [`doctos`](./skills/doctos/) | Documentation hygiene — audits .md files, enforces root rules, archives obsolete docs, standardizes `docs/` structure across projects | user + model invoked |
-| [`pm-tasks`](./skills/pm-tasks/) | Task lifecycle — audits `TASK_TODO.md`, archives completed work to monthly files, scans code for TODOs | user + model invoked |
+| Skill | What it does |
+|-------|-------------|
+| [`kickoff`](./skills/kickoff/) | Project state analysis before starting work — real stack vs docs claims, git/PR state, hot modules, routed findings |
+| [`doctos`](./skills/doctos/) | Documentation hygiene — audits .md files, enforces root rules, archives obsolete docs, standardizes `docs/` structure |
+| [`pm-tasks`](./skills/pm-tasks/) | Task lifecycle — audits `TASK_TODO.md`, archives completed work to monthly files, scans code and markdown for stray tasks |
+| [`standup`](./skills/standup/) | Recent-progress report — what shipped, what's in flight, new pendings; internal or client-facing |
+
+### How they compose
+
+Small skills that hand off to each other, not one mega-skill:
+
+```
+kickoff ──▶ doctos     (docs findings, filtered)
+   │
+   └──────▶ pm-tasks   (task findings, filtered)
+
+standup  ◀── pm-tasks  (TASK_COMPLETED/ anchors "what shipped")
+```
+
+Each one works standalone; the pipeline is optional. Typical rhythm: `kickoff` when resuming a project, `doctos`/`pm-tasks` to act on what it found, `standup` at the end of the week.
+
+**Accelerator**: `kickoff` and `standup` use [trs](https://usetrs.dev) (`npm i -g @dpeluche/trs`) when available — `trs ingest` produces structure + dependency-graph digests in seconds instead of dozens of exploration calls. They degrade gracefully without it.
 
 More coming as they mature from daily use.
 
