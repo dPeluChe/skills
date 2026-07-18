@@ -123,7 +123,7 @@ Investigation, analysis, benchmarks, competitor research, technology evaluations
 **Examples:** `KNOWLEDGE_TOOLS.md`, `COMPETITOR_ANALYSIS.md`, `MODEL_BENCHMARKS.md`, `TECH_EVALUATION.md`
 
 ### JOURNAL/
-The project's dated logbook: state-in-time reports, append-only, never edited after the fact. `KICKOFF_<YYMMDD>.md` (how the project was found when resuming — written by /kickoff) and `STANDUP_<YYMMDD>.md` (what happened in a window — written by /standup). Unlike RESEARCH/ (timeless investigations) or ARCHIVED/ (obsolete docs), JOURNAL/ entries are *born historical* — they describe a moment and stay valid as a record of it. Doctos never archives JOURNAL/ files by age; their age is the point.
+The project's dated logbook: state-in-time reports, append-only, never edited after the fact. `KICKOFF_<YYMMDD>.md` (how the project was found when resuming — written by /kickoff) and `STANDUP_<YYMMDD>.md` (what happened — written by /standup, which may append several timestamped sections to the same day's file as work sessions close). One file per day per type; past days are closed records. Unlike RESEARCH/ (timeless investigations) or ARCHIVED/ (obsolete docs), JOURNAL/ entries are *born historical* — they describe a moment and stay valid as a record of it. Doctos never archives JOURNAL/ files by age; their age is the point.
 
 **Examples:** `KICKOFF_260718.md`, `STANDUP_260725.md`
 

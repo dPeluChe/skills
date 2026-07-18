@@ -18,7 +18,7 @@ I run ~80 repos as a solo builder + small studio ([Iteris](https://iteris.tech))
 - **`kickoff`** — resume any repo in minutes with a *verified* picture instead of a stale mental model. Catches the two things that burn you when returning: work you left unpushed, and docs that lie about the stack (every claim ships with a one-line grep so you can re-verify it yourself).
 - **`doctos`** — every project's docs end up with the same structure, so you navigate any of your repos blind. Obsolete docs get archived with a note (never deleted), moved files get their inbound links repaired, and shipped-but-undocumented work surfaces as a finding.
 - **`pm-tasks`** — one trustworthy backlog. Code TODOs, README checklists and scattered task files all funnel into `docs/TASK_TODO.md`; completed work archives into dated monthly files; stale tasks get flagged by age instead of rotting silently.
-- **`standup`** — progress reports cheap enough to actually write. Outcomes instead of commit lists, evidence linked inline, and a client-facing variant ready to paste into an email. A quiet week reports as a quiet week — it never fabricates.
+- **`standup`** — progress reports cheap enough to actually write, in two cadences: **micro-standups** as you close work sessions (delta + "did this change leave docs stale or tasks done?" + journal append) and the **full report** (weekly/client) composed from those journal entries. Outcomes instead of commit lists, evidence linked inline, client-facing variant ready to paste. A quiet week reports as a quiet week — it never fabricates.
 
 ### Built-in guarantees
 

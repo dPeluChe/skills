@@ -3,11 +3,15 @@ name: standup
 description: >
   Generate a progress report for a project over a recent time window (last week by default):
   what shipped, what's in progress, new pendings, and what's next — in human language, not raw
-  commit messages. Use this skill whenever the user wants to review or communicate recent progress:
-  "qué avanzamos esta semana", "standup", "resumen de cambios", "reporta avances", "what changed
-  since Monday", "update de los últimos días", "genera el update para el cliente", "qué se hizo
-  en este proyecto últimamente". Also trigger when the user needs a status update to send to a
-  client, team, or stakeholder, even if they don't say "standup".
+  commit messages. Runs in two cadences: micro-standup during development (close a work session,
+  check what the change impacts, append to the journal) and full report (weekly/client). Use this
+  skill whenever the user wants to review or communicate recent progress: "qué avanzamos esta
+  semana", "standup", "resumen de cambios", "reporta avances", "what changed since Monday",
+  "update de los últimos días", "genera el update para el cliente", "qué se hizo en este proyecto
+  últimamente". ALSO trigger after finishing a feature or work session: "cierra la sesión",
+  "registra lo que avanzamos", "¿esto que hice afecta docs o tareas?", "wrap up what we did".
+  Also trigger when the user needs a status update for a client, team, or stakeholder, even if
+  they don't say "standup".
   Disambiguation: use kickoff instead when the user is resuming work and needs full project state
   (standup covers only the recent delta); use pm-tasks to actually archive or modify tasks.
 allowed-tools: Read, Glob, Grep, Bash, Write
@@ -15,11 +19,20 @@ allowed-tools: Read, Glob, Grep, Bash, Write
 
 # Standup — Recent Progress Report
 
-Answers "what happened here lately?" for one project: shipped work, work in flight, new pendings, and next steps — written for a human reader, not as a git log dump. Read-only.
+Answers "what happened here lately?" for one project: shipped work, work in flight, new pendings, and next steps — written for a human reader, not as a git log dump.
 
 ## Why this exists
 
-Progress lives scattered across commits, merged PRs, task archives, and memory. Assembling it by hand takes long enough that reports don't get written — and unwritten progress is invisible to clients, teammates, and future-you. Standup makes the report cheap.
+Progress lives scattered across commits, merged PRs, task archives, and memory. Assembling it by hand takes long enough that reports don't get written — and unwritten progress is invisible to clients, teammates, and future-you. Standup makes the report cheap — and because it already gathers "what changed", it's also the natural moment to check what that change *impacts* (stale docs, completed tasks) instead of needing a separate skill for it.
+
+## Two cadences
+
+| Cadence | When | Window | Output |
+|---------|------|--------|--------|
+| **Micro-standup** | Closing a work session or feature, possibly several times a day | Since the last journal entry (or `--since`/`--changed`) | Short delta + impact check, **appended** to today's journal entry |
+| **Full report** | End of week, client update | 7d default (or user window) | The complete Standup Report — composed FROM the journal entries in the window when they exist, falling back to git archaeology when they don't |
+
+The loop: micro-standups feed the journal during the week; the weekly report reads the journal instead of reconstructing everything from raw git. Infer the cadence from context — "cierra la sesión" / just finished a feature → micro; "reporte de la semana" / "para el cliente" → full.
 
 ## Step 1: Determine the window
 
@@ -87,6 +100,34 @@ ALWAYS use this structure:
 **Status: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT** (+ one line when not DONE)
 ```
 
+## Micro-standup: delta + impact check + journal append
+
+The during-development cadence. Window = since the last journal entry of today (or the latest entry overall, or `--changed` for uncommitted work). Three moves:
+
+**1. Delta.** Summarize what this session actually did — outcome level, 2-5 bullets, evidence linked.
+
+**2. Impact check.** The work just done may have invalidated things. Check, scoped to the diff only (never a full project audit — that's doctos/pm-tasks territory):
+
+- **Docs that now lie**: do any docs (README, CLAUDE.md, docs/) mention the files/features just changed? If claims went stale, list them → route: "run `/doctos` to fix, or fix now if trivial and the user confirms"
+- **Undocumented new surface**: did the change add a command, route, module, or env var no doc mentions? → finding with suggested destination
+- **Completed tasks**: does TASK_TODO.md contain items this change completed? → route: "run `/pm-tasks archive`"
+- With [trs](https://usetrs.dev): `trs ingest --changed` or `--since <ref>` gives exactly the changed-files digest for this check
+
+**3. Journal append.** Write to `docs/JOURNAL/STANDUP_<YYMMDD>.md` for TODAY:
+- File doesn't exist → create it with the entry
+- File exists (earlier run today) → **append** a new timestamped section; never rewrite earlier sections
+- Never touch past days' files — they're closed records
+
+```markdown
+## HH:MM — <short session title>
+
+**Delta**: outcome bullets with evidence links
+**Impact**: stale docs / undocumented surface / completed tasks (or "none")
+**Routed**: /doctos: ... · /pm-tasks: ... (or "—")
+```
+
+This is what makes the weekly report cheap: it composes from these entries instead of re-deriving everything from raw git.
+
 ## Audience variants
 
 Ask (or infer from the request) who the report is for:
@@ -96,7 +137,7 @@ Ask (or infer from the request) who the report is for:
 
 ## Boundaries
 
-- **Read-only, with one exception.** Standup never archives tasks or edits the backlog — if it finds completed tasks sitting unarchived in TASK_TODO.md, it notes: "run `/pm-tasks archive` to file these". The single allowed write: offering to save its own report as a NEW file `docs/JOURNAL/STANDUP_<YYMMDD>.md` (append-only logbook — never edit existing files).
+- **Read-only, with one exception.** Standup never archives tasks or edits the backlog — it detects and routes (`/pm-tasks archive`, `/doctos`). The single allowed write: its own journal entries in `docs/JOURNAL/STANDUP_<YYMMDD>.md` — one file per day, appended timestamped sections for same-day runs, past days never touched.
 - **One project per report.** For a multi-project digest, run it per project and combine.
 - **Pairs with kickoff.** Kickoff = full state when starting; standup = delta over a window. Don't duplicate kickoff's reality-check — if docs look stale, one pointer to `/kickoff` or `/doctos` is enough.
 
