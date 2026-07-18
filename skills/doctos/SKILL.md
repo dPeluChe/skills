@@ -8,6 +8,9 @@ description: >
   Use this skill when the user mentions cleaning up docs, organizing markdown files, project structure,
   "too many files at root", "docs are a mess", "organize the project", "limpia los docs", "estructura",
   or wants to standardize documentation across projects. Also trigger on "doctos".
+  Disambiguation: use pm-tasks instead when the request is about task content (backlogs, TODOs,
+  archiving completed work); use kickoff instead when the user wants project state analysis, not reorganization.
+allowed-tools: Read, Glob, Grep, Bash, Edit, Write
 ---
 
 # Doctos — Documentation Hygiene & Organization
@@ -42,6 +45,8 @@ proyecto/
     ├── GUIDES/                  ← setup, deployment, onboarding, coding rules, testing
     │
     ├── RESEARCH/                ← investigation, analysis, benchmarks, comparisons
+    │
+    ├── JOURNAL/                 ← dated project-state log: kickoff snapshots, standup reports
     │
     └── ARCHIVED/                ← obsolete docs with archival note
 ```
@@ -117,6 +122,11 @@ Investigation, analysis, benchmarks, competitor research, technology evaluations
 
 **Examples:** `KNOWLEDGE_TOOLS.md`, `COMPETITOR_ANALYSIS.md`, `MODEL_BENCHMARKS.md`, `TECH_EVALUATION.md`
 
+### JOURNAL/
+The project's dated logbook: state-in-time reports, append-only, never edited after the fact. `KICKOFF_<YYMMDD>.md` (how the project was found when resuming — written by /kickoff) and `STANDUP_<YYMMDD>.md` (what happened in a window — written by /standup). Unlike RESEARCH/ (timeless investigations) or ARCHIVED/ (obsolete docs), JOURNAL/ entries are *born historical* — they describe a moment and stay valid as a record of it. Doctos never archives JOURNAL/ files by age; their age is the point.
+
+**Examples:** `KICKOFF_260718.md`, `STANDUP_260725.md`
+
 ### ARCHIVED/
 Documents that are no longer current but worth keeping for historical context. Every archived file must have an archival note at the top explaining why it was archived and what replaced it.
 
@@ -154,8 +164,9 @@ Full scan of the project's documentation health.
 2. **Scan docs/ folder** — check subfolder names, file names, structure
 3. **Check naming conventions** — find lowercase folders, inconsistent file names, .txt docs
 4. **Detect obsolete documents** — two signals:
-   - **Age**: files not modified in 90+ days (`git log -1 --format=%as -- <file>`)
+   - **Age**: files not modified in 90+ days (`git log -1 --format=%as -- <file>`). Exclude `docs/JOURNAL/` — dated logbook entries are meant to age
    - **Stale claims**: content that contradicts the project's reality — tech mentioned that is absent from package.json/Cargo.toml/deps, referenced files or routes that no longer exist, counts that no longer match ("22 prototypes" when 3 remain). Spot-check each doc's boldest claims against the codebase; a doc describing the wrong stack misleads every future reader (human or agent) and is worse than no doc
+   - **Coverage gaps** (the inverse check): recent shipped work — new modules, features, commands visible in the last ~20 commits — that no doc mentions. Missing docs are findings too, not just misplaced ones. Report as "undocumented: X" with a suggested destination
 5. **Check for task-related issues** — if task folders/files use non-standard names, flag for renaming and suggest running `/pm-tasks` after
 6. **Check docs/README.md** — does it exist? does it have documentation rules?
 7. **Audit agent instruction files** — apply the CLAUDE.md / AGENTS.md hygiene rules (see "Agent instruction files" section): flag embedded code blocks, stale tech claims, and task tracking inside them
@@ -403,5 +414,9 @@ Doctos and pm-tasks are complementary but have clear boundaries:
 - **Respect sub-projects.** In workspaces with multiple projects, each sub-project owns its own docs/. Don't centralize sub-project docs at the workspace level.
 
 - **Language matching.** If the project's docs are in Spanish, keep Spanish. Don't translate filenames or content. But do standardize the casing: `arquitectura-tecnica.md` → `ARQUITECTURA_TECNICA.md`.
+
+- **Never clobber, always Edit.** When touching an existing file (adding an archival note, fixing a link, updating an index), use targeted edits with exact match on the current content — never rewrite the whole file from memory. A full rewrite silently drops entries you didn't notice; a failed exact-match edit fails loudly, which is the safe direction.
+
+- **End every report with a status line.** `**Status: DONE**` clean; `DONE_WITH_CONCERNS` (+ one line why); `BLOCKED`; `NEEDS_CONTEXT` when only the user can decide. Standard terminal vocabulary that other skills and scripts can consume.
 
 - **Surface everything.** The audit should catch every issue in one pass. The user shouldn't need to run it twice to find new problems. Be thorough.
