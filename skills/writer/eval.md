@@ -18,6 +18,8 @@ Run after every edit, before returning the draft. Answer each check pass or fail
 9. Are superficial "-ing"/gerundio analyses, importance puffery, and weasel attributions replaced with concrete facts and named sources — or flagged to the user when no source exists?
 10. Are fake-strong verbs, synonym cycling, forced rules of three, and dramatic fragmentation fixed?
 11. Was the fake-profound kicker deleted (not rewritten into a better metaphor), and does the piece end on a concrete point, takeaway, or next action instead of a recap?
+11b. Are structural patterns fixed: anaphora/mirrored pairs varied, transformation pivots stated plainly, forced-optimism endings and automatic moral lessons deleted, sycophancy/acknowledgment loops cut, engagement-bait closers removed, hedge stacks reduced to one hedge or a commitment?
+11c. Genre check: if the piece is expressive (post, essay, opinion), does the edit keep human stance and uneven rhythm instead of flattening to neutral? If technical/reference, did it stay neutral with no injected personality?
 
 ## Claims and evidence
 
@@ -27,7 +29,8 @@ Run after every edit, before returning the draft. Answer each check pass or fail
 ## Formatting
 
 14. No emoji headings, decorative bold, Title Case headings, bullets-that-should-be-prose, or headers over tiny sections?
-15. Em dashes: none in short copy, at most 1–2 in long drafts where they clearly help?
+15. Em dashes: none in short copy, at most 1–2 in long drafts where they clearly help — unless the author's samples use them, in which case they match the sample's frequency?
+15b. Plain ASCII punctuation (no curly quotes, Unicode bullets, or citation artifacts) unless the glyph is intentional or matches the author's samples?
 
 ## Final read
 

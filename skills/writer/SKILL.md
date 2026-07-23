@@ -17,7 +17,9 @@ allowed-tools: Read, Glob, Grep, Edit, Write
 
 Edits drafts to remove AI patterns without flattening distinctive writing into generic polished prose. Works in English and Spanish.
 
-> Derived from [petergyang/no-ai-slop](https://github.com/petergyang/no-ai-slop) (MIT). Extended with: Spanish rule set, author voice packs, claims/evidence rules for fund applications, and a per-language detect fixture in `examples.md`.
+> Derived from [petergyang/no-ai-slop](https://github.com/petergyang/no-ai-slop) (MIT). Extended with: Spanish rule set, author voice packs, structural patterns, claims/evidence rules for fund applications, and a per-language detect fixture in `examples.md`.
+
+**Token discipline**: this file is the complete working rule set. Load `examples.md` only when a pattern's fix is unclear or the user asks to see examples; load `eval.md` at the self-check step (workflow step 5), not before.
 
 ## Why this exists
 
@@ -39,6 +41,8 @@ Voice evidence, in priority order:
 
 With none of the above, edit from the draft's own voice signals alone. For a tweet-length draft with no samples, ask for one or two past posts before editing — short drafts carry too little voice evidence and come back generic.
 
+**A sample outranks this skill's style rules — including formatting.** If the author's past writing uses em dashes, emoji, or long spoken sentences, keep them at roughly the sample's frequency. Matching the author beats scrubbing the tell.
+
 ## Language rule
 
 Detect the draft's language; apply the universal patterns plus that language's ban list. Never translate the draft or switch its language. Mixed-language drafts (Spanglish technical writing) keep their mix — that IS the voice.
@@ -53,6 +57,7 @@ Detect the draft's language; apply the universal patterns plus that language's b
 - **Direct verbs.** "Decided", not "made a decision". Prefer "is"/"has" over "serves as"/"boasts".
 - **Keep useful edge.** Strong opinions, blunt language, humor, self-interruptions, honest admissions stay when they belong to the author.
 - **Keep "just / maybe / creo que / la verdad"** when they carry real uncertainty or spoken rhythm; cut them when they're filler.
+- **Sterile is also a tell.** Voiceless, uniformly tidy writing reads as AI just as loudly as slop. Where the genre calls for it — posts, essays, opinion, personal writing — let opinions, uncertainty, humor, and uneven rhythm live; stance is voice, never new facts. In technical, reference, or legal text, plain and neutral IS the correct human voice: don't inject personality there.
 
 ## Words to cut
 
@@ -86,6 +91,14 @@ Both lists rot: AI vocabulary rotates quarterly. The strongest signal is **co-oc
 | Fake-profound kicker | closing metaphor / mic-drop line | DELETE (don't rewrite into a better metaphor); end on the last concrete point |
 | Summary-recap ending | "In conclusion..." / "En conclusión..." | End on takeaway or next action |
 | Robotic rhythm | repeated sentence shapes, stacked punchy fragments | Vary only when it helps the point |
+| Anaphora / mirrored pairs | "Every X. Every Y." / "The first... The second..." / "El primero... El segundo..." | Vary the shape or merge |
+| Transformation pivot | "X becomes Y", "X isn't X anymore" / "X se convierte en Y" (also in headings) | State what actually happened |
+| Forced-optimism ending | "The future looks bright" / "El futuro es prometedor" | End on a fact or next action |
+| Automatic moral lesson | life-lesson closer on a technical story / "si algo aprendimos es que..." | Delete; the story carries it |
+| Sycophancy / acknowledgment loop | "Great question!", "You're absolutely right" / "¡Excelente pregunta!" | Cut; answer directly |
+| Engagement-bait closer | "What do you think? Drop a comment!" / "¿Tú qué opinas? Cuéntame en comentarios" | Delete unless the author truly wants the CTA |
+| Hedge stack | "could potentially perhaps" / "podría llegar a considerarse" | One hedge max — or commit |
+| Chatbot / reasoning artifact | "As an AI...", "Let me think...", leftover "In this article we will..." / "En este artículo veremos..." | Delete |
 
 ## Formatting slop
 
@@ -94,6 +107,7 @@ Both lists rot: AI vocabulary rotates quarterly. The strongest signal is **co-oc
 - No Title Case headings (Spanish: never Capitalizar Cada Palabra).
 - Em dashes: 0 in short copy; 1–2 in long drafts only when they clearly beat commas or parentheses.
 - No decorative horizontal rules; no inline-bold-header lists ("**Route details**: starts at...") where prose works.
+- Plain ASCII punctuation unless the glyph is intentional: no curly quotes/apostrophes pasted from chat UIs, no Unicode bullets (•) in markdown, no leftover citation artifacts — these are tool tells, not style. (Exception: the sample-outranks rule above — an author who writes with em dashes or emoji keeps them.)
 
 ## Claims and evidence (docs, product copy, applications)
 

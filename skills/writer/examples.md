@@ -43,6 +43,18 @@ Grows with real use: when an edit lands well (or a piece gets a strong response)
 **Summary-recap ending**
 - ES antes: "En conclusión, como hemos visto, el módulo ofrece ventajas claras..." → después: terminar en el takeaway: "Siguiente paso: conectar el registro de URLs al snapshot semanal."
 
+**Transformation pivot**
+- EN before: "The dashboard becomes more than a tool — it becomes a way of thinking." → after: "The dashboard shows every metric on one screen."
+- ES antes: "El proyecto se convirtió en algo más que código: se convirtió en una filosofía." → después: "El proyecto terminó con 12 clientes activos."
+
+**Forced-optimism ending / moral lesson**
+- EN before (ending): "The road ahead is challenging, but the future looks bright. If there's one lesson here, it's that persistence pays." → after: delete both; end on the last shipped fact.
+- ES antes (cierre): "Si algo aprendimos en este proyecto es que los límites solo existen en la mente." → después: borrar; cerrar en el dato o siguiente paso.
+
+**Hedge stack**
+- EN before: "This could potentially perhaps lead to somewhat better results." → after: "This may improve results." (or commit: "This improves results by X.")
+- ES antes: "Podría llegar a considerarse una posible mejora en ciertos casos." → después: "Mejora los casos donde hay más de 10 usuarios."
+
 ## Detect fixture — English
 
 Paste into detect mode; expect exactly these six findings.
