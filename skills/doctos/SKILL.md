@@ -255,6 +255,7 @@ Executes all fixes identified in the audit.
 ### Steps
 
 1. **Run audit first** — build the full list of issues
+1b. **Freshness verdict per file being moved.** Structure and content rot together: a file worth relocating is a file worth 30 seconds of scrutiny, and moving a stale doc to a tidy folder just gives the lie a better address. For every file in the move plan, check `git log -1 --format=%as -- <file>` and spot-check its boldest claim against the codebase. Attach a verdict to each plan line: ✅ vigente · 🟡 revisar (old but spot-check passed — add a review task) · 🔴 deprecated (contradicts reality — goes to ARCHIVED/ with note instead of its planned destination, plus a task to replace it). Real case that motivated this: a `project_definition.md` moved during a cleanup turned out to describe a *different project entirely* (copied from another repo, never adapted) — structure-only cleaning would have promoted it to ARCHITECTURE/.
 2. **Show the execution plan** to the user and ask for confirmation:
 
 ```
