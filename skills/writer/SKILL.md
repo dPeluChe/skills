@@ -31,13 +31,18 @@ Everything we publish — docs, product copy, applications — is co-written wit
 
 **Detect.** The user asks whether a piece reads as AI, or wants an audit without rewriting. Name each pattern found, quote the line, give the fix in a few words. Do not rewrite, score the draft, or guess authorship — AI detectors guess; named patterns are evidence the user can check. Offer to edit after.
 
+**Repo-wide detect adds two steps** (learned in the field — both found real bugs on day one):
+
+- **Prose surface mapping first.** Before auditing, locate ALL surfaces with user-facing text — i18n files, data catalogs, canned bot responses, special pages, meta descriptions — not just the obvious ones. Grep for user-facing strings; auditing 3 files when prose lives in 5 produces a false "clean".
+- **Claims consistency sweep.** The same fact must carry the same value on every surface: metrics ("60% here, 60-90% there"), product names, package names, dates. Cross-check each hard claim across all surfaces found in the mapping; a claim that disagrees with itself is a finding even when no sentence is slop. (Reference implementation of the scripted version: a sync-check that greps hardcoded metrics outside the single source of truth.)
+
 ## Author voice pack
 
 Voice evidence, in priority order:
 
 1. **Pasted samples** — if the user pastes past writing along with the draft, treat it as voice samples: derive cadence, vocabulary, bluntness, humor from samples + draft. Samples inform **style only, never content**.
-2. **Project voice rules** — check for `docs/WRITING_VOICE.md`, then `docs/profile/10-editorial-rules.md`. If found, load as author-level rules (claims wording, channel register, banned/preferred phrasing). These OVERRIDE the generic rules below on conflict.
-3. **Project examples** — `docs/WRITING_EXAMPLES.md` or `examples.md` next to the voice rules: before/after pairs in the author's voice. Match their register.
+2. **Project voice rules** — check, in order: `docs/WRITING_VOICE.md`, `docs/profile/antonio.md` (or any `docs/profile/*style*.md` / voice-dna-style file), `docs/profile/10-editorial-rules.md`. If found, load as author-level rules (claims wording, channel register, banned/preferred phrasing). These OVERRIDE the generic rules below on conflict.
+3. **Project examples** — `docs/WRITING_EXAMPLES.md` (also under `docs/profile/`) or `examples.md` next to the voice rules: before/after pairs and per-channel registers in the author's voice. Match the register of the TARGET CHANNEL, not a blended average — the same author can be terse in English on X and warm with emojis in Spanish on LinkedIn, and both are the real voice.
 
 With none of the above, edit from the draft's own voice signals alone. For a tweet-length draft with no samples, ask for one or two past posts before editing — short drafts carry too little voice evidence and come back generic.
 
@@ -108,6 +113,12 @@ Both lists rot: AI vocabulary rotates quarterly. The strongest signal is **co-oc
 - Em dashes: 0 in short copy; 1–2 in long drafts only when they clearly beat commas or parentheses.
 - No decorative horizontal rules; no inline-bold-header lists ("**Route details**: starts at...") where prose works.
 - Plain ASCII punctuation unless the glyph is intentional: no curly quotes/apostrophes pasted from chat UIs, no Unicode bullets (•) in markdown, no leftover citation artifacts — these are tool tells, not style. (Exception: the sample-outranks rule above — an author who writes with em dashes or emoji keeps them.)
+
+## CV / application register
+
+CV slop is its own dialect — add these to the ban list when editing CVs, resumes, or application answers: results-oriented professional, proven track record, spearheaded, facilitated cross-functional synergies, demonstrated ability to drive, dynamic self-starter, detail-oriented team player, "passionate about [field]" as a qualification.
+
+CVs bound for ATS parsers also need ASCII-safe text: em/en dashes → plain hyphens, curly quotes → straight, no zero-width or non-breaking spaces, no tables, reverse-chronological `Company — Title` + date lines, standard section headers (Summary, Experience, Skills, Education). If the project has a normalize-on-export pipeline the source may keep typography; with no pipeline, normalize the source.
 
 ## Claims and evidence (docs, product copy, applications)
 
