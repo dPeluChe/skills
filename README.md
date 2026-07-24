@@ -13,6 +13,7 @@ I run ~80 repos as a solo builder + small studio ([Iteris](https://iteris.tech))
 | [`pm-tasks`](./skills/pm-tasks/) | Task lifecycle — audits `TASK_TODO.md`, archives completed work to monthly files, scans code and markdown for stray tasks |
 | [`standup`](./skills/standup/) | Recent-progress report — what shipped, what's in flight, new pendings; internal or client-facing |
 | [`writer`](./skills/writer/) | Human-sounding prose — edits drafts to remove AI-slop patterns while preserving the author's voice, or audits without rewriting. Bilingual EN/ES. Derived from [no-ai-slop](https://github.com/petergyang/no-ai-slop) (MIT) |
+| [`social-posts`](./skills/social-posts/) | Product announcements from things already built — launch/feature/avance/insight modes, per-channel voice (X/LinkedIn/FB), claims verified, writer as final pass. Drafts only, never publishes |
 
 ### What each one buys you
 
