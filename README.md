@@ -81,6 +81,42 @@ after every `git pull` that adds skills.
 ./scripts/install.sh --copy doctos
 ```
 
+A `Makefile` wraps the common flows — `make help` lists them:
+
+```bash
+make install    # ./scripts/install.sh
+make check      # ./scripts/install.sh --check
+make prune      # ./scripts/install.sh --prune
+make test       # bash scripts/test-hooks.sh
+```
+
+## Hooks (lefthook + gitleaks)
+
+Centralized git hooks served FROM this repo via lefthook `remotes` (refetched at most every
+24h): every wired repo gets the same pre-commit/pre-push guarantees without copying config.
+
+```bash
+make hooks REPO=/path/to/repo           # solo repo → writes lefthook.yml
+make hooks REPO=/path/to/repo TEAM=1    # team repo → lefthook-local.yml (globally ignored)
+# direct script alternative:
+./scripts/install.sh --repo /path/to/repo [--team]
+```
+
+The installer checks minimum versions (lefthook ≥ 1.10, gitleaks ≥ 8.19), chains after an
+existing husky setup instead of replacing it, builds a one-time gitleaks baseline
+(`.gitleaks-baseline.json`) with a findings summary, links `FLOW_CLAUDE.md` into the target
+repo's CLAUDE.md, and stamps a `## ship config` template (the block where each repo declares
+its own `lint:` / `typecheck:` commands) if missing.
+
+Four layers, increasing cost:
+
+| Layer | Budget | What runs |
+|---|---|---|
+| pre-commit | <2s | gitleaks on staged · hard block on staged `.env*` (except `.env.example`) · LOC warning >500 lines (never blocks) |
+| pre-push | <30s | the repo's own `lint:` / `typecheck:` read from its `## ship config` block — fail-soft warning if absent; docs-only and deletion-only pushes skip |
+| `/ship` | minutes | full gate ritual: lint 0 warnings, build/tests, LOC, secret scan on the diff, quality pass, evidence table |
+| CI | async | whatever the repo's pipeline adds on top — hooks complement CI, never replace it |
+
 ## Credits & prior art
 
 All skills are original writing (MIT, © Antonio Martinez Quintero / dPeluChe), distilled

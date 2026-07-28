@@ -61,6 +61,7 @@ required_proofs:
   - when: "convex/mcp*"                         # glob over touched files
     run: node scripts/mcp-smoke.mjs             # must exit 0 before merge
 loc_limit: 500
+simplify: 500   # run /simplify only if changed LOC > N (off = only on request)
 reviewer: rigo                                  # team repos only
 release_prefix: "STAGING RELEASE:|PROD RELEASE:" # only where applicable
 branch_cleanup: delete                          # delete | keep | ask
@@ -79,7 +80,8 @@ Key semantics, with defaults only where safe:
 - `required_proofs` — per-repo/per-area field tests that must pass BEFORE merge regardless of
   policy (e.g. "convex/mcp* touched → run scripts/mcp-smoke.mjs, exit 0"). Heavier flows declare
   heavier proofs; a green build is not proof that the feature works.
-- `loc_limit` (default 500) · `reviewer` (team repos) · `release_prefix` rules ·
+- `loc_limit` (default 500) · `simplify` (default 500; `off` = only on request) ·
+  `reviewer` (team repos) · `release_prefix` rules ·
   `branch_cleanup: delete | keep | ask` (default ask).
 
 ## Step 1: Pre-gates (mechanical; any failure = stop with report)
@@ -87,8 +89,11 @@ Key semantics, with defaults only where safe:
 1. **Lint**: repo's lint command, 0 errors AND 0 warnings; no new `eslint-disable` (or
    equivalent) introduced by the diff.
 2. **Build/tests**: repo's commands, exit 0. Use the configured isolated variant when declared.
-3. **LOC**: touched files over `loc_limit` lines → propose splitting BEFORE the PR; if the file
-   was already over the limit and barely touched, list it and ask instead of blocking.
+3. **LOC**: a file over `loc_limit` that IS part of the current work → do the split RIGHT
+   THERE, same branch, same cycle, before creating the PR (the split is part of the work — not
+   a separate PR). A legacy file over the limit that was barely touched or only detected in
+   passing → do NOT block: create a task in docs/TASK_TODO.md (via pm-tasks) so it isn't lost,
+   and continue.
 4. **Secret scan on the diff**: `git diff` staged+unstaged against patterns for PATs/tokens
    (`dpat_`, `ghp_`, `sk-`, `AKIA`), private keys, DSNs/connection strings, passwords in env
    files. Any hit = HARD STOP, name the file:line, never commit. `.env*` files never enter a
@@ -97,7 +102,10 @@ Key semantics, with defaults only where safe:
 ## Step 2: Quality pass
 
 Invoke `/simplify` on the diff (the user's recurring "¿algo que optimizar/mejorar?"
-formalized). Apply what it finds or record why not. Skip only if the user says so.
+formalized) only when the diff exceeds the `simplify` threshold (default 500 changed lines;
+`off` = never automatically). Below the threshold, run it only on explicit request. Apply what
+it finds or record why not. Future: per-area importance thresholds (e.g. anything touching
+auth) — noted as an evolution, not implemented.
 
 ## Step 3: Bookkeeping
 

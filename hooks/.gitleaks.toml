@@ -1,0 +1,60 @@
+# dPeluChe hooks — gitleaks config. Extends the default ruleset with the
+# token shapes that actually circulate in these repos, plus an allowlist for
+# lockfiles, docs and documented placeholders.
+
+title = "dPeluChe hooks"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "dpeluche-github-pat"
+description = "GitHub personal access token (classic)"
+regex = '''ghp_[A-Za-z0-9]{36}'''
+keywords = ["ghp_"]
+
+[[rules]]
+id = "dpeluche-dpat"
+description = "dPeluChe personal access token"
+regex = '''dpat_[a-f0-9]{64}'''
+keywords = ["dpat_"]
+
+[[rules]]
+id = "dpeluche-aws-access-key-id"
+description = "AWS access key ID"
+regex = '''AKIA[0-9A-Z]{16}'''
+keywords = ["AKIA"]
+
+[[rules]]
+id = "dpeluche-sentry-dsn"
+description = "Sentry DSN (embeds the project key)"
+regex = '''https://[a-f0-9]{8,64}@[A-Za-z0-9.-]*sentry\.io/[0-9]+'''
+keywords = ["sentry.io"]
+
+[[rules]]
+id = "dpeluche-postgres-uri"
+description = "Postgres connection string with inline password"
+regex = '''postgres(?:ql)?://[A-Za-z0-9_.-]+:[^@/\s'"]+@[A-Za-z0-9.-]+'''
+keywords = ["postgres"]
+
+[[rules]]
+id = "dpeluche-iteris-sync-token"
+description = "ITERIS_SYNC_TOKEN assigned a literal value"
+regex = '''ITERIS_SYNC_TOKEN\s*[=:]\s*['"]?[A-Za-z0-9_\-]{8,}'''
+keywords = ["ITERIS_SYNC_TOKEN"]
+
+[allowlist]
+description = "Lockfiles, docs paths, and documented placeholder examples"
+paths = [
+  '''(^|/)package-lock\.json$''',
+  '''(^|/)pnpm-lock\.yaml$''',
+  '''(^|/)Cargo\.lock$''',
+  '''(^|/)docs/''',
+]
+regexes = [
+  # docs/*.md style examples: dpat_<your-token-here> and friends
+  '''dpat_<[A-Za-z0-9_.\-]+>''',
+  '''<[A-Za-z0-9_.\-]*(token|secret|password|key)[A-Za-z0-9_.\-]*>''',
+  # obvious placeholders
+  '''(?i)(placeholder|example|changeme|your[_-]?(token|secret|password|key)|xxxx+)''',
+]
