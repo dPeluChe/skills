@@ -57,22 +57,22 @@ When pm-tasks is invoked right after `/kickoff` or `/standup` handed it routed f
 
 ---
 
-## Tasky MCP — repos que lo usan (ej. henri)
+## Tasky MCP — repos that use it (e.g. henri)
 
 If `mcp__tasky__*` tools are available AND the project tracks work in Tasky
 (ask once if unsure), `TASK_TODO.md` and Tasky must not diverge — today the
 user dictates both by hand. Two duties:
 
 - **AUDIT cross-check**: pull the project's open tasks (`list_tasks`) and
-  compare against TASK_TODO.md both ways. Report "en Tasky pero no en el
-  doc" y "en el doc pero no en Tasky" as findings. Never auto-create on
+  compare against TASK_TODO.md both ways. Report "in Tasky but not in the
+  doc" and "in the doc but not in Tasky" as findings. Never auto-create on
   either side without confirmation.
 - **Duplicate detection on create** (any mode that writes a new task, and
   a rule the user explicitly asked of Tasky itself): before adding, check
   for near-duplicates by title/topic in BOTH TASK_TODO.md and Tasky; if a
   likely match exists, show it and ask merge-or-create.
 
-Sin Tasky en el repo, esta sección no aplica — TASK_TODO.md manda.
+Without Tasky in the repo this section doesn't apply — TASK_TODO.md rules.
 
 ## Step 0: Locate and assess project state
 
