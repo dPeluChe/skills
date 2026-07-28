@@ -7,8 +7,12 @@ description: >
   the user is starting or resuming work on a project and needs context first: "revisa el proyecto
   para tener contexto", "retomemos este proyecto", "kickoff", "what's the state of this repo",
   "dame un resumen del proyecto", "qué hay aquí", "catch me up on this codebase", "no he tocado
-  este repo en semanas". Also trigger at the start of a session when the user asks to review the
-  project before doing anything else, even if they don't say "kickoff".
+  este repo en semanas". The user almost never types the slash — trigger from informal prose,
+  including typo'd Spanish: "en que nos quedamos", "en qué nos quedamos?", "que quedo pendiente",
+  "donde nos quedamos", "que sigue aqui", "retomemos", "ponme al dia" — these mean RESUME MODE
+  (lightweight delta, see Modo resume), not the full analysis. Also trigger at the start of a
+  session when the user asks to review the project before doing anything else, even if they don't
+  say "kickoff".
   Disambiguation: use standup instead when the user only wants recent progress (the delta, not full
   state); use doctos/pm-tasks to ACT on findings — kickoff only analyzes and routes.
 allowed-tools: Read, Glob, Grep, Bash, Edit, Write
@@ -17,6 +21,22 @@ allowed-tools: Read, Glob, Grep, Bash, Edit, Write
 # Kickoff — Project State Analysis
 
 Builds an accurate picture of a project before any work starts: what it IS (not what its docs claim), where it stands, and what needs attention. Read-only — it reports and routes; it never fixes. Its output is the natural input for `/doctos` (documentation findings) and `/pm-tasks` (task findings).
+
+## Modo resume (el trigger diario real)
+
+"¿En qué nos quedamos? ¿Qué quedó pendiente?" pide **delta + pendientes en
+30 segundos**, no el análisis completo. En este modo salta directo a:
+
+1. Última entrada de `docs/JOURNAL/` (STANDUP/KICKOFF más reciente) — el punto de partida.
+2. `git log --oneline` desde esa fecha + `gh pr list --state open`.
+3. Top del `docs/TASK_TODO.md` (bloque más reciente).
+4. Trabajo sin commitear (`git status`) — suele SER la respuesta a "¿dónde me quedé?".
+
+Reporta en ≤10 líneas: qué se cerró desde la última sesión, qué quedó
+abierto, y la siguiente acción obvia. Ofrece el kickoff completo solo si
+el delta revela que el terreno cambió mucho. El análisis completo (Steps
+1-5) queda para retomas frías ("no he tocado esto en semanas") o cuando lo
+pidan explícito.
 
 ## Why this exists
 
@@ -45,6 +65,8 @@ gh pr list --state open        # open PRs (if gh available)
 ```
 
 Note: date of last commit (is this project active, dormant, or abandoned mid-change?), unmerged branches with names that suggest unfinished features, and any uncommitted changes (someone stopped mid-work — surface this prominently, it's usually the "where was I?" answer).
+
+**Repos con equipo**: if the git history shows authors besides the user (e.g. henri, skysset: Rigo, Andres, Neptali), add a dedicated step — new PRs and commits BY OTHERS since the last session (`git log --oneline --since=<last session> --author=<each>` / `gh pr list`), summarized as "qué movió el equipo". Today the user asks for this by hand at the start of nearly every team-repo session; it belongs in the kickoff by default.
 
 ## Step 3: Reality check — claims vs code
 

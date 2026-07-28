@@ -11,7 +11,9 @@ description: >
   últimamente". ALSO trigger after finishing a feature or work session: "cierra la sesión",
   "registra lo que avanzamos", "¿esto que hice afecta docs o tareas?", "wrap up what we did".
   Also trigger when the user needs a status update for a client, team, or stakeholder, even if
-  they don't say "standup".
+  they don't say "standup". The user almost never types the slash — trigger from informal prose
+  and typos: "que avanzamos hoy", "cerramos por hoy", "registra esto", "dame un prompt de donde
+  debe retomar el agente" (that last one = micro-standup WITH handoff prompt).
   Disambiguation: use kickoff instead when the user is resuming work and needs full project state
   (standup covers only the recent delta); use pm-tasks to actually archive or modify tasks.
 allowed-tools: Read, Glob, Grep, Bash, Write
@@ -104,7 +106,7 @@ ALWAYS use this structure:
 
 The during-development cadence. Window = since the last journal entry of today (or the latest entry overall, or `--changed` for uncommitted work). Three moves:
 
-**1. Delta.** Summarize what this session actually did — outcome level, 2-5 bullets, evidence linked.
+**1. Delta.** Summarize what this session actually did — outcome level, 2-5 bullets, **each with verifiable evidence: PR # y estado (merged/open), SHA del merge, branch**. "Se mergeó el hardening (PR #60, `463c3ed`)" beats "se avanzó en seguridad". What remained OPEN (PRs, branches, uncommitted work) gets its own bullet — it's the seed of the next session.
 
 **2. Impact check.** The work just done may have invalidated things. Check, scoped to the diff only (never a full project audit — that's doctos/pm-tasks territory):
 
@@ -127,6 +129,8 @@ The during-development cadence. Window = since the last journal entry of today (
 ```
 
 This is what makes the weekly report cheap: it composes from these entries instead of re-deriving everything from raw git.
+
+**4. Handoff prompt (opcional).** If the user asks for it ("dame un prompt de donde debe retomar el agente", "prepara el handoff") — or another agent/session will continue the work — produce a paste-ready prompt: project + branch state, what just shipped (PR#/SHA), what's open and WHERE exactly to resume (file, task, next concrete step), plus the repo's hard rules the next agent must know. Append it to the journal entry under `**Handoff**:` so it's recoverable later.
 
 ## Audience variants
 

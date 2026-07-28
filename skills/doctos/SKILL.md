@@ -7,6 +7,8 @@ description: >
   Renames inconsistent folders/files to UPPERCASE_SNAKE convention. Detects obsolete docs and archives them.
   Use this skill when the user mentions cleaning up docs, organizing markdown files, project structure,
   "too many files at root", "docs are a mess", "organize the project", "limpia los docs", "estructura",
+  "revisa los md", "actualiza los docs", "ordena los docs", "los docs estan desactualizados" (the
+  user almost never types the slash — trigger from informal prose and typos),
   or wants to standardize documentation across projects. Also trigger on "doctos".
   Disambiguation: use pm-tasks instead when the request is about task content (backlogs, TODOs,
   archiving completed work); use kickoff instead when the user wants project state analysis, not reorganization.

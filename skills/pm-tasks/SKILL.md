@@ -7,7 +7,9 @@ description: >
   for TODOs in code, or wants to organize their docs/TASK_TODO.md and docs/TASK_COMPLETED/ files.
   Also trigger when the user says things like "what tasks are done", "clean up the backlog",
   "move completed tasks", "check for TODOs", "init docs structure", or references TASK_TODO.md.
-  Trigger even if they just say "tasks", "backlog", "pending", or "que tareas faltan".
+  Trigger even if they just say "tasks", "backlog", "pending", or "que tareas faltan". The user
+  almost never types the slash — trigger from informal prose and typos: "que hay pendiente",
+  "que nos falta", "limpia las tareas", "archiva lo completado", "actualiza el backlog".
   Disambiguation: use standup instead when the user wants a progress report over recent work (not
   lifecycle changes); use doctos instead when the issue is doc structure/naming, not task content.
 allowed-tools: Read, Glob, Grep, Bash, Edit, Write
@@ -54,6 +56,23 @@ If a project deviates from this, the skill should detect it and offer to standar
 When pm-tasks is invoked right after `/kickoff` or `/standup` handed it routed findings ("these 2 tasks were completed by this change", "TODO.md at root"), don't run the full audit — **verify the routed list and act on it only**: confirm each finding against TASK_TODO.md and the code (the router saw a diff-scoped partial picture), execute the confirmed ones (archive, add, rename) with the usual confirmations, and report with the standard status line. The full audit remains the periodic health check.
 
 ---
+
+## Tasky MCP — repos que lo usan (ej. henri)
+
+If `mcp__tasky__*` tools are available AND the project tracks work in Tasky
+(ask once if unsure), `TASK_TODO.md` and Tasky must not diverge — today the
+user dictates both by hand. Two duties:
+
+- **AUDIT cross-check**: pull the project's open tasks (`list_tasks`) and
+  compare against TASK_TODO.md both ways. Report "en Tasky pero no en el
+  doc" y "en el doc pero no en Tasky" as findings. Never auto-create on
+  either side without confirmation.
+- **Duplicate detection on create** (any mode that writes a new task, and
+  a rule the user explicitly asked of Tasky itself): before adding, check
+  for near-duplicates by title/topic in BOTH TASK_TODO.md and Tasky; if a
+  likely match exists, show it and ask merge-or-create.
+
+Sin Tasky en el repo, esta sección no aplica — TASK_TODO.md manda.
 
 ## Step 0: Locate and assess project state
 
