@@ -21,11 +21,15 @@
 #   ./scripts/install.sh --upgrade    # report lefthook/gitleaks versions vs minimums
 #                                     # (+ brew outdated) and this clone vs
 #                                     # origin/main — exit 0 fresh, 1 pending
+#
+# Sync mode also links ~/bin/flowkit -> bin/flowkit (the CLI front-end that
+# dispatches every subcommand back to this script); --check validates that link.
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 AGENTS_DIR="${AGENTS_SKILLS_DIR:-$HOME/.agents/skills}"
 CLAUDE_DIR="${CLAUDE_SKILLS_DIR:-$HOME/.claude/skills}"
+BIN_DIR="${FLOWKIT_BIN_DIR:-$HOME/bin}"
 MODE="sync"; COPY=0; PROBLEMS=0; TARGET_REPO=""; TEAM=0; INCLUDE_PARENT=0
 
 case "${1:-}" in
@@ -124,6 +128,35 @@ ensure_flow_link() {
     [[ "$MODE" == "check" ]] && { bad "FLOW_CLAUDE.md link missing ($link)"; return 0; }
     rm -f "$link"; ln -s "$src" "$link"; note "→ FLOW linked  FLOW_CLAUDE.md"
   fi
+}
+
+# ── flowkit CLI: global entry point served from ~/bin ──────────────────────
+ensure_flowkit_link() {
+  local src="$REPO_DIR/bin/flowkit" link="$BIN_DIR/flowkit"
+  [[ -f "$src" ]] || { bad "bin/flowkit missing from repo"; return 0; }
+  if [[ -L "$link" && "$(readlink "$link")" == "$src" ]]; then
+    :
+  elif [[ -e "$link" && ! -L "$link" ]]; then
+    bad "$link exists and is not a symlink — remove it to adopt"
+    return 0
+  else
+    [[ "$MODE" == "check" ]] && { bad "flowkit link missing/wrong ($link)"; return 0; }
+    mkdir -p "$BIN_DIR"
+    rm -f "$link"; ln -s "$src" "$link"; note "→ flowkit linked  $link"
+  fi
+  # PATH advice only — never edits shell config
+  case ":$PATH:" in
+    *":$BIN_DIR:"*) ;;
+    *)
+      note "△ $BIN_DIR is not in your PATH — add this exact line to ~/.zshrc:"
+      if [[ "$BIN_DIR" == "$HOME/bin" ]]; then
+        # shellcheck disable=SC2016  # the line is meant literally for ~/.zshrc
+        note '  export PATH="$HOME/bin:$PATH"'
+      else
+        note "  export PATH=\"$BIN_DIR:\$PATH\""
+      fi
+      ;;
+  esac
 }
 
 # ── phase 2: centralized git hooks into a target repo (--repo <path>) ──────
@@ -498,6 +531,7 @@ if [[ $# -gt 0 ]]; then
 else
   for d in "$REPO_DIR"/skills/*/; do sync_one "$(basename "$d")"; done
   ensure_flow_link
+  ensure_flowkit_link
   scan_orphans "$AGENTS_DIR"
   scan_orphans "$CLAUDE_DIR"
 fi

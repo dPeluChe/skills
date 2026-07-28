@@ -13,6 +13,9 @@
 #    against fixtures.
 # 6. If lefthook + gitleaks are installed, exercises install.sh --repo against
 #    workspace and global-hooksPath fixtures, and install.sh --upgrade.
+# 7. Exercises the flowkit CLI: help exits 0, unknown subcommand exits 1,
+#    `flowkit check` dispatches identically to install.sh --check, and the
+#    repo resolves correctly when flowkit runs through a symlink (~/bin style).
 #
 # Exit 0 = all green, 1 = at least one failure.
 set -uo pipefail
@@ -77,7 +80,7 @@ else
       nope "shellcheck FAILED: $(basename "$b")"
     fi
   done
-  for s in "$REPO_DIR/scripts/install.sh" "$REPO_DIR/scripts/test-hooks.sh"; do
+  for s in "$REPO_DIR/scripts/install.sh" "$REPO_DIR/scripts/test-hooks.sh" "$REPO_DIR/bin/flowkit"; do
     if shellcheck "$s"; then
       ok "shellcheck clean: ${s#"$REPO_DIR"/}"
     else
@@ -463,6 +466,65 @@ EOF
   fi
 else
   echo "· lefthook/gitleaks not installed — install.sh --repo fixtures skipped (non-fatal)"
+fi
+
+# ── 7. flowkit CLI: pure dispatch over install.sh ──────────────────────────
+FLOWKIT="$REPO_DIR/bin/flowkit"
+if [[ -x "$FLOWKIT" ]]; then
+  ok "bin/flowkit present and executable"
+
+  # help: exit 0, lists subcommands + the process repo
+  if "$FLOWKIT" help > "$TMP/fk-help.log" 2>&1 \
+     && grep -q "hooks" "$TMP/fk-help.log" \
+     && grep -q "upgrade" "$TMP/fk-help.log" \
+     && grep -q "github.com/dPeluChe/skills" "$TMP/fk-help.log"; then
+    ok "flowkit help: exit 0, subcommands listed, process repo named"
+  else
+    nope "flowkit help: expected exit 0 with subcommand list (see $TMP/fk-help.log)"
+  fi
+
+  # unknown subcommand: help + exit 1, culprit named
+  if "$FLOWKIT" frobnicate > "$TMP/fk-bad.log" 2>&1; then
+    nope "flowkit: unknown subcommand should exit 1"
+  elif grep -q "unknown subcommand: frobnicate" "$TMP/fk-bad.log" \
+     && grep -q "Usage: flowkit" "$TMP/fk-bad.log"; then
+    ok "flowkit: unknown subcommand prints help + exit 1, culprit named"
+  else
+    nope "flowkit: exit 1 but help/culprit missing (see $TMP/fk-bad.log)"
+  fi
+
+  # dispatch: `flowkit check` must be byte-identical to install.sh --check
+  # (isolated chain dirs so the result is deterministic for both runs)
+  FK_ENV=(AGENTS_SKILLS_DIR="$TMP/fk-agents" CLAUDE_SKILLS_DIR="$TMP/fk-claude" \
+          FLOWKIT_BIN_DIR="$TMP/fk-bin-env")
+  env "${FK_ENV[@]}" bash "$INSTALL" --check > "$TMP/fk-direct.log" 2>&1
+  direct_rc=$?
+  env "${FK_ENV[@]}" "$FLOWKIT" check > "$TMP/fk-dispatch.log" 2>&1
+  dispatch_rc=$?
+  if [[ "$dispatch_rc" -eq "$direct_rc" ]] && cmp -s "$TMP/fk-direct.log" "$TMP/fk-dispatch.log"; then
+    ok "flowkit check: output and exit code ($dispatch_rc) identical to install.sh --check"
+  else
+    nope "flowkit check: dispatch diverges from install.sh --check (rc $dispatch_rc vs $direct_rc)"
+  fi
+
+  # symlink resolution: run through a symlink exactly like ~/bin/flowkit does
+  mkdir -p "$TMP/fk-symdir"
+  ln -s "$FLOWKIT" "$TMP/fk-symdir/flowkit"
+  if "$TMP/fk-symdir/flowkit" help > "$TMP/fk-sym.log" 2>&1 \
+     && grep -q "github.com/dPeluChe/skills" "$TMP/fk-sym.log"; then
+    ok "flowkit via symlink: resolves its real repo, help works"
+  else
+    nope "flowkit via symlink: could not resolve repo through the link"
+  fi
+  env "${FK_ENV[@]}" "$TMP/fk-symdir/flowkit" check > "$TMP/fk-sym-check.log" 2>&1
+  sym_rc=$?
+  if [[ "$sym_rc" -eq "$direct_rc" ]] && cmp -s "$TMP/fk-sym-check.log" "$TMP/fk-direct.log"; then
+    ok "flowkit via symlink: check dispatch identical to direct install.sh --check"
+  else
+    nope "flowkit via symlink: check diverges (rc $sym_rc vs $direct_rc)"
+  fi
+else
+  nope "bin/flowkit missing or not executable"
 fi
 
 # ── verdict ────────────────────────────────────────────────────────────────
