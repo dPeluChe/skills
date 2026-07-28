@@ -48,8 +48,25 @@ git branch --show-current              # on the branch I think I'm on?
 
 ## Config per repo (read from CLAUDE.md, fail loud on gaps)
 
-Read the repo's CLAUDE.md for a `ship` config (commands and policy). Expected keys, with
-defaults only where safe:
+Read the repo's CLAUDE.md for a `ship` config block. **Canonical format** (one schema so every
+repo writes it the same way — without it the skill falls back to detect-and-confirm):
+
+```yaml
+# ship config
+lint: npm run lint
+build: NEXT_BUILD_DIR=.next-ci npm run build   # isolated variants welcome
+test: npm run test                              # omit if none
+merge_policy: auto                              # auto | ask (default ask)
+required_proofs:
+  - when: "convex/mcp*"                         # glob over touched files
+    run: node scripts/mcp-smoke.mjs             # must exit 0 before merge
+loc_limit: 500
+reviewer: rigo                                  # team repos only
+release_prefix: "STAGING RELEASE:|PROD RELEASE:" # only where applicable
+branch_cleanup: delete                          # delete | keep | ask
+```
+
+Key semantics, with defaults only where safe:
 
 - `lint` / `build` / `test` commands — **no safe default**: if absent, detect from manifest
   scripts and CONFIRM with the user once; never guess silently. Respect overrides like isolated
@@ -97,6 +114,8 @@ formalized). Apply what it finds or record why not. Skip only if the user says s
 - Title/description per repo convention; respect release prefixes where configured
   (e.g. `STAGING RELEASE:` / `PROD RELEASE:` only on staging/prod branches, never develop).
 - Assign the configured reviewer in team repos.
+- **gh CLI failure mode**: if `gh` fails (auth expired, TLS/keychain), report the EXACT error,
+  ask the user to re-auth (`gh auth login`), retry ONCE — never loop on a broken gh.
 
 ## Step 5: Merge — governed by policy
 
