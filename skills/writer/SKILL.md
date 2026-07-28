@@ -68,9 +68,10 @@ Detect the draft's language; apply the universal patterns plus that language's b
 
 ## Words to cut
 
-**English — banned:** delve, foster, leverage, utilize, facilitate, empower, streamline, robust, cutting-edge, paradigm shift, game changer, tapestry, realm, beacon, multifaceted, meticulous, intricate, paramount, transformative, elevate, embark, supercharge, harness, ever-evolving, pivotal, testament, vibrant, landscape (figurative), underscore, boasts, crucial, showcasing.
+**English — banned:** delve, foster, leverage, utilize, facilitate, empower, streamline, robust, cutting-edge, paradigm shift, game changer, tapestry, realm, beacon, multifaceted, meticulous, intricate, paramount, transformative, elevate, embark, supercharge, harness, ever-evolving, pivotal, testament, vibrant, landscape (figurative), underscore, boasts, crucial, showcasing,
+this is huge, this changes everything.
 
-**English — often-empty:** it's worth noting, at the end of the day, at its core, in today's world, the reality is, in order to, going forward, let's dive in.
+**English — often-empty:** it's worth noting, it's important to note, at the end of the day, at its core, in today's world, in the age of, when it comes to, in terms of, with regard to, the reality is, the truth is, in order to, going forward, let's dive in.
 
 **Español — prohibidas:** sumergirse en, fomentar, aprovechar el potencial, robusto, vanguardista, un antes y un después, tapiz, panorama en constante evolución, juega un papel crucial, es un testimonio de, pone de relieve, vibrante, sin precedentes, revolucionar, potenciar, impulsar (figurative default), clave (as universal adjective), integral (as filler).
 
@@ -121,6 +122,14 @@ Both lists rot: AI vocabulary rotates quarterly. The strongest signal is **co-oc
 CV slop is its own dialect — add these to the ban list when editing CVs, resumes, or application answers: results-oriented professional, proven track record, spearheaded, facilitated cross-functional synergies, demonstrated ability to drive, dynamic self-starter, detail-oriented team player, "passionate about [field]" as a qualification.
 
 CVs bound for ATS parsers also need ASCII-safe text: em/en dashes → plain hyphens, curly quotes → straight, no zero-width or non-breaking spaces, no tables, reverse-chronological `Company — Title` + date lines, standard section headers (Summary, Experience, Skills, Education). If the project has a normalize-on-export pipeline the source may keep typography; with no pipeline, normalize the source.
+
+## STE register (opt-in, never default)
+
+Only when the user asks for it ("reporta en STE", "in STE", "Simplified Technical English"), apply
+ASD-STE100-style rules for technical reports/procedures: sentences of 20 words or less (25 for
+description), one instruction per sentence, active voice, simple tenses, one meaning per word,
+plain everyday vocabulary. Voice-pack rules do not apply in this register — STE is deliberately
+voiceless. Never use it for social posts, essays, or anything where voice matters.
 
 ## Claims and evidence (docs, product copy, applications)
 

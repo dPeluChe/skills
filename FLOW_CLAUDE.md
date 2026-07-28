@@ -7,3 +7,4 @@
   report it — bypassing is not an option.
 - This repo's commands (lint/typecheck/build/test) live in its own
   `## ship config` block in CLAUDE.md — hooks and `/ship` read them from there.
+- Code comments: WHY only, max ~3 lines; logic explanations go to docs/ with a one-line pointer.

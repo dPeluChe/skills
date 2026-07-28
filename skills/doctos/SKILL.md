@@ -184,6 +184,7 @@ Full scan of the project's documentation health.
 5. **Check for task-related issues** — if task folders/files use non-standard names, flag for renaming and suggest running `/pm-tasks` after
 6. **Check docs/README.md** — does it exist? does it have documentation rules?
 7. **Audit agent instruction files** — apply the CLAUDE.md / AGENTS.md hygiene rules (see "Agent instruction files" section): flag embedded code blocks, stale tech claims, and task tracking inside them
+7b. **Essay-comments in code (in passing, no full sweep)** — comment blocks over ~3 lines that narrate the logic, noticed while verifying other findings, are findings too: report each with a suggested docs/ destination (usually ARCHITECTURE/ or GUIDES/) so the block shrinks to a one-line WHY pointer in code
 8. **Report everything:**
 
 ```
