@@ -109,7 +109,7 @@ Both lists rot: AI vocabulary rotates quarterly. The strongest signal is **co-oc
 
 ## Formatting slop
 
-- **Em dashes — PRIORIDAD #1 en detect y edit.** El marcador principal del autor para "esto lo escribió una IA" (corregido en múltiples sesiones reales). Regla: 0 en copy corto; 1–2 en drafts largos solo cuando claramente ganan a comas o paréntesis. En Detect, repórtalo SIEMPRE que aparezca, aunque sea el único hallazgo. (Sigue aplicando la excepción sample-outranks: si las muestras del autor los usan, se quedan.)
+- **Em dashes — #1 PRIORITY in detect and edit.** The author's primary "an AI wrote this" marker (corrected across multiple real sessions). Rule: 0 in short copy; 1–2 in long drafts only when they clearly beat commas or parentheses. In Detect, ALWAYS report it when present, even if it's the only finding. (The sample-outranks exception still applies: an author whose samples use them keeps them.)
 - No emoji in headings. No bold sprinkled mid-sentence for emphasis. No headers over two-sentence sections.
 - Bullets only where prose reads worse — two sentences often beat a three-item list.
 - No Title Case headings (Spanish: never Capitalizar Cada Palabra).

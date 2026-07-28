@@ -10,7 +10,7 @@ description: >
   este repo en semanas". The user almost never types the slash — trigger from informal prose,
   including typo'd Spanish: "en que nos quedamos", "en qué nos quedamos?", "que quedo pendiente",
   "donde nos quedamos", "que sigue aqui", "retomemos", "ponme al dia" — these mean RESUME MODE
-  (lightweight delta, see Modo resume), not the full analysis. Also trigger at the start of a
+  (lightweight delta, see Resume mode), not the full analysis. Also trigger at the start of a
   session when the user asks to review the project before doing anything else, even if they don't
   say "kickoff".
   Disambiguation: use standup instead when the user only wants recent progress (the delta, not full
@@ -22,21 +22,21 @@ allowed-tools: Read, Glob, Grep, Bash, Edit, Write
 
 Builds an accurate picture of a project before any work starts: what it IS (not what its docs claim), where it stands, and what needs attention. Read-only — it reports and routes; it never fixes. Its output is the natural input for `/doctos` (documentation findings) and `/pm-tasks` (task findings).
 
-## Modo resume (el trigger diario real)
+## Resume mode (the real daily trigger)
 
-"¿En qué nos quedamos? ¿Qué quedó pendiente?" pide **delta + pendientes en
-30 segundos**, no el análisis completo. En este modo salta directo a:
+"¿En qué nos quedamos? ¿Qué quedó pendiente?" asks for **delta + pendings
+in 30 seconds**, not the full analysis. In this mode jump straight to:
 
-1. Última entrada de `docs/JOURNAL/` (STANDUP/KICKOFF más reciente) — el punto de partida.
-2. `git log --oneline` desde esa fecha + `gh pr list --state open`.
-3. Top del `docs/TASK_TODO.md` (bloque más reciente).
-4. Trabajo sin commitear (`git status`) — suele SER la respuesta a "¿dónde me quedé?".
+1. Latest `docs/JOURNAL/` entry (most recent STANDUP/KICKOFF) — the starting point.
+2. `git log --oneline` since that date + `gh pr list --state open`.
+3. Top of `docs/TASK_TODO.md` (most recent block).
+4. Uncommitted work (`git status`) — it usually IS the answer to "where was I?".
 
-Reporta en ≤10 líneas: qué se cerró desde la última sesión, qué quedó
-abierto, y la siguiente acción obvia. Ofrece el kickoff completo solo si
-el delta revela que el terreno cambió mucho. El análisis completo (Steps
-1-5) queda para retomas frías ("no he tocado esto en semanas") o cuando lo
-pidan explícito.
+Report in ≤10 lines: what closed since the last session, what's still
+open, and the obvious next action. Offer the full kickoff only if the
+delta reveals the ground shifted a lot. The full analysis (Steps 1-5) is
+for cold resumes ("no he tocado esto en semanas") or when explicitly
+requested.
 
 ## Why this exists
 
@@ -66,7 +66,7 @@ gh pr list --state open        # open PRs (if gh available)
 
 Note: date of last commit (is this project active, dormant, or abandoned mid-change?), unmerged branches with names that suggest unfinished features, and any uncommitted changes (someone stopped mid-work — surface this prominently, it's usually the "where was I?" answer).
 
-**Repos con equipo**: if the git history shows authors besides the user (e.g. henri, skysset: Rigo, Andres, Neptali), add a dedicated step — new PRs and commits BY OTHERS since the last session (`git log --oneline --since=<last session> --author=<each>` / `gh pr list`), summarized as "qué movió el equipo". Today the user asks for this by hand at the start of nearly every team-repo session; it belongs in the kickoff by default.
+**Team repos**: if the git history shows authors besides the user (e.g. henri, skysset: Rigo, Andres, Neptali), add a dedicated step — new PRs and commits BY OTHERS since the last session (`git log --oneline --since=<last session> --author=<each>` / `gh pr list`), summarized as "what the team moved". Today the user asks for this by hand at the start of nearly every team-repo session; it belongs in the kickoff by default.
 
 ## Step 3: Reality check — claims vs code
 
