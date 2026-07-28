@@ -9,25 +9,41 @@
 #   ./scripts/install.sh --check      # doctor mode: validate everything, change nothing (exit 0/1)
 #   ./scripts/install.sh --prune      # sync + remove orphan links that point into this repo
 #   ./scripts/install.sh --copy X     # legacy: copy instead of link (single hop, discouraged)
-#   ./scripts/install.sh --repo <path> [--team]
+#   ./scripts/install.sh --repo <path> [--team] [--children-only|--include-parent]
 #                                     # phase 2: wire centralized git hooks
 #                                     # (lefthook remotes + gitleaks baseline +
-#                                     # FLOW_CLAUDE.md import) into a target repo
+#                                     # FLOW_CLAUDE.md import) into a target repo.
+#                                     # If <path> is a WORKSPACE (a git repo whose
+#                                     # 1st-level children are git repos), each child
+#                                     # gets wired instead; the parent is skipped
+#                                     # unless --include-parent (workspace roots
+#                                     # carry their own no-commit locks).
+#   ./scripts/install.sh --upgrade    # report lefthook/gitleaks versions vs minimums
+#                                     # (+ brew outdated) and this clone vs
+#                                     # origin/main — exit 0 fresh, 1 pending
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 AGENTS_DIR="${AGENTS_SKILLS_DIR:-$HOME/.agents/skills}"
 CLAUDE_DIR="${CLAUDE_SKILLS_DIR:-$HOME/.claude/skills}"
-MODE="sync"; COPY=0; PROBLEMS=0; TARGET_REPO=""; TEAM=0
+MODE="sync"; COPY=0; PROBLEMS=0; TARGET_REPO=""; TEAM=0; INCLUDE_PARENT=0
 
 case "${1:-}" in
-  --check) MODE="check"; shift ;;
-  --prune) MODE="prune"; shift ;;
-  --copy)  COPY=1; shift ;;
+  --check)   MODE="check"; shift ;;
+  --prune)   MODE="prune"; shift ;;
+  --copy)    COPY=1; shift ;;
+  --upgrade) MODE="upgrade"; shift ;;
   --repo)
     MODE="repo"; shift
-    TARGET_REPO="${1:?usage: install.sh --repo <path> [--team]}"; shift
-    [[ "${1:-}" == "--team" ]] && { TEAM=1; shift; }
+    TARGET_REPO="${1:?usage: install.sh --repo <path> [--team] [--children-only|--include-parent]}"; shift
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --team)           TEAM=1; shift ;;
+        --children-only)  INCLUDE_PARENT=0; shift ;;  # default; kept explicit
+        --include-parent) INCLUDE_PARENT=1; shift ;;
+        *) echo "✗ unknown --repo option: $1" >&2; exit 1 ;;
+      esac
+    done
     ;;
 esac
 
@@ -112,6 +128,8 @@ ensure_flow_link() {
 
 # ── phase 2: centralized git hooks into a target repo (--repo <path>) ──────
 REMOTE_URL="https://github.com/dPeluChe/skills"
+MIN_LEFTHOOK="1.10"
+MIN_GITLEAKS="8.19"   # 'gitleaks git' needs it
 
 die() { echo "✗ $*" >&2; exit 1; }
 
@@ -120,17 +138,21 @@ ver_ge() {
   [[ "$(printf '%s\n%s\n' "$2" "$1" | sort -t. -k1,1n -k2,2n -k3,3n | head -1)" == "$2" ]]
 }
 
+tool_version() { # $1 = tool; prints its dotted version (empty if unknown)
+  "$1" version 2>/dev/null | grep -Eo '[0-9]+(\.[0-9]+)+' | head -1
+}
+
 check_tool_versions() {
   local v missing=0
   if command -v lefthook >/dev/null 2>&1; then
-    v="$(lefthook version 2>/dev/null | grep -Eo '[0-9]+(\.[0-9]+)+' | head -1)"
-    ver_ge "${v:-0}" "1.10" || { echo "✗ lefthook >= 1.10 required (found ${v:-?})"; missing=1; }
+    v="$(tool_version lefthook)"
+    ver_ge "${v:-0}" "$MIN_LEFTHOOK" || { echo "✗ lefthook >= $MIN_LEFTHOOK required (found ${v:-?})"; missing=1; }
   else
     echo "✗ lefthook not found — install it: brew install lefthook"; missing=1
   fi
   if command -v gitleaks >/dev/null 2>&1; then
-    v="$(gitleaks version 2>/dev/null | grep -Eo '[0-9]+(\.[0-9]+)+' | head -1)"
-    ver_ge "${v:-0}" "8.19" || { echo "✗ gitleaks >= 8.19 required for 'gitleaks git' (found ${v:-?})"; missing=1; }
+    v="$(tool_version gitleaks)"
+    ver_ge "${v:-0}" "$MIN_GITLEAKS" || { echo "✗ gitleaks >= $MIN_GITLEAKS required for 'gitleaks git' (found ${v:-?})"; missing=1; }
   else
     echo "✗ gitleaks not found — install it: brew install gitleaks"; missing=1
   fi
@@ -247,16 +269,53 @@ EOF
   note "→ stamped '## ship config' template in CLAUDE.md (fill the TODOs)"
 }
 
-install_repo() {
-  local target team="$TEAM" cfg_file answer
-  target="$(cd "$TARGET_REPO" 2>/dev/null && pwd)" || die "not a directory: $TARGET_REPO"
-  git -C "$target" rev-parse --git-dir >/dev/null 2>&1 || die "not a git repo: $target"
+check_agent_docs_fences() { # $1 = target repo: agent instruction files must
+  # reference paths, never embed code. Count ``` fences in CLAUDE.md/AGENTS.md,
+  # excluding the canonical yaml fence of the "## ship config" section.
+  # Detect + recommend only — the agent running the install launches /doctos.
+  local target="$1" file count=0 n
+  for file in CLAUDE.md AGENTS.md; do
+    [[ -f "$target/$file" ]] || continue
+    n="$(awk '
+      /^## ship config$/ { ship = 1 }
+      ship && /^## / && !/^## ship config$/ { ship = 0 }
+      /^```/ {
+        if (open) { open = 0; next }
+        open = 1
+        if (!ship) n++
+      }
+      END { print n + 0 }
+    ' "$target/$file")"
+    count=$((count + n))
+  done
+  if [[ "$count" -gt 0 ]]; then
+    note "→ $count bloques de código en CLAUDE.md/AGENTS.md — los agent instruction files referencian paths, no embeben código; corre /doctos para limpiarlo"
+  fi
+}
 
-  check_tool_versions
+# Global core.hooksPath is NOT a blocker when it holds CHAIN wrappers — files
+# that delegate to $(git rev-parse --git-dir)/hooks/<hook> when it exists, so
+# locally installed lefthook hooks still run through the chain.
+global_hookspath_status() { # prints: none | chained | broken:<missing hooks>
+  local gp missing="" hook file
+  gp="$(git config --global core.hooksPath 2>/dev/null || true)"
+  [[ -n "$gp" ]] || { echo "none"; return 0; }
+  gp="${gp/#\~/$HOME}"
+  for hook in pre-commit pre-push; do
+    file="$gp/$hook"
+    if [[ ! -f "$file" ]] || ! grep -q 'git rev-parse --git-dir' "$file"; then
+      missing="$missing $hook"
+    fi
+  done
+  if [[ -z "$missing" ]]; then echo "chained"; else echo "broken:${missing# }"; fi
+}
+
+wire_repo_hooks() { # $1 = target repo (absolute); full wiring of ONE repo, no exit
+  local target="$1" team="$TEAM" cfg_file answer hookspath gitdir
 
   # solo vs team: flag wins; otherwise ask (non-interactive defaults to solo)
   if [[ "$team" == 0 && -t 0 ]]; then
-    read -r -p "Does this repo have a team (shared lefthook.yml)? [y/N] " answer
+    read -r -p "Does $(basename "$target") have a team (shared lefthook.yml)? [y/N] " answer
     [[ "$answer" == [yY]* ]] && team=1
   fi
 
@@ -277,8 +336,23 @@ install_repo() {
     write_remotes_config "$cfg_file"
   fi
 
+  hookspath="$(global_hookspath_status)"
   if [[ -d "$target/.husky" ]]; then
     chain_husky "$target"
+  elif [[ "$hookspath" == broken:* ]]; then
+    bad "global core.hooksPath set but chain wrapper(s) missing for: ${hookspath#broken:} — each wrapper must delegate to \$(git rev-parse --git-dir)/hooks/<hook>; add them and re-run"
+  elif [[ "$hookspath" == "chained" ]]; then
+    # lefthook installs into `git rev-parse --git-path hooks`, which honors the
+    # GLOBAL core.hooksPath — a plain --force would clobber the chain wrappers.
+    # Scope-override hooksPath to the local hooks dir so stubs land in
+    # .git/hooks/, exactly where the wrappers delegate.
+    gitdir="$(git -C "$target" rev-parse --absolute-git-dir)"
+    if ( cd "$target" && GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath \
+        GIT_CONFIG_VALUE_0="$gitdir/hooks" lefthook install --force ); then
+      note "→ global hooksPath with chain wrappers: OK — lefthook stubs in .git/hooks (invoked via the chain)"
+    else
+      bad "lefthook install --force failed — see its message above; fix and re-run"
+    fi
   elif ( cd "$target" && lefthook install ); then
     note "→ lefthook install done"
   else
@@ -288,16 +362,135 @@ install_repo() {
   run_gitleaks_baseline "$target"
   ensure_flow_import "$target"
   ensure_ship_config_template "$target"
+  check_agent_docs_fences "$target"
+}
 
+list_child_repos() { # $1 = candidate workspace root; prints 1st-level dirs that are git repos
+  local d
+  for d in "$1"/*/; do
+    [[ -e "${d}.git" ]] || continue
+    git -C "${d%/}" rev-parse --git-dir >/dev/null 2>&1 && printf '%s\n' "${d%/}"
+  done
+}
+
+install_repo() {
+  local target child before name
+  target="$(cd "$TARGET_REPO" 2>/dev/null && pwd)" || die "not a directory: $TARGET_REPO"
+  git -C "$target" rev-parse --git-dir >/dev/null 2>&1 || die "not a git repo: $target"
+
+  check_tool_versions
+
+  local children=()
+  while IFS= read -r child; do children+=("$child"); done < <(list_child_repos "$target")
+
+  # plain repo (no git children) → wire it directly, previous behavior
+  if [[ "${#children[@]}" -eq 0 ]]; then
+    wire_repo_hooks "$target"
+    if [[ "$PROBLEMS" -gt 0 ]]; then
+      echo "── $PROBLEMS problem(s) found"
+      exit 1
+    fi
+    echo "── hooks wired into $target. First commit exercises them."
+    exit 0
+  fi
+
+  # WORKSPACE: a git repo whose 1st-level children are git repos themselves.
+  # Each child gets wired; the parent is skipped by default (workspace roots
+  # carry their own no-commit locks) unless --include-parent.
+  note "→ workspace detected: ${#children[@]} child repo(s) under $target"
+  local targets=() results=()
+  if [[ "$INCLUDE_PARENT" == 1 ]]; then
+    targets+=("$target")
+  else
+    note "→ parent skipped (use --include-parent to wire it too)"
+  fi
+  targets+=("${children[@]}")
+
+  for child in "${targets[@]}"; do
+    name="$(basename "$child")"
+    [[ "$child" == "$target" ]] && name="$name (parent)"
+    before="$PROBLEMS"
+    echo ""
+    note "── wiring $name"
+    wire_repo_hooks "$child"
+    if [[ "$PROBLEMS" -gt "$before" ]]; then
+      results+=("$name|$((PROBLEMS - before)) problem(s)")
+    else
+      results+=("$name|ok")
+    fi
+  done
+
+  echo ""
+  echo "── workspace report ($target)"
+  printf '  %-32s %s\n' "repo" "result"
+  printf '  %-32s %s\n' "----" "------"
+  for child in "${results[@]}"; do
+    printf '  %-32s %s\n' "${child%%|*}" "${child##*|}"
+  done
   if [[ "$PROBLEMS" -gt 0 ]]; then
     echo "── $PROBLEMS problem(s) found"
     exit 1
   fi
-  echo "── hooks wired into $target. First commit exercises them."
+  echo "── hooks wired into ${#targets[@]} repo(s). First commit in each exercises them."
   exit 0
 }
 
 if [[ "$MODE" == "repo" ]]; then install_repo; fi
+
+# ── upgrade: versions vs minimums + this clone vs origin/main (--upgrade) ──
+UPGRADE_PENDING=0
+
+report_tool_upgrade() { # $1 = tool, $2 = required minimum; $BREW_OUTDATED may list it
+  local name="$1" min="$2" cur
+  if ! command -v "$name" >/dev/null 2>&1; then
+    echo "✗ $name: not installed · min $min — brew install $name"
+    UPGRADE_PENDING=1
+    return 0
+  fi
+  cur="$(tool_version "$name")"
+  if ! ver_ge "${cur:-0}" "$min"; then
+    echo "✗ $name: ${cur:-?} · min $min · BELOW minimum — brew upgrade $name"
+    UPGRADE_PENDING=1
+  elif [[ -n "$BREW_OUTDATED" ]] && grep -qxF "$name" <<<"$BREW_OUTDATED"; then
+    echo "△ $name: $cur · min $min ok · newer in brew — brew upgrade $name"
+    UPGRADE_PENDING=1
+  else
+    echo "✓ $name: $cur · min $min · up to date"
+  fi
+}
+
+run_upgrade() {
+  BREW_OUTDATED=""
+  if command -v brew >/dev/null 2>&1; then
+    BREW_OUTDATED="$(brew outdated --quiet 2>/dev/null || true)"
+  fi
+  report_tool_upgrade lefthook "$MIN_LEFTHOOK"
+  report_tool_upgrade gitleaks "$MIN_GITLEAKS"
+
+  # this skills clone vs its public remote — report only, never pull
+  local behind
+  if git -C "$REPO_DIR" fetch --quiet origin 2>/dev/null; then
+    behind="$(git -C "$REPO_DIR" rev-list --count HEAD..origin/main 2>/dev/null || echo "?")"
+    if [[ "$behind" == "0" ]]; then
+      echo "✓ skills repo: up to date with origin/main"
+    else
+      echo "△ skills repo: $behind commit(s) behind origin/main — run: git pull && make install"
+      UPGRADE_PENDING=1
+    fi
+  else
+    echo "✗ skills repo: could not fetch origin — check network/remote"
+    UPGRADE_PENDING=1
+  fi
+
+  if [[ "$UPGRADE_PENDING" -gt 0 ]]; then
+    echo "── updates pending"
+    exit 1
+  fi
+  echo "── everything up to date"
+  exit 0
+}
+
+if [[ "$MODE" == "upgrade" ]]; then run_upgrade; fi
 
 # ── main ───────────────────────────────────────────────────────────────────
 if [[ $# -gt 0 ]]; then

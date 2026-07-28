@@ -13,7 +13,8 @@
 # `scripts/install.sh --repo <path>` writes that for you.
 #
 # Layers: pre-commit (<2s, universal, always runs) · pre-push (<30s, runs the
-# repo's OWN lint/typecheck declared in its CLAUDE.md "## ship config" block).
+# repo's OWN lint/typecheck declared in its CLAUDE.md "## ship config" block)
+# · commit-msg (strips agent attribution — authorship stays human).
 # Scripts are POSIX sh (lefthook runs commands through `sh -c`).
 
 pre-commit:
@@ -67,6 +68,26 @@ pre-commit:
 pre-push:
   parallel: false
   jobs:
+    # Docs nudge: code files pushed but ZERO .md touched — print a reminder.
+    # Never blocks; the real judgment happens in ship Step 3 / standup.
+    - name: docs-nudge
+      run: |
+        set -u
+        files="{push_files}"
+        code=0
+        docs=0
+        # shellcheck disable=SC2086
+        for f in $files; do
+          case "$f" in
+            *.md) docs=1 ;;
+            src/*|convex/*|app/*|*.ts|*.tsx|*.rs|*.py|*.go) code=1 ;;
+          esac
+        done
+        if [ "$code" -eq 1 ] && [ "$docs" -eq 0 ]; then
+          echo "[hooks] code changed, no docs touched — revisa si hay algo que actualizar en docs/mds tras este ajuste" >&2
+        fi
+        exit 0
+
     # Runs the repo's own lint/typecheck, declared in the "## ship config"
     # block (exact heading + yaml fence) of the repo's CLAUDE.md. Fail-soft:
     # no block / no keys -> loud warning, push goes through.
@@ -137,3 +158,28 @@ pre-push:
           warn "pre-push FAILED — fix and push again (never --no-verify / LEFTHOOK=0)"
         fi
         exit "$rc"
+
+commit-msg:
+  jobs:
+    # authorship stays human — the person is the author, agents are tools.
+    # Strips agent attribution trailers (Co-authored-by / Generated with /
+    # Created by, plus "🤖 Generated with" footers). Keeps the message intact
+    # if stripping would empty it. First line of defense is
+    # includeCoAuthoredBy: false in Claude Code settings; this is the net.
+    - name: strip-agent-attribution
+      run: |
+        set -u
+        msg="{1}"
+        [ -f "$msg" ] || exit 0
+        tmp="$msg.strip"
+        agents='claude|anthropic|devin|codex|openai|chatgpt|gpt-[0-9]|copilot|cursor|windsurf'
+        grep -viE "^[[:space:]]*(co-authored-by:.*($agents)|(.*[[:space:]])?generated with[[:space:]]+\[?($agents)|created (by|with)[[:space:]]+\[?($agents))|🤖.*generated with" \
+          "$msg" > "$tmp" 2>/dev/null || true
+        # grep filtered everything out -> keep the original message
+        if [ -s "$tmp" ] && ! cmp -s "$tmp" "$msg"; then
+          # collapse trailing blank lines the removal left behind
+          awk '{lines[NR]=$0} END{n=0; for(i=NR;i>0;i--) if(lines[i]!~/^[[:space:]]*$/){n=i;break}; for(i=1;i<=n;i++) print lines[i]}' \
+            "$tmp" > "$msg"
+        fi
+        rm -f "$tmp"
+        exit 0
