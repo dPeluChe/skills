@@ -21,6 +21,12 @@
 #   ./scripts/install.sh --upgrade    # report lefthook/gitleaks versions vs minimums
 #                                     # (+ brew outdated) and this clone vs
 #                                     # origin/main — exit 0 fresh, 1 pending
+#   ./scripts/install.sh --harness    # wire the Claude Code harness hooks:
+#                                     # symlink ~/.agents/hooks-harness -> hooks/harness
+#                                     # + merge the 2 PreToolUse guards (git-guard,
+#                                     # secret-guard) into ~/.claude/settings.json
+#                                     # (idempotent; backup to settings.json.bak).
+#                                     # --check also validates both once installed.
 #
 # Sync mode also links ~/bin/flowkit -> bin/flowkit (the CLI front-end that
 # dispatches every subcommand back to this script); --check validates that link.
@@ -30,6 +36,8 @@ REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 AGENTS_DIR="${AGENTS_SKILLS_DIR:-$HOME/.agents/skills}"
 CLAUDE_DIR="${CLAUDE_SKILLS_DIR:-$HOME/.claude/skills}"
 BIN_DIR="${FLOWKIT_BIN_DIR:-$HOME/bin}"
+HARNESS_LINK="${AGENTS_HOOKS_DIR:-$HOME/.agents/hooks-harness}"
+CLAUDE_SETTINGS="${CLAUDE_SETTINGS_FILE:-$HOME/.claude/settings.json}"
 MODE="sync"; COPY=0; PROBLEMS=0; TARGET_REPO=""; TEAM=0; INCLUDE_PARENT=0
 
 case "${1:-}" in
@@ -37,6 +45,7 @@ case "${1:-}" in
   --prune)   MODE="prune"; shift ;;
   --copy)    COPY=1; shift ;;
   --upgrade) MODE="upgrade"; shift ;;
+  --harness) MODE="harness"; shift ;;
   --repo)
     MODE="repo"; shift
     TARGET_REPO="${1:?usage: install.sh --repo <path> [--team] [--children-only|--include-parent]}"; shift
@@ -481,6 +490,125 @@ install_repo() {
 
 if [[ "$MODE" == "repo" ]]; then install_repo; fi
 
+# ── Claude Code harness hooks (--harness): PreToolUse guards ───────────────
+# git-guard.sh (matcher Bash) + secret-guard.sh (matcher Edit|Write) served
+# through ~/.agents/hooks-harness and registered in ~/.claude/settings.json.
+
+ensure_harness_link() {
+  local src="$REPO_DIR/hooks/harness" link="$HARNESS_LINK"
+  [[ -d "$src" ]] || { bad "hooks/harness missing from repo"; return 0; }
+  if [[ -L "$link" && "$(readlink "$link")" == "$src" ]]; then
+    [[ "$MODE" == "check" ]] || note "→ harness link ok  $link"
+  elif [[ -e "$link" && ! -L "$link" ]]; then
+    bad "$link exists and is not a symlink — remove it to adopt"
+  else
+    [[ "$MODE" == "check" ]] && { bad "harness link missing/wrong ($link)"; return 0; }
+    mkdir -p "$(dirname "$link")"
+    rm -f "$link"; ln -s "$src" "$link"; note "→ harness linked  $link"
+  fi
+}
+
+merge_harness_settings() { # merge (or, in check mode, audit) the 2 guard entries
+  # in $CLAUDE_SETTINGS. Prints ADDED/PRESENT/MISSING lines; everything else in
+  # the JSON is preserved verbatim. Backup to settings.json.bak before writing.
+  python3 - "$CLAUDE_SETTINGS" "$MODE" <<'PY'
+import json, os, shutil, sys
+
+path, mode = sys.argv[1], sys.argv[2]
+wanted = [
+    ("Bash", "$HOME/.agents/hooks-harness/git-guard.sh"),
+    ("Edit|Write", "$HOME/.agents/hooks-harness/secret-guard.sh"),
+]
+
+data = {}
+if os.path.exists(path):
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except ValueError:
+        print(f"MALFORMED {path}")
+        sys.exit(3)
+
+pre = data.setdefault("hooks", {}).setdefault("PreToolUse", [])
+added, present = [], []
+for matcher, cmd in wanted:
+    entry = next((e for e in pre if e.get("matcher") == matcher), None)
+    if entry is not None and any(
+        h.get("command") == cmd for h in entry.get("hooks", [])
+    ):
+        present.append(f"{matcher} -> {cmd}")
+        continue
+    if mode != "check":
+        if entry is None:
+            pre.append({"matcher": matcher,
+                        "hooks": [{"type": "command", "command": cmd}]})
+        else:
+            entry.setdefault("hooks", []).append(
+                {"type": "command", "command": cmd})
+    added.append(f"{matcher} -> {cmd}")
+
+if mode != "check" and added:
+    if os.path.exists(path):
+        shutil.copyfile(path, path + ".bak")
+    else:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+
+for line in present:
+    print("PRESENT " + line)
+for line in added:
+    print(("MISSING " if mode == "check" else "ADDED ") + line)
+PY
+}
+
+install_harness() {
+  ensure_harness_link
+  local out rc=0
+  out="$(merge_harness_settings)" || rc=$?
+  if [[ "$rc" -ne 0 ]]; then
+    bad "settings merge failed: ${out:-python3 error} — fix $CLAUDE_SETTINGS and re-run"
+  else
+    local line
+    while IFS= read -r line; do
+      case "$line" in
+        ADDED\ *)   note "→ settings: added        ${line#ADDED }" ;;
+        PRESENT\ *) note "→ settings: already there ${line#PRESENT }" ;;
+      esac
+    done <<<"$out"
+  fi
+  if [[ "$PROBLEMS" -gt 0 ]]; then
+    echo "── $PROBLEMS problem(s) found"
+    exit 1
+  fi
+  echo "── harness hooks wired ($CLAUDE_SETTINGS). New Claude Code sessions pick them up."
+  exit 0
+}
+
+check_harness() { # --check: validate link + settings entries once installed;
+  # a machine that never ran --harness stays green (opt-in feature).
+  local src="$REPO_DIR/hooks/harness" link="$HARNESS_LINK" out line rc=0
+  out="$(merge_harness_settings)" || rc=$?
+  [[ "$rc" -eq 0 ]] || { bad "harness: could not read $CLAUDE_SETTINGS (${out:-python3 error})"; return 0; }
+  local link_ok=0
+  [[ -L "$link" && "$(readlink "$link")" == "$src" ]] && link_ok=1
+  if [[ "$link_ok" -eq 0 && ! -e "$link" ]] && ! grep -q '^PRESENT' <<<"$out"; then
+    note "· harness hooks not installed (optional — run: make harness)"
+    return 0
+  fi
+  [[ "$link_ok" -eq 1 ]] || bad "harness link missing/wrong ($link)"
+  if grep -q '^MISSING' <<<"$out"; then
+    while IFS= read -r line; do
+      [[ "$line" == MISSING\ * ]] && bad "harness settings entry missing: ${line#MISSING }"
+    done <<<"$out"
+  elif [[ "$link_ok" -eq 1 ]]; then
+    note "✓ harness hooks (link + 2 settings entries)"
+  fi
+}
+
+if [[ "$MODE" == "harness" ]]; then install_harness; fi
+
 # ── upgrade: versions vs minimums + this clone vs origin/main (--upgrade) ──
 UPGRADE_PENDING=0
 
@@ -545,6 +673,7 @@ else
   ensure_flowkit_link
   scan_orphans "$AGENTS_DIR"
   scan_orphans "$CLAUDE_DIR"
+  [[ "$MODE" == "check" ]] && check_harness
 fi
 
 # repo hygiene: skills are served from the checked-out branch

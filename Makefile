@@ -4,7 +4,7 @@
 REPO ?=
 TEAM ?=
 
-.PHONY: help install check prune hooks upgrade test
+.PHONY: help install check prune hooks harness upgrade test
 
 help: ## list available targets
 	@awk -F':.*## ' '/^[a-z-]+:.*## / { printf "  make %-24s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -25,6 +25,9 @@ ifeq ($(REPO),)
 	$(error REPO is required: make hooks REPO=/path/to/repo [TEAM=1])
 endif
 	./scripts/install.sh --repo $(REPO) $(if $(TEAM),--team)
+
+harness: ## wire the Claude Code harness hooks (PreToolUse git/secret guards) into ~/.claude/settings.json
+	./scripts/install.sh --harness
 
 upgrade: ## report lefthook/gitleaks vs minimums (+ brew outdated) and this clone vs origin/main (exit 1 if pending)
 	./scripts/install.sh --upgrade
