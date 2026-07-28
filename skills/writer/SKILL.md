@@ -6,7 +6,9 @@ description: >
   user is writing or reviewing prose: docs, READMEs, product copy, landing text, social posts,
   fund/accelerator applications, client emails. Trigger phrases: "revisa este texto", "suena
   muy IA", "quita el slop", "hazlo más humano", "pulir este copy", "redacta esto", "edit this
-  draft", "does this read as AI?", "make it sound human", "de-slop this". Also trigger when
+  draft", "does this read as AI?", "make it sound human", "de-slop this", "quita las rayas",
+  "muchos guiones", "se ve muy generado" (the user almost never types the slash — trigger from
+  informal prose and typos). Also trigger when
   another skill or task produces user-facing prose that should not sound AI-generated.
   Disambiguation: standup/kickoff GENERATE reports (they may hand prose to writer for tone);
   writer edits or audits prose it is given — it never invents content.
@@ -107,10 +109,10 @@ Both lists rot: AI vocabulary rotates quarterly. The strongest signal is **co-oc
 
 ## Formatting slop
 
+- **Em dashes — PRIORIDAD #1 en detect y edit.** El marcador principal del autor para "esto lo escribió una IA" (corregido en múltiples sesiones reales). Regla: 0 en copy corto; 1–2 en drafts largos solo cuando claramente ganan a comas o paréntesis. En Detect, repórtalo SIEMPRE que aparezca, aunque sea el único hallazgo. (Sigue aplicando la excepción sample-outranks: si las muestras del autor los usan, se quedan.)
 - No emoji in headings. No bold sprinkled mid-sentence for emphasis. No headers over two-sentence sections.
 - Bullets only where prose reads worse — two sentences often beat a three-item list.
 - No Title Case headings (Spanish: never Capitalizar Cada Palabra).
-- Em dashes: 0 in short copy; 1–2 in long drafts only when they clearly beat commas or parentheses.
 - No decorative horizontal rules; no inline-bold-header lists ("**Route details**: starts at...") where prose works.
 - Plain ASCII punctuation unless the glyph is intentional: no curly quotes/apostrophes pasted from chat UIs, no Unicode bullets (•) in markdown, no leftover citation artifacts — these are tool tells, not style. (Exception: the sample-outranks rule above — an author who writes with em dashes or emoji keeps them.)
 

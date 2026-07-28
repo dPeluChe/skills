@@ -6,7 +6,9 @@ description: >
   per-channel voice, with every claim verified against evidence. Use whenever the user wants to
   announce or publish about their work: "anuncia el release", "post para LinkedIn", "hay que
   publicar sobre X", "escribe el post del launch", "announce this feature", "draft the launch
-  post", "necesito publicar más", "post sobre el avance". Also trigger when a release, merge, or
+  post", "necesito publicar más", "post sobre el avance", "hay que anunciarlo", "postea esto",
+  "arma el post" (the user almost never types the slash — trigger from informal prose and
+  typos). Also trigger when a release, merge, or
   milestone just happened and the user wants to communicate it.
   Disambiguation: writer edits/audits prose it is given (social-posts CALLS writer as final pass);
   standup reports progress internally — social-posts communicates it publicly. This skill drafts;
