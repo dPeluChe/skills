@@ -14,6 +14,8 @@ I run ~80 repos as a solo builder + small studio ([Iteris](https://iteris.tech))
 | [`standup`](./skills/standup/) | Recent-progress report — what shipped, what's in flight, new pendings; internal or client-facing |
 | [`writer`](./skills/writer/) | Human-sounding prose — edits drafts to remove AI-slop patterns while preserving the author's voice, or audits without rewriting. Bilingual EN/ES. Derived from [no-ai-slop](https://github.com/petergyang/no-ai-slop) (MIT) |
 | [`social-posts`](./skills/social-posts/) | Product announcements from things already built — launch/feature/avance/insight modes, per-channel voice (X/LinkedIn/FB), claims verified, writer as final pass. Drafts only, never publishes |
+| [`ship`](./skills/ship/) | PR closing with gates and evidence — identity check, lint/build/LOC/secret gates, quality pass, bookkeeping, PR on the current branch, merge per repo policy (auto/ask), evidence table |
+| [`deploy-doctor`](./skills/deploy-doctor/) | Infra/deploy diagnosis — state checklist before any fix (what actually runs, ports, env, logs, external services), one hypothesis at a time, stop after 3 failed fixes, root cause becomes a persistent rule |
 
 ### What each one buys you
 
