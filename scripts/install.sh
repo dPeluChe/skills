@@ -144,16 +144,27 @@ ensure_flowkit_link() {
     mkdir -p "$BIN_DIR"
     rm -f "$link"; ln -s "$src" "$link"; note "→ flowkit linked  $link"
   fi
-  # PATH advice only — never edits shell config
+  # Complete the job: append the export to the shell rc (idempotent,
+  # marker-guarded). FLOWKIT_NO_RC=1 opts out and prints the line instead.
   case ":$PATH:" in
     *":$BIN_DIR:"*) ;;
     *)
-      note "△ $BIN_DIR is not in your PATH — add this exact line to ~/.zshrc:"
+      local rc_file="$HOME/.zshrc" export_line
+      [[ "${SHELL:-}" == *bash* ]] && rc_file="$HOME/.bashrc"
       if [[ "$BIN_DIR" == "$HOME/bin" ]]; then
-        # shellcheck disable=SC2016  # the line is meant literally for ~/.zshrc
-        note '  export PATH="$HOME/bin:$PATH"'
+        # shellcheck disable=SC2016  # the line is meant literally for the rc file
+        export_line='export PATH="$HOME/bin:$PATH"'
       else
-        note "  export PATH=\"$BIN_DIR:\$PATH\""
+        export_line="export PATH=\"$BIN_DIR:\$PATH\""
+      fi
+      if [[ "${FLOWKIT_NO_RC:-}" == "1" ]]; then
+        note "△ $BIN_DIR is not in your PATH — add this line to $rc_file:"
+        note "  $export_line"
+      elif grep -qF "# flowkit PATH" "$rc_file" 2>/dev/null; then
+        note "△ $BIN_DIR not in this shell's PATH yet — restart the shell (rc already configured)"
+      else
+        printf '\n# flowkit PATH\n%s\n' "$export_line" >> "$rc_file"
+        note "→ PATH export appended to $rc_file — restart the shell (or: source $rc_file)"
       fi
       ;;
   esac
