@@ -134,7 +134,7 @@ pre-push:
         fi
         if [ -z "$lint_cmd" ] && [ -z "$type_cmd" ]; then
           warn "=============================================================="
-          warn "repo sin ship config — pre-push sin lint"
+          warn "no ship config block -- pre-push runs without lint"
           warn "add a '## ship config' block (yaml fence with lint:/typecheck:)"
           warn "to CLAUDE.md — this push goes through UNCHECKED."
           warn "=============================================================="

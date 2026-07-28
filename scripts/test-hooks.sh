@@ -156,7 +156,7 @@ EOF
 # Test repo — no ship config here
 EOF
   if run_wrapper "$TMP/fix-none" "src/app.ts"; then
-    if grep -q "repo sin ship config" "$TMP/err.log"; then
+    if grep -q "no ship config block" "$TMP/err.log"; then
       ok "fixture B: no block → fail-soft warning + exit 0"
     else
       nope "fixture B: exit 0 but the loud warning is missing"
