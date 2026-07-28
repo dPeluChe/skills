@@ -19,8 +19,8 @@ allowed-tools: Read, Glob, Grep, Bash, Edit, Write
 The user's longest stuck sessions are ALWAYS infra, never logic: hours pasting identical logs,
 fixes iterated against a stale binary, 2.5h on a pool timeout that a state check would have
 caught. The cure is methodological: **diagnose state first, then change ONE thing at a time**
-(adapted from systematic-debugging: no fixes without root cause — ~95% first-fix rate vs ~40%
-ad-hoc).
+(adapted from systematic-debugging: no fixes without root cause — diagnosing state first
+consistently lands the fix in one attempt where ad-hoc iteration burns hours).
 
 ## Phase 1: State checklist — BEFORE any fix (one pass, report as table)
 
@@ -66,7 +66,9 @@ Every resolved incident ends with:
 2. **Persistent rule** appended to the repo's CLAUDE.md (and the agent's memory when available):
    the one-line lesson that prevents the recurrence — e.g. "builds validate with
    NEXT_BUILD_DIR=.next-ci or they kill the dev server". The user already does this by hand;
-   make it automatic.
+   make it automatic. Append under a dedicated `## Reglas de incidentes` section so they don't
+   scatter; when that section grows past ~10 rules, route to `/doctos` to consolidate them into
+   a proper guide instead of letting CLAUDE.md bloat.
 3. **Build indicator recommendation** (once per project): if the incident involved "which
    version is running?", recommend exposing version+timestamp visibly in the app (the Postino
    seed). A build indicator turns Phase 1 check #1 into a 2-second glance.
