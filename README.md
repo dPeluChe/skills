@@ -65,15 +65,31 @@ More coming as they mature from daily use.
 
 ```bash
 git clone https://github.com/dPeluChe/skills.git
-cd skills && ./scripts/install.sh          # symlinks all skills to ~/.claude/skills
-./scripts/install.sh doctos                # or just one
+cd skills && ./scripts/install.sh          # links all skills (chain: ~/.claude/skills → ~/.agents/skills → repo)
+./scripts/install.sh ship                  # or just one
+./scripts/install.sh --check               # doctor: validate every link without touching anything (exit 0/1)
+./scripts/install.sh --prune               # also remove dead links left by renamed/deleted skills
 ```
+
+The chain goes through `~/.agents/skills` as a shared hub so other agent harnesses
+can serve the same skills; the script creates both hops and is idempotent — run it
+after every `git pull` that adds skills.
 
 ### Manual (copy — editable, frozen)
 
 ```bash
 ./scripts/install.sh --copy doctos
 ```
+
+## Credits & prior art
+
+All skills are original writing (MIT, © Antonio Martinez Quintero / dPeluChe), distilled
+from my real sessions. Two carry explicit lineage: `writer` derives from
+[no-ai-slop](https://github.com/petergyang/no-ai-slop) (MIT); `ship` and `deploy-doctor`
+studied patterns from [git-workflow-skill](https://github.com/netresearch/git-workflow-skill),
+[claude-git-pr-skill](https://github.com/aidankinzett/claude-git-pr-skill),
+[superpowers](https://github.com/obra/superpowers) and the systematic-debugging methodology —
+patterns, not copied content.
 
 ## Philosophy
 
