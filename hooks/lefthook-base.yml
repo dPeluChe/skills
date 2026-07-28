@@ -72,19 +72,17 @@ pre-push:
     # Never blocks; the real judgment happens in ship Step 3 / standup.
     - name: docs-nudge
       run: |
-        set -u
-        files="{push_files}"
         code=0
         docs=0
-        # shellcheck disable=SC2086
-        for f in $files; do
+        for f in {push_files} ""; do
+          [ -n "$f" ] || continue
           case "$f" in
             *.md) docs=1 ;;
             src/*|convex/*|app/*|*.ts|*.tsx|*.rs|*.py|*.go) code=1 ;;
           esac
         done
         if [ "$code" -eq 1 ] && [ "$docs" -eq 0 ]; then
-          echo "[hooks] code changed, no docs touched — revisa si hay algo que actualizar en docs/mds tras este ajuste" >&2
+          echo "[hooks] code changed, no docs touched -- check if docs/mds need an update after this change" >&2
         fi
         exit 0
 
