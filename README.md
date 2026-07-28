@@ -108,6 +108,7 @@ make install    # ./scripts/install.sh (also links ~/bin/flowkit)
 make check      # ./scripts/install.sh --check
 make prune      # ./scripts/install.sh --prune
 make upgrade    # ./scripts/install.sh --upgrade
+make harness    # ./scripts/install.sh --harness (Claude Code PreToolUse guards)
 make test       # bash scripts/test-hooks.sh
 ```
 
@@ -161,6 +162,19 @@ Four layers, increasing cost:
 On agent attribution: the first line of defense is `includeCoAuthoredBy: false` in Claude
 Code settings; the commit-msg hook is the net for configs that drift or agents that ignore
 it. If stripping would empty the whole message, the original is kept untouched.
+
+### Harness hooks (Claude Code)
+
+Git hooks catch bad commits; these two PreToolUse guards catch the agent's tool call
+before it runs. `git-guard.sh` (matcher `Bash`) blocks destructive git — `push --force`
+(`--force-with-lease` passes), `reset --hard`, `clean -f`, `branch -D`, `filter-branch`,
+`stash drop/clear`, `checkout -- .`, `update-ref -d` — plus our own bypasses `--no-verify`
+and `LEFTHOOK=0`; escape hatch for a human-approved case: `FLOWKIT_GIT_GUARD=off`.
+`secret-guard.sh` (matcher `Edit|Write`) runs the content through gitleaks with
+`hooks/.gitleaks.toml` (regex fallback when gitleaks is absent) and refuses `.env*`
+targets outright. `make harness` symlinks `~/.agents/hooks-harness` and merges both
+entries into `~/.claude/settings.json` (idempotent; backup to `settings.json.bak` first);
+`make check` validates them once installed.
 
 ## Credits & prior art
 
