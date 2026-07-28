@@ -87,6 +87,7 @@ A `Makefile` wraps the common flows — `make help` lists them:
 make install    # ./scripts/install.sh
 make check      # ./scripts/install.sh --check
 make prune      # ./scripts/install.sh --prune
+make upgrade    # ./scripts/install.sh --upgrade
 make test       # bash scripts/test-hooks.sh
 ```
 
@@ -106,16 +107,39 @@ The installer checks minimum versions (lefthook ≥ 1.10, gitleaks ≥ 8.19), ch
 existing husky setup instead of replacing it, builds a one-time gitleaks baseline
 (`.gitleaks-baseline.json`) with a findings summary, links `FLOW_CLAUDE.md` into the target
 repo's CLAUDE.md, and stamps a `## ship config` template (the block where each repo declares
-its own `lint:` / `typecheck:` commands) if missing.
+its own `lint:` / `typecheck:` commands) if missing. It also counts embedded code fences in
+CLAUDE.md/AGENTS.md (agent instruction files reference paths, they don't embed code — the
+ship config yaml fence is the one canonical exception) and recommends `/doctos` to clean up;
+detection only, never blocks.
+
+Pointing `--repo` at a **workspace** (a git repo whose 1st-level children are git repos
+themselves) wires every child instead — same solo/team logic per child, closing with a
+child → result table. The parent is skipped by default (workspace roots carry their own
+no-commit locks); add `--include-parent` to wire it too.
+
+A global `core.hooksPath` is not a blocker when it holds **chain wrappers** (files that
+delegate to `$(git rev-parse --git-dir)/hooks/<hook>`): the installer verifies pre-commit
+and pre-push wrappers and installs the lefthook stubs into the repo's local `.git/hooks`,
+where the chain picks them up. Missing wrappers fail the install with the culprit named.
+
+`make upgrade` (or `./scripts/install.sh --upgrade`) reports installed lefthook/gitleaks
+versions against the required minimums (plus `brew outdated` when brew exists) and how many
+commits your clone sits behind `origin/main` — exit 0 all fresh, 1 something pending. It
+never pulls for you; when behind it suggests `git pull && make install`.
 
 Four layers, increasing cost:
 
 | Layer | Budget | What runs |
 |---|---|---|
+| commit-msg | <1s | strips agent attribution trailers (Co-authored-by / Generated with / 🤖 footers) — authorship stays human: the person is the author, agents are tools |
 | pre-commit | <2s | gitleaks on staged · hard block on staged `.env*` (except `.env.example`) · LOC warning >500 lines (never blocks) |
-| pre-push | <30s | the repo's own `lint:` / `typecheck:` read from its `## ship config` block — fail-soft warning if absent; docs-only and deletion-only pushes skip |
+| pre-push | <30s | the repo's own `lint:` / `typecheck:` read from its `## ship config` block — fail-soft warning if absent; docs-only and deletion-only pushes skip · docs nudge when code is pushed with zero `.md` touched (never blocks) |
 | `/ship` | minutes | full gate ritual: lint 0 warnings, build/tests, LOC, secret scan on the diff, quality pass, evidence table |
 | CI | async | whatever the repo's pipeline adds on top — hooks complement CI, never replace it |
+
+On agent attribution: the first line of defense is `includeCoAuthoredBy: false` in Claude
+Code settings; the commit-msg hook is the net for configs that drift or agents that ignore
+it. If stripping would empty the whole message, the original is kept untouched.
 
 ## Credits & prior art
 

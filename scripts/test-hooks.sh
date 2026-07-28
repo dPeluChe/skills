@@ -9,6 +9,10 @@
 #    commands) and a repo WITHOUT one (must warn loudly and pass, exit 0).
 # 4. If gitleaks is installed, validates hooks/.gitleaks.toml against
 #    positive/negative secret fixtures.
+# 5. Runs the pre-push docs-nudge and commit-msg attribution-strip blocks
+#    against fixtures.
+# 6. If lefthook + gitleaks are installed, exercises install.sh --repo against
+#    workspace and global-hooksPath fixtures, and install.sh --upgrade.
 #
 # Exit 0 = all green, 1 = at least one failure.
 set -uo pipefail
@@ -26,7 +30,7 @@ nope() { echo "✗ $*"; FAIL=$((FAIL + 1)); }
 extract_blocks() {
   if command -v yq >/dev/null 2>&1; then
     local i=0 hook job n
-    for hook in pre-commit pre-push; do
+    for hook in pre-commit pre-push commit-msg; do
       n="$(yq ".\"$hook\".jobs | length" "$BASE_YML")"
       for ((job = 0; job < n; job++)); do
         i=$((i + 1))
@@ -49,10 +53,10 @@ extract_blocks() {
 
 extract_blocks
 BLOCKS=("$TMP"/block*.sh)
-if [[ "${#BLOCKS[@]}" -ge 4 ]]; then
+if [[ "${#BLOCKS[@]}" -ge 6 ]]; then
   ok "extracted ${#BLOCKS[@]} run blocks from lefthook-base.yml"
 else
-  nope "expected >= 4 run blocks, got ${#BLOCKS[@]}"
+  nope "expected >= 6 run blocks, got ${#BLOCKS[@]}"
 fi
 
 WRAPPER="$(grep -l 'ship config' "$TMP"/block*.sh | head -1 || true)"
@@ -195,6 +199,270 @@ if command -v gitleaks >/dev/null 2>&1; then
   fi
 else
   echo "· gitleaks not installed — config fixtures skipped (non-fatal)"
+fi
+
+# ── 5. docs-nudge + commit-msg attribution-strip blocks ────────────────────
+run_block() { # $1 = block file, $2 = fixture dir, $3 = simulated {push_files}
+  local script="$TMP/run-one-block.sh"
+  sed "s|{push_files}|$3|" "$1" > "$script"
+  ( cd "$2" && sh "$script" ) > "$TMP/out.log" 2> "$TMP/err.log"
+}
+
+NUDGE="$(grep -l 'no docs touched' "$TMP"/block*.sh | head -1 || true)"
+if [[ -n "$NUDGE" ]]; then
+  ok "pre-push docs-nudge block located ($(basename "$NUDGE"))"
+  mkdir -p "$TMP/nudge-fix"
+  if run_block "$NUDGE" "$TMP/nudge-fix" "src/app.ts convex/schema.ts" \
+     && grep -q "no docs touched" "$TMP/err.log"; then
+    ok "docs-nudge: code-only push prints the reminder, exit 0"
+  else
+    nope "docs-nudge: code-only push should warn and exit 0"
+  fi
+  if run_block "$NUDGE" "$TMP/nudge-fix" "src/app.ts docs/GUIDE.md" \
+     && ! grep -q "no docs touched" "$TMP/err.log"; then
+    ok "docs-nudge: push touching .md stays silent"
+  else
+    nope "docs-nudge: push with docs should not warn"
+  fi
+  if run_block "$NUDGE" "$TMP/nudge-fix" "notes.txt Makefile" \
+     && ! grep -q "no docs touched" "$TMP/err.log"; then
+    ok "docs-nudge: non-code push stays silent"
+  else
+    nope "docs-nudge: non-code push should not warn"
+  fi
+else
+  nope "pre-push docs-nudge block not found among extracted blocks"
+fi
+
+CMSG="$(grep -l 'co-authored-by' "$TMP"/block*.sh | head -1 || true)"
+run_cmsg() { # $1 = commit message file
+  local script="$TMP/cmsg-run.sh"
+  sed "s|{1}|$1|" "$CMSG" > "$script"
+  sh "$script" > "$TMP/out.log" 2> "$TMP/err.log"
+}
+if [[ -n "$CMSG" ]]; then
+  ok "commit-msg attribution-strip block located ($(basename "$CMSG"))"
+
+  # agent trailers stripped, human co-author and body preserved
+  cat > "$TMP/msg-agent.txt" <<'EOF'
+feat: add thing
+
+Body line stays.
+
+Co-authored-by: Jane Dev <jane@example.com>
+Co-Authored-By: Claude <noreply@anthropic.com>
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+EOF
+  if run_cmsg "$TMP/msg-agent.txt" \
+     && ! grep -qi 'claude' "$TMP/msg-agent.txt" \
+     && ! grep -q '🤖' "$TMP/msg-agent.txt" \
+     && grep -q 'feat: add thing' "$TMP/msg-agent.txt" \
+     && grep -q 'Jane Dev' "$TMP/msg-agent.txt" \
+     && [[ "$(tail -1 "$TMP/msg-agent.txt")" == *"Jane Dev"* ]]; then
+    ok "commit-msg: agent trailers stripped, human content intact, no trailing blanks"
+  else
+    nope "commit-msg: strip failed (result: $(cat "$TMP/msg-agent.txt"))"
+  fi
+
+  # normal message untouched
+  printf 'fix: plain message\n\nNothing to strip here.\n' > "$TMP/msg-clean.txt"
+  cp "$TMP/msg-clean.txt" "$TMP/msg-clean.orig"
+  if run_cmsg "$TMP/msg-clean.txt" && cmp -s "$TMP/msg-clean.txt" "$TMP/msg-clean.orig"; then
+    ok "commit-msg: clean message passes byte-identical"
+  else
+    nope "commit-msg: clean message was modified"
+  fi
+
+  # message that is ONLY attribution: keep original rather than empty it
+  printf 'Co-authored-by: Claude <noreply@anthropic.com>\n' > "$TMP/msg-only.txt"
+  cp "$TMP/msg-only.txt" "$TMP/msg-only.orig"
+  if run_cmsg "$TMP/msg-only.txt" && cmp -s "$TMP/msg-only.txt" "$TMP/msg-only.orig"; then
+    ok "commit-msg: all-attribution message kept (never emptied)"
+  else
+    nope "commit-msg: all-attribution message was emptied or altered"
+  fi
+else
+  nope "commit-msg attribution-strip block not found among extracted blocks"
+fi
+
+# ── 6. install.sh --repo: workspace mode, global hooksPath, --upgrade ──────
+INSTALL="$REPO_DIR/scripts/install.sh"
+if command -v lefthook >/dev/null 2>&1 && command -v gitleaks >/dev/null 2>&1; then
+  # isolated environment: skills chain dirs + git global config live in $TMP
+  ENV_AGENTS="$TMP/agents-skills"; ENV_CLAUDE="$TMP/claude-skills"
+  GCFG_NONE="$TMP/gitconfig-none"; : > "$GCFG_NONE"
+
+  run_install() { # $1 = global gitconfig file, rest = install.sh args
+    local gcfg="$1"; shift
+    AGENTS_SKILLS_DIR="$ENV_AGENTS" CLAUDE_SKILLS_DIR="$ENV_CLAUDE" \
+      GIT_CONFIG_GLOBAL="$gcfg" bash "$INSTALL" "$@" \
+      > "$TMP/out.log" 2> "$TMP/err.log" < /dev/null
+  }
+
+  make_repo() { # $1 = dir — git repo with one commit
+    mkdir -p "$1"
+    git -C "$1" init -q
+    git -C "$1" -c user.email=t@t.t -c user.name=t commit -q --allow-empty -m init
+  }
+
+  # workspace: parent repo + two git children + one plain dir
+  WS="$TMP/ws"
+  make_repo "$WS"
+  make_repo "$WS/child-a"
+  make_repo "$WS/child-b"
+  mkdir -p "$WS/not-a-repo"
+  if run_install "$GCFG_NONE" --repo "$WS"; then
+    if grep -q "workspace detected: 2 child repo(s)" "$TMP/out.log" \
+       && grep -q "workspace report" "$TMP/out.log" \
+       && grep -q "child-a" "$TMP/out.log" && grep -q "child-b" "$TMP/out.log" \
+       && [[ -f "$WS/child-a/lefthook.yml" && -f "$WS/child-b/lefthook.yml" ]] \
+       && [[ ! -f "$WS/lefthook.yml" ]]; then
+      ok "workspace: 2 children wired with report table, parent skipped by default"
+    else
+      nope "workspace: wrong detection/wiring (see $TMP/out.log)"
+    fi
+  else
+    nope "workspace: install.sh --repo exited non-zero on a healthy workspace"
+  fi
+
+  # workspace + --include-parent: parent gets wired too
+  WS2="$TMP/ws2"
+  make_repo "$WS2"
+  make_repo "$WS2/child-c"
+  if run_install "$GCFG_NONE" --repo "$WS2" --include-parent; then
+    if [[ -f "$WS2/lefthook.yml" && -f "$WS2/child-c/lefthook.yml" ]] \
+       && grep -q "(parent)" "$TMP/out.log"; then
+      ok "workspace: --include-parent wires the parent as well"
+    else
+      nope "workspace: --include-parent did not wire the parent"
+    fi
+  else
+    nope "workspace: --include-parent run exited non-zero"
+  fi
+
+  # plain repo (no children): previous single-repo behavior
+  SINGLE="$TMP/single"
+  make_repo "$SINGLE"
+  if run_install "$GCFG_NONE" --repo "$SINGLE"; then
+    if [[ -f "$SINGLE/lefthook.yml" ]] && ! grep -q "workspace detected" "$TMP/out.log"; then
+      ok "single repo: wired directly, no workspace mode"
+    else
+      nope "single repo: unexpected workspace detection or missing lefthook.yml"
+    fi
+  else
+    nope "single repo: install.sh --repo exited non-zero"
+  fi
+
+  # agent-docs fences: CLAUDE.md/AGENTS.md with code fences beyond the ship
+  # config yaml one -> counted and /doctos recommended (never blocks)
+  FENCED="$TMP/fenced"
+  make_repo "$FENCED"
+  cat > "$FENCED/CLAUDE.md" <<'EOF'
+# Test repo
+
+## ship config
+
+```yaml
+lint: true
+```
+
+## dev commands
+
+```bash
+npm run dev
+```
+EOF
+  cat > "$FENCED/AGENTS.md" <<'EOF'
+# Agents
+
+```js
+console.log("embedded");
+```
+EOF
+  if run_install "$GCFG_NONE" --repo "$FENCED"; then
+    if grep -q "2 bloques de código en CLAUDE.md/AGENTS.md" "$TMP/out.log"; then
+      ok "agent-docs fences: 2 extra fences counted, /doctos recommended, exit 0"
+    else
+      nope "agent-docs fences: fence count/notice missing (see $TMP/out.log)"
+    fi
+  else
+    nope "agent-docs fences: detection must never block the install"
+  fi
+
+  CLEANDOC="$TMP/cleandoc"
+  make_repo "$CLEANDOC"
+  cat > "$CLEANDOC/CLAUDE.md" <<'EOF'
+# Test repo
+
+## ship config
+
+```yaml
+lint: true
+```
+EOF
+  if run_install "$GCFG_NONE" --repo "$CLEANDOC" \
+     && ! grep -q "bloques de código" "$TMP/out.log"; then
+    ok "agent-docs fences: ship config yaml fence alone stays silent"
+  else
+    nope "agent-docs fences: false positive on the canonical ship config fence"
+  fi
+
+  # global hooksPath WITH chain wrappers: proceed, stubs land in .git/hooks
+  GHOOKS="$TMP/ghooks"
+  mkdir -p "$GHOOKS"
+  for h in pre-commit pre-push; do
+    # shellcheck disable=SC2016  # the wrapper body must expand at hook time
+    printf '#!/bin/sh\nl="$(git rev-parse --git-dir)/hooks/%s"\n[ -x "$l" ] && exec "$l" "$@"\nexit 0\n' "$h" > "$GHOOKS/$h"
+    chmod +x "$GHOOKS/$h"
+  done
+  GCFG_CHAIN="$TMP/gitconfig-chain"
+  git config --file "$GCFG_CHAIN" core.hooksPath "$GHOOKS"
+  CHAINED="$TMP/chained-repo"
+  make_repo "$CHAINED"
+  if run_install "$GCFG_CHAIN" --repo "$CHAINED"; then
+    if grep -q "chain wrappers: OK" "$TMP/out.log" \
+       && [[ -f "$CHAINED/.git/hooks/pre-commit" ]] \
+       && grep -q 'git rev-parse --git-dir' "$GHOOKS/pre-commit"; then
+      ok "hooksPath chained: install proceeds, stubs in .git/hooks, wrappers untouched"
+    else
+      nope "hooksPath chained: wrong path taken (see $TMP/out.log)"
+    fi
+  else
+    nope "hooksPath chained: install.sh --repo should exit 0 with valid wrappers"
+  fi
+
+  # global hooksPath WITHOUT a pre-push wrapper: block with the culprit named
+  GBROKEN="$TMP/ghooks-broken"
+  mkdir -p "$GBROKEN"
+  cp "$GHOOKS/pre-commit" "$GBROKEN/pre-commit"
+  GCFG_BROKEN="$TMP/gitconfig-broken"
+  git config --file "$GCFG_BROKEN" core.hooksPath "$GBROKEN"
+  BROKEN="$TMP/broken-repo"
+  make_repo "$BROKEN"
+  if run_install "$GCFG_BROKEN" --repo "$BROKEN"; then
+    nope "hooksPath broken: missing pre-push wrapper did NOT block (expected exit 1)"
+  else
+    if grep -q "chain wrapper(s) missing for: pre-push" "$TMP/out.log"; then
+      ok "hooksPath broken: exit 1 and the missing wrapper is named"
+    else
+      nope "hooksPath broken: exit 1 but the missing wrapper is not named"
+    fi
+  fi
+
+  # --upgrade: reports both tools + repo freshness, exits 0 or 1, never pulls
+  UPGRADE_HEAD_BEFORE="$(git -C "$REPO_DIR" rev-parse HEAD)"
+  bash "$INSTALL" --upgrade > "$TMP/out.log" 2> "$TMP/err.log" < /dev/null
+  rc=$?
+  if [[ "$rc" -le 1 ]] \
+     && grep -q "lefthook:" "$TMP/out.log" && grep -q "gitleaks:" "$TMP/out.log" \
+     && grep -q "skills repo:" "$TMP/out.log" \
+     && [[ "$(git -C "$REPO_DIR" rev-parse HEAD)" == "$UPGRADE_HEAD_BEFORE" ]]; then
+    ok "--upgrade: tools + repo freshness reported, exit $rc, no pull performed"
+  else
+    nope "--upgrade: unexpected output or exit code $rc (see $TMP/out.log)"
+  fi
+else
+  echo "· lefthook/gitleaks not installed — install.sh --repo fixtures skipped (non-fatal)"
 fi
 
 # ── verdict ────────────────────────────────────────────────────────────────
