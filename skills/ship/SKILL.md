@@ -107,6 +107,11 @@ formalized) only when the diff exceeds the `simplify` threshold (default 500 cha
 it finds or record why not. Future: per-area importance thresholds (e.g. anything touching
 auth) — noted as an evolution, not implemented.
 
+**Comment hygiene (always, regardless of the simplify threshold).** Scan the diff for comment
+blocks longer than ~3 lines that narrate the logic. Reduce each to a terse WHY reference; if
+the explanation is worth keeping, move it to the repo's docs/ and leave a one-line pointer in
+the code (route to `/doctos` when the content is large enough to need placement).
+
 ## Step 3: Bookkeeping
 
 - Docs whose claims the diff invalidates → fix if trivial, otherwise route to `/doctos`.
