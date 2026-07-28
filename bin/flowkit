@@ -22,22 +22,23 @@ resolve_self() { # portable readlink -f: follow symlinks to the real script path
 SELF="$(resolve_self "${BASH_SOURCE[0]}")"
 REPO_DIR="$(cd "$(dirname "$SELF")/.." && pwd)"
 INSTALL="$REPO_DIR/scripts/install.sh"
-[[ -f "$INSTALL" ]] || { echo "✗ flowkit: scripts/install.sh not found under $REPO_DIR" >&2; exit 1; }
+[[ -f "$INSTALL" ]] || { echo "x flowkit: scripts/install.sh not found under $REPO_DIR" >&2; exit 1; }
 
 usage() {
   cat <<'EOF'
-flowkit — manager for the skills + hooks + flow layer
+flowkit -- manager for the skills + hooks + flow layer
 
 Usage: flowkit <subcommand>
 
-  install    sync all skills into the symlink chain (~/.claude → ~/.agents → repo)
-  check      doctor mode — validate every link, change nothing (exit 0/1)
+  install    sync all skills into the symlink chain (~/.claude -> ~/.agents -> repo)
+  check      doctor mode -- validate every link, change nothing (exit 0/1)
   prune      sync + remove orphan links left by renamed/deleted skills
   hooks      wire centralized git hooks into the repo you are standing in ($PWD) [--team] [--include-parent]
   upgrade    report lefthook/gitleaks versions + clone freshness (exit 1 if pending)
+  about      what flowkit is + this repo's detected flow status (for agents landing cold)
   help       show this help
 
-repo de procesos: github.com/dPeluChe/skills
+process repo: github.com/dPeluChe/skills
 EOF
 }
 
@@ -50,11 +51,12 @@ case "$cmd" in
   prune)   exec bash "$INSTALL" --prune "$@" ;;
   hooks)   exec bash "$INSTALL" --repo "$PWD" "$@" ;;
   upgrade) exec bash "$INSTALL" --upgrade "$@" ;;
+  about)   exec bash "$INSTALL" --about "$@" ;;
   help|-h|--help) usage ;;
   *)
     usage >&2
     echo "" >&2
-    echo "✗ unknown subcommand: $cmd" >&2
+    echo "x unknown subcommand: $cmd" >&2
     exit 1
     ;;
 esac

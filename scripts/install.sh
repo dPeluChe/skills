@@ -21,6 +21,10 @@
 #   ./scripts/install.sh --upgrade    # report lefthook/gitleaks versions vs minimums
 #                                     # (+ brew outdated) and this clone vs
 #                                     # origin/main — exit 0 fresh, 1 pending
+#   ./scripts/install.sh --about      # orientation for agents landing cold:
+#                                     # what flowkit is (static) + this repo's
+#                                     # detected flow status (dynamic, if $PWD
+#                                     # is a git repo). Always exits 0.
 #   ./scripts/install.sh --harness    # wire the Claude Code harness hooks:
 #                                     # symlink ~/.agents/hooks-harness -> hooks/harness
 #                                     # + merge the 2 PreToolUse guards (git-guard,
@@ -46,6 +50,7 @@ case "${1:-}" in
   --copy)    COPY=1; shift ;;
   --upgrade) MODE="upgrade"; shift ;;
   --harness) MODE="harness"; shift ;;
+  --about)   MODE="about"; shift ;;
   --repo)
     MODE="repo"; shift
     TARGET_REPO="${1:?usage: install.sh --repo <path> [--team] [--children-only|--include-parent]}"; shift
@@ -54,7 +59,7 @@ case "${1:-}" in
         --team)           TEAM=1; shift ;;
         --children-only)  INCLUDE_PARENT=0; shift ;;  # default; kept explicit
         --include-parent) INCLUDE_PARENT=1; shift ;;
-        *) echo "✗ unknown --repo option: $1" >&2; exit 1 ;;
+        *) echo "x unknown --repo option: $1" >&2; exit 1 ;;
       esac
     done
     ;;
@@ -63,7 +68,7 @@ esac
 mkdir -p "$AGENTS_DIR" "$CLAUDE_DIR"
 
 note() { echo "$@"; }
-bad()  { echo "✗ $*"; PROBLEMS=$((PROBLEMS + 1)); }
+bad()  { echo "x $*"; PROBLEMS=$((PROBLEMS + 1)); }
 
 # ── one skill: ensure (or verify) both hops ────────────────────────────────
 sync_one() {
@@ -72,18 +77,18 @@ sync_one() {
   [[ -d "$src" && -f "$src/SKILL.md" ]] || { bad "unknown skill or missing SKILL.md: $name"; return 0; }
 
   if [[ "$COPY" == 1 ]]; then
-    rm -rf "$hop2"; cp -R "$src" "$hop2"; note "→ copied  $name (single hop, legacy)"; return 0
+    rm -rf "$hop2"; cp -R "$src" "$hop2"; note "-> copied  $name (single hop, legacy)"; return 0
   fi
 
   # hop 1: ~/.agents/skills/<name> -> absolute repo path
   if [[ -L "$hop1" && "$(readlink "$hop1")" == "$src" ]]; then
     :
   elif [[ -e "$hop1" && ! -L "$hop1" ]]; then
-    bad "$hop1 exists and is not a symlink — remove it to adopt"
+    bad "$hop1 exists and is not a symlink -- remove it to adopt"
     return 0
   else
     [[ "$MODE" == "check" ]] && { bad "$name: hop1 missing/wrong ($hop1)"; return 0; }
-    rm -f "$hop1"; ln -s "$src" "$hop1"; note "→ hop1 linked  $name"
+    rm -f "$hop1"; ln -s "$src" "$hop1"; note "-> hop1 linked  $name"
   fi
 
   # hop 2: ~/.claude/skills/<name> -> ../../.agents/skills/<name> (relative, matches existing style)
@@ -91,18 +96,18 @@ sync_one() {
   if [[ -L "$hop2" && "$(readlink "$hop2")" == "$want2" ]]; then
     :
   elif [[ -e "$hop2" && ! -L "$hop2" ]]; then
-    bad "$hop2 exists and is not a symlink — remove it to adopt"
+    bad "$hop2 exists and is not a symlink -- remove it to adopt"
     return 0
   else
     [[ "$MODE" == "check" ]] && { bad "$name: hop2 missing/wrong ($hop2)"; return 0; }
-    rm -f "$hop2"; ln -s "$want2" "$hop2"; note "→ hop2 linked  $name"
+    rm -f "$hop2"; ln -s "$want2" "$hop2"; note "-> hop2 linked  $name"
   fi
 
   # end-to-end: the chain must resolve to a readable SKILL.md
   if [[ ! -f "$hop2/SKILL.md" ]]; then
     bad "$name: chain does not resolve to SKILL.md"
   elif [[ "$MODE" == "check" ]]; then
-    note "✓ $name"
+    note "ok $name"
   fi
 }
 
@@ -116,7 +121,7 @@ scan_orphans() {
       raw="$(readlink "$link")"
       if [[ "$raw" == *"$REPO_DIR"* || "$raw" == *".agents/skills"* ]]; then
         if [[ "$MODE" == "prune" ]]; then
-          rm -f "$link"; note "→ pruned orphan $link"
+          rm -f "$link"; note "-> pruned orphan $link"
         else
           bad "orphan link: $link -> $raw"
         fi
@@ -132,10 +137,10 @@ ensure_flow_link() {
   if [[ -L "$link" && "$(readlink "$link")" == "$src" ]]; then
     :
   elif [[ -e "$link" && ! -L "$link" ]]; then
-    bad "$link exists and is not a symlink — remove it to adopt"
+    bad "$link exists and is not a symlink -- remove it to adopt"
   else
     [[ "$MODE" == "check" ]] && { bad "FLOW_CLAUDE.md link missing ($link)"; return 0; }
-    rm -f "$link"; ln -s "$src" "$link"; note "→ FLOW linked  FLOW_CLAUDE.md"
+    rm -f "$link"; ln -s "$src" "$link"; note "-> FLOW linked  FLOW_CLAUDE.md"
   fi
 }
 
@@ -146,12 +151,12 @@ ensure_flowkit_link() {
   if [[ -L "$link" && "$(readlink "$link")" == "$src" ]]; then
     :
   elif [[ -e "$link" && ! -L "$link" ]]; then
-    bad "$link exists and is not a symlink — remove it to adopt"
+    bad "$link exists and is not a symlink -- remove it to adopt"
     return 0
   else
     [[ "$MODE" == "check" ]] && { bad "flowkit link missing/wrong ($link)"; return 0; }
     mkdir -p "$BIN_DIR"
-    rm -f "$link"; ln -s "$src" "$link"; note "→ flowkit linked  $link"
+    rm -f "$link"; ln -s "$src" "$link"; note "-> flowkit linked  $link"
   fi
   # Complete the job: append the export to the shell rc (idempotent,
   # marker-guarded). FLOWKIT_NO_RC=1 opts out and prints the line instead.
@@ -167,13 +172,13 @@ ensure_flowkit_link() {
         export_line="export PATH=\"$BIN_DIR:\$PATH\""
       fi
       if [[ "${FLOWKIT_NO_RC:-}" == "1" ]]; then
-        note "△ $BIN_DIR is not in your PATH — add this line to $rc_file:"
+        note "! $BIN_DIR is not in your PATH -- add this line to $rc_file:"
         note "  $export_line"
       elif grep -qF "# flowkit PATH" "$rc_file" 2>/dev/null; then
-        note "△ $BIN_DIR not in this shell's PATH yet — restart the shell (rc already configured)"
+        note "! $BIN_DIR not in this shell's PATH yet -- restart the shell (rc already configured)"
       else
         printf '\n# flowkit PATH\n%s\n' "$export_line" >> "$rc_file"
-        note "→ PATH export appended to $rc_file — restart the shell (or: source $rc_file)"
+        note "-> PATH export appended to $rc_file -- restart the shell (or: source $rc_file)"
       fi
       ;;
   esac
@@ -184,7 +189,20 @@ REMOTE_URL="https://github.com/dPeluChe/skills"
 MIN_LEFTHOOK="1.10"
 MIN_GITLEAKS="8.19"   # 'gitleaks git' needs it
 
-die() { echo "✗ $*" >&2; exit 1; }
+die() { echo "x $*" >&2; exit 1; }
+
+# Actionable follow-ups collected while wiring one repo; printed at the end of
+# that repo's section as a copy-paste block for the human's agent.
+AGENT_ACTIONS=""
+agent_action() { AGENT_ACTIONS="${AGENT_ACTIONS}$*"$'\n'; }
+print_agent_actions() {
+  [[ -n "$AGENT_ACTIONS" ]] || return 0
+  echo ""
+  echo "---- copy below to your agent ----"
+  printf '%s' "$AGENT_ACTIONS"
+  echo "For context on this tooling, run: flowkit about"
+  echo "---- end ----"
+}
 
 # ver_ge <have> <need> — numeric dotted-version compare
 ver_ge() {
@@ -199,17 +217,17 @@ check_tool_versions() {
   local v missing=0
   if command -v lefthook >/dev/null 2>&1; then
     v="$(tool_version lefthook)"
-    ver_ge "${v:-0}" "$MIN_LEFTHOOK" || { echo "✗ lefthook >= $MIN_LEFTHOOK required (found ${v:-?})"; missing=1; }
+    ver_ge "${v:-0}" "$MIN_LEFTHOOK" || { echo "x lefthook >= $MIN_LEFTHOOK required (found ${v:-?})"; missing=1; }
   else
-    echo "✗ lefthook not found — install it: brew install lefthook"; missing=1
+    echo "x lefthook not found -- install it: brew install lefthook"; missing=1
   fi
   if command -v gitleaks >/dev/null 2>&1; then
     v="$(tool_version gitleaks)"
-    ver_ge "${v:-0}" "$MIN_GITLEAKS" || { echo "✗ gitleaks >= $MIN_GITLEAKS required for 'gitleaks git' (found ${v:-?})"; missing=1; }
+    ver_ge "${v:-0}" "$MIN_GITLEAKS" || { echo "x gitleaks >= $MIN_GITLEAKS required for 'gitleaks git' (found ${v:-?})"; missing=1; }
   else
-    echo "✗ gitleaks not found — install it: brew install gitleaks"; missing=1
+    echo "x gitleaks not found -- install it: brew install gitleaks"; missing=1
   fi
-  [[ "$missing" == 0 ]] || die "missing/outdated tools — install them and re-run"
+  [[ "$missing" == 0 ]] || die "missing/outdated tools -- install them and re-run"
 }
 
 write_remotes_config() { # $1 = destination yml path
@@ -224,7 +242,7 @@ remotes:
     configs:
       - hooks/lefthook-base.yml
 EOF
-  note "→ wrote $(basename "$1")"
+  note "-> wrote $(basename "$1")"
 }
 
 ensure_global_gitignore() { # team mode: lefthook-local.yml must be globally ignored
@@ -233,19 +251,19 @@ ensure_global_gitignore() { # team mode: lefthook-local.yml must be globally ign
   gi="${gi/#\~/$HOME}"
   [[ -n "$gi" ]] || gi="$HOME/.config/git/ignore"
   if [[ -f "$gi" ]] && grep -qxF "lefthook-local.yml" "$gi"; then
-    note "→ global gitignore already covers lefthook-local.yml ($gi)"
+    note "-> global gitignore already covers lefthook-local.yml ($gi)"
   else
     mkdir -p "$(dirname "$gi")"
     printf 'lefthook-local.yml\n' >> "$gi"
     [[ -n "$(git config --global core.excludesFile 2>/dev/null || true)" ]] \
       || git config --global core.excludesFile "$gi"
-    note "→ added lefthook-local.yml to global gitignore ($gi)"
+    note "-> added lefthook-local.yml to global gitignore ($gi)"
   fi
 }
 
 chain_husky() { # $1 = target repo; append lefthook to husky hooks, never replace
   local target="$1" hook file
-  note "→ husky detected — chaining lefthook after it (not replacing)"
+  note "-> husky detected -- chaining lefthook after it (not replacing)"
   for hook in pre-commit pre-push; do
     file="$target/.husky/$hook"
     if [[ -f "$file" ]] && grep -q "lefthook run $hook" "$file"; then
@@ -253,7 +271,7 @@ chain_husky() { # $1 = target repo; append lefthook to husky hooks, never replac
     fi
     printf 'lefthook run %s "$@"\n' "$hook" >> "$file"
     chmod +x "$file"
-    note "→ chained lefthook into .husky/$hook"
+    note "-> chained lefthook into .husky/$hook"
   done
   echo "  NOTE: hooks stay husky-managed; lefthook runs as the last step of each."
 }
@@ -262,47 +280,67 @@ run_gitleaks_baseline() { # $1 = target repo
   local target="$1" scan="git" n
   local report="$target/.gitleaks-baseline.json"
   gitleaks git --help >/dev/null 2>&1 || scan="detect"
-  note "→ building gitleaks baseline (full history scan, one-time)…"
+  note "-> building gitleaks baseline (full history scan, one-time)..."
   ( cd "$target" && gitleaks "$scan" --config "$REPO_DIR/hooks/.gitleaks.toml" \
       --report-path "$report" --report-format json --redact \
       --exit-code 0 >/dev/null 2>&1 ) || true
   if [[ ! -f "$report" ]]; then
-    bad "gitleaks baseline scan produced no report — run it manually"
+    bad "gitleaks baseline scan produced no report -- run it manually"
     return 0
   fi
   n="$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))))' "$report" 2>/dev/null \
     || grep -c '"RuleID"' "$report" || echo "?")"
-  echo "  baseline: $n hallazgos — revísalos una vez"
+  echo "  baseline: $n findings -- review them once"
   if [[ "$n" != "0" && "$n" != "?" ]]; then
-    echo "  ┌─ file · rule ─────────────────────────────"
+    echo "  +- file - rule -----------------------------"
     python3 - "$report" 2>/dev/null <<'PY' || true
 import json, sys
 for f in json.load(open(sys.argv[1]))[:20]:
-    print(f"  | {f.get('File', '?')} · {f.get('RuleID', '?')}")
+    print(f"  | {f.get('File', '?')} - {f.get('RuleID', '?')}")
 PY
-    echo "  └───────────────────────────────────────────"
+    echo "  +-------------------------------------------"
     echo "  These findings are grandfathered by the baseline; NEW leaks still block."
+    local files
+    files="$(python3 - "$report" 2>/dev/null <<'PY' || echo "the baseline report"
+import json, sys
+seen = []
+for f in json.load(open(sys.argv[1])):
+    p = f.get("File", "?")
+    if p not in seen:
+        seen.append(p)
+extra = f" and {len(seen) - 3} more" if len(seen) > 3 else ""
+print(", ".join(seen[:3]) + extra)
+PY
+)"
+    agent_action "Baseline grandfathered $n historical findings in $files -- confirm they are dead/test data."
   else
-    echo "  (0 findings — clean history, baseline kept as an empty ledger)"
+    echo "  (0 findings -- clean history, baseline kept as an empty ledger)"
   fi
 }
 
 ensure_flow_import() { # $1 = target repo: @import FLOW into its CLAUDE.md
   local target="$1" cmd="$1/CLAUDE.md" line='@~/.agents/skills/FLOW_CLAUDE.md'
   ensure_flow_link
-  [[ -f "$cmd" ]] || { printf '# CLAUDE.md\n' > "$cmd"; note "→ created CLAUDE.md"; }
+  [[ -f "$cmd" ]] || { printf '# CLAUDE.md\n' > "$cmd"; note "-> created CLAUDE.md"; }
   if grep -qF "$line" "$cmd"; then
-    note "→ CLAUDE.md already imports FLOW_CLAUDE.md"
+    note "-> CLAUDE.md already imports FLOW_CLAUDE.md"
   else
     printf '\n%s\n' "$line" >> "$cmd"
-    note "→ added FLOW_CLAUDE.md import to CLAUDE.md"
+    note "-> added FLOW_CLAUDE.md import to CLAUDE.md"
   fi
+}
+
+ship_config_has_todos() { # $1 = CLAUDE.md path: TODOs left in the ship config block?
+  awk '/^## ship config$/ { s = 1; next } s && /^## / { s = 0 } s' "$1" 2>/dev/null \
+    | grep -q 'TODO'
 }
 
 ensure_ship_config_template() { # $1 = target repo: stamp the block if missing
   local cmd="$1/CLAUDE.md"
   if grep -q '^## ship config' "$cmd" 2>/dev/null; then
-    note "→ CLAUDE.md already has a '## ship config' block"
+    note "-> CLAUDE.md already has a '## ship config' block"
+    ship_config_has_todos "$cmd" && agent_action \
+      "Fill the TODOs in the '## ship config' block of CLAUDE.md (lint/build/test commands for this stack)."
     return 0
   fi
   cat >> "$cmd" <<'EOF'
@@ -319,7 +357,8 @@ loc_limit: 500
 simplify: 500       # run /simplify only if changed LOC > N (off = only on request)
 ```
 EOF
-  note "→ stamped '## ship config' template in CLAUDE.md (fill the TODOs)"
+  note "-> stamped '## ship config' template in CLAUDE.md (fill the TODOs)"
+  agent_action "Fill the TODOs in the '## ship config' block of CLAUDE.md (lint/build/test commands for this stack)."
 }
 
 check_agent_docs_fences() { # $1 = target repo: agent instruction files must
@@ -342,7 +381,8 @@ check_agent_docs_fences() { # $1 = target repo: agent instruction files must
     count=$((count + n))
   done
   if [[ "$count" -gt 0 ]]; then
-    note "→ $count bloques de código en CLAUDE.md/AGENTS.md — los agent instruction files referencian paths, no embeben código; corre /doctos para limpiarlo"
+    note "-> $count embedded code blocks in CLAUDE.md/AGENTS.md -- agent instruction files should reference paths, not embed code; run /doctos to clean them up"
+    agent_action "Run /doctos on this repo: $count embedded code blocks in CLAUDE.md/AGENTS.md."
   fi
 }
 
@@ -363,8 +403,68 @@ global_hookspath_status() { # prints: none | chained | broken:<missing hooks>
   if [[ -z "$missing" ]]; then echo "chained"; else echo "broken:${missing# }"; fi
 }
 
+local_tracked_hookspath() { # $1 = target repo; prints the repo-relative LOCAL
+  # core.hooksPath dir when it is TRACKED (versioned hooks like .githooks);
+  # fails otherwise. Installing lefthook stubs there would modify tracked files.
+  local target="$1" lp
+  lp="$(git -C "$target" config --local core.hooksPath 2>/dev/null || true)"
+  [[ -n "$lp" ]] || return 1
+  lp="${lp/#\~/$HOME}"
+  case "$lp" in
+    "$target"/*) lp="${lp#"$target"/}" ;;
+    /*) return 1 ;;   # absolute path outside the repo: nothing tracked to protect
+  esac
+  [[ -n "$(git -C "$target" ls-files -- "$lp" 2>/dev/null)" ]] || return 1
+  printf '%s\n' "$lp"
+}
+
+verify_tracked_hooks_dir_clean() { # $1 = target repo, $2 = tracked hooks dir
+  # (repo-relative). Undo anything lefthook wrote into it: restore modified
+  # tracked files, delete untracked stubs -- only files that mention lefthook.
+  local target="$1" dir="$2" dirty line st path
+  dirty="$(git -C "$target" status --porcelain -- "$dir" 2>/dev/null || true)"
+  if [[ -z "$dirty" ]]; then
+    note "-> tracked hooks dir $dir verified clean (git status)"
+    return 0
+  fi
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    st="${line:0:2}"; path="${line:3}"
+    grep -q lefthook "$target/$path" 2>/dev/null || continue
+    if [[ "$st" == "??" ]]; then
+      rm -f "$target/$path"; note "-> removed lefthook stub $path from tracked hooks dir"
+    else
+      git -C "$target" checkout -- "$path" 2>/dev/null \
+        && note "-> restored $path (lefthook had overwritten it)"
+    fi
+  done <<<"$dirty"
+  dirty="$(git -C "$target" status --porcelain -- "$dir" 2>/dev/null || true)"
+  if [[ -z "$dirty" ]]; then
+    note "-> tracked hooks dir $dir verified clean (git status)"
+  else
+    bad "tracked hooks dir $dir still has changes after install -- review: git -C $target status -- $dir"
+  fi
+}
+
+cleanup_team_autocreated_yml() { # $1 = target repo, $2 = lefthook.yml existed
+  # before install (0/1). 'lefthook install' auto-creates lefthook.yml when the
+  # repo has none ("Config not found, creating..."); in team mode that leaves a
+  # committable file this tool never meant to add. Remove it when it is
+  # untracked AND lefthook-made; a tracked one belongs to the project.
+  local target="$1" existed="$2" yml="$1/lefthook.yml"
+  [[ -f "$yml" ]] || return 0
+  if git -C "$target" ls-files --error-unmatch lefthook.yml >/dev/null 2>&1; then
+    note "-> project tracks its own lefthook.yml -- kept untouched; lefthook-local.yml extends it"
+  elif [[ "$existed" == 0 ]] || grep -qi 'example usage' "$yml"; then
+    rm -f "$yml"
+    note "-> removed lefthook.yml auto-created by 'lefthook install' (team mode: config lives in lefthook-local.yml)"
+  fi
+}
+
 wire_repo_hooks() { # $1 = target repo (absolute); full wiring of ONE repo, no exit
-  local target="$1" team="$TEAM" cfg_file answer hookspath gitdir
+  local target="$1" team="$TEAM" cfg_file answer hookspath gitdir local_hp had_lefthook_yml=0
+  AGENT_ACTIONS=""
+  [[ -f "$target/lefthook.yml" ]] && had_lefthook_yml=1
 
   # solo vs team: flag wins; otherwise ask (non-interactive defaults to solo)
   if [[ "$team" == 0 && -t 0 ]]; then
@@ -379,7 +479,7 @@ wire_repo_hooks() { # $1 = target repo (absolute); full wiring of ONE repo, no e
     cfg_file="$target/lefthook.yml"
   fi
   if [[ -f "$cfg_file" ]] && ! grep -qF "$REMOTE_URL" "$cfg_file"; then
-    bad "$(basename "$cfg_file") exists and does not reference $REMOTE_URL — merge this snippet manually:"
+    bad "$(basename "$cfg_file") exists and does not reference $REMOTE_URL -- merge this snippet manually:"
     echo "  remotes:"
     echo "    - git_url: $REMOTE_URL"
     echo "      ref: main"
@@ -392,8 +492,20 @@ wire_repo_hooks() { # $1 = target repo (absolute); full wiring of ONE repo, no e
   hookspath="$(global_hookspath_status)"
   if [[ -d "$target/.husky" ]]; then
     chain_husky "$target"
+  elif local_hp="$(local_tracked_hookspath "$target")"; then
+    # repo-LOCAL core.hooksPath pointing at a TRACKED dir (versioned hooks):
+    # never install stubs there -- lefthook would rewrite tracked files. Same
+    # scoped override as the global-chained case: stubs go to .git/hooks.
+    gitdir="$(git -C "$target" rev-parse --absolute-git-dir)"
+    if ( cd "$target" && GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath \
+        GIT_CONFIG_VALUE_0="$gitdir/hooks" lefthook install --force ); then
+      note "-> local core.hooksPath ($local_hp) is tracked -- lefthook stubs installed in .git/hooks instead; the project's hooks in $local_hp stay intact and chain in if the global wrapper exists"
+    else
+      bad "lefthook install --force failed -- see its message above; fix and re-run"
+    fi
+    verify_tracked_hooks_dir_clean "$target" "$local_hp"
   elif [[ "$hookspath" == broken:* ]]; then
-    bad "global core.hooksPath set but chain wrapper(s) missing for: ${hookspath#broken:} — each wrapper must delegate to \$(git rev-parse --git-dir)/hooks/<hook>; add them and re-run"
+    bad "global core.hooksPath set but chain wrapper(s) missing for: ${hookspath#broken:} -- each wrapper must delegate to \$(git rev-parse --git-dir)/hooks/<hook>; add them and re-run"
   elif [[ "$hookspath" == "chained" ]]; then
     # lefthook installs into `git rev-parse --git-path hooks`, which honors the
     # GLOBAL core.hooksPath — a plain --force would clobber the chain wrappers.
@@ -402,20 +514,23 @@ wire_repo_hooks() { # $1 = target repo (absolute); full wiring of ONE repo, no e
     gitdir="$(git -C "$target" rev-parse --absolute-git-dir)"
     if ( cd "$target" && GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath \
         GIT_CONFIG_VALUE_0="$gitdir/hooks" lefthook install --force ); then
-      note "→ global hooksPath with chain wrappers: OK — lefthook stubs in .git/hooks (invoked via the chain)"
+      note "-> global hooksPath with chain wrappers: OK -- lefthook stubs in .git/hooks (invoked via the chain)"
     else
-      bad "lefthook install --force failed — see its message above; fix and re-run"
+      bad "lefthook install --force failed -- see its message above; fix and re-run"
     fi
   elif ( cd "$target" && lefthook install ); then
-    note "→ lefthook install done"
+    note "-> lefthook install done"
   else
-    bad "lefthook install failed — see its message above (e.g. a custom core.hooksPath); fix and re-run"
+    bad "lefthook install failed -- see its message above (e.g. a custom core.hooksPath); fix and re-run"
   fi
+
+  [[ "$team" == 1 ]] && cleanup_team_autocreated_yml "$target" "$had_lefthook_yml"
 
   run_gitleaks_baseline "$target"
   ensure_flow_import "$target"
   ensure_ship_config_template "$target"
   check_agent_docs_fences "$target"
+  print_agent_actions
 }
 
 list_child_repos() { # $1 = candidate workspace root; prints 1st-level dirs that are git repos
@@ -440,22 +555,22 @@ install_repo() {
   if [[ "${#children[@]}" -eq 0 ]]; then
     wire_repo_hooks "$target"
     if [[ "$PROBLEMS" -gt 0 ]]; then
-      echo "── $PROBLEMS problem(s) found"
+      echo "-- $PROBLEMS problem(s) found"
       exit 1
     fi
-    echo "── hooks wired into $target. First commit exercises them."
+    echo "-- hooks wired into $target. First commit exercises them."
     exit 0
   fi
 
   # WORKSPACE: a git repo whose 1st-level children are git repos themselves.
   # Each child gets wired; the parent is skipped by default (workspace roots
   # carry their own no-commit locks) unless --include-parent.
-  note "→ workspace detected: ${#children[@]} child repo(s) under $target"
+  note "-> workspace detected: ${#children[@]} child repo(s) under $target"
   local targets=() results=()
   if [[ "$INCLUDE_PARENT" == 1 ]]; then
     targets+=("$target")
   else
-    note "→ parent skipped (use --include-parent to wire it too)"
+    note "-> parent skipped (use --include-parent to wire it too)"
   fi
   targets+=("${children[@]}")
 
@@ -464,7 +579,7 @@ install_repo() {
     [[ "$child" == "$target" ]] && name="$name (parent)"
     before="$PROBLEMS"
     echo ""
-    note "── wiring $name"
+    note "-- wiring $name"
     wire_repo_hooks "$child"
     if [[ "$PROBLEMS" -gt "$before" ]]; then
       results+=("$name|$((PROBLEMS - before)) problem(s)")
@@ -474,21 +589,76 @@ install_repo() {
   done
 
   echo ""
-  echo "── workspace report ($target)"
+  echo "-- workspace report ($target)"
   printf '  %-32s %s\n' "repo" "result"
   printf '  %-32s %s\n' "----" "------"
   for child in "${results[@]}"; do
     printf '  %-32s %s\n' "${child%%|*}" "${child##*|}"
   done
   if [[ "$PROBLEMS" -gt 0 ]]; then
-    echo "── $PROBLEMS problem(s) found"
+    echo "-- $PROBLEMS problem(s) found"
     exit 1
   fi
-  echo "── hooks wired into ${#targets[@]} repo(s). First commit in each exercises them."
+  echo "-- hooks wired into ${#targets[@]} repo(s). First commit in each exercises them."
   exit 0
 }
 
 if [[ "$MODE" == "repo" ]]; then install_repo; fi
+
+# -- about (--about): orientation for agents landing cold on a repo -----------
+run_about() {
+  cat <<'EOF'
+flowkit -- manager for the skills + hooks + flow layer (github.com/dPeluChe/skills)
+
+Four layers keep agent-driven work consistent and safe:
+  1. harness guards    Claude Code PreToolUse hooks (git-guard, secret-guard)
+  2. git hooks         centralized lefthook config fetched from this repo
+  3. ship skill gates  lint/build/test read from '## ship config' in CLAUDE.md
+  4. CI backstop       the same checks re-run server-side
+
+Each repo's commands live in the '## ship config' block of its CLAUDE.md.
+EOF
+  git rev-parse --show-toplevel >/dev/null 2>&1 || exit 0
+
+  local root name hooks_mode="none" baseline="none" ship="absent" flow="no"
+  local guards="not installed" n
+  root="$(git rev-parse --show-toplevel)"
+  name="$(basename "$root")"
+  if git -C "$root" ls-files --error-unmatch lefthook.yml >/dev/null 2>&1; then
+    hooks_mode="lefthook.yml (committed)"
+  elif [[ -f "$root/lefthook-local.yml" ]]; then
+    hooks_mode="lefthook-local.yml (personal)"
+  elif [[ -f "$root/lefthook.yml" ]]; then
+    hooks_mode="lefthook.yml (untracked)"
+  fi
+  if [[ -f "$root/.gitleaks-baseline.json" ]]; then
+    n="$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))))' \
+      "$root/.gitleaks-baseline.json" 2>/dev/null || echo "?")"
+    baseline="present, $n findings grandfathered"
+  fi
+  if grep -q '^## ship config' "$root/CLAUDE.md" 2>/dev/null; then
+    if ship_config_has_todos "$root/CLAUDE.md"; then
+      ship="present (TODOs pending)"
+    else
+      ship="present"
+    fi
+  fi
+  grep -qF '@~/.agents/skills/FLOW_CLAUDE.md' "$root/CLAUDE.md" 2>/dev/null && flow="yes"
+  if grep -qF 'hooks-harness/git-guard.sh' "$CLAUDE_SETTINGS" 2>/dev/null \
+     && grep -qF 'hooks-harness/secret-guard.sh' "$CLAUDE_SETTINGS" 2>/dev/null; then
+    guards="installed"
+  fi
+  echo ""
+  echo "This repo ($name):"
+  echo "  hooks mode:      $hooks_mode"
+  echo "  baseline:        $baseline"
+  echo "  ship config:     $ship"
+  echo "  FLOW import:     $flow"
+  echo "  harness guards:  $guards"
+  exit 0
+}
+
+if [[ "$MODE" == "about" ]]; then run_about; fi
 
 # ── Claude Code harness hooks (--harness): PreToolUse guards ───────────────
 # git-guard.sh (matcher Bash) + secret-guard.sh (matcher Edit|Write) served
@@ -498,13 +668,13 @@ ensure_harness_link() {
   local src="$REPO_DIR/hooks/harness" link="$HARNESS_LINK"
   [[ -d "$src" ]] || { bad "hooks/harness missing from repo"; return 0; }
   if [[ -L "$link" && "$(readlink "$link")" == "$src" ]]; then
-    [[ "$MODE" == "check" ]] || note "→ harness link ok  $link"
+    [[ "$MODE" == "check" ]] || note "-> harness link ok  $link"
   elif [[ -e "$link" && ! -L "$link" ]]; then
-    bad "$link exists and is not a symlink — remove it to adopt"
+    bad "$link exists and is not a symlink -- remove it to adopt"
   else
     [[ "$MODE" == "check" ]] && { bad "harness link missing/wrong ($link)"; return 0; }
     mkdir -p "$(dirname "$link")"
-    rm -f "$link"; ln -s "$src" "$link"; note "→ harness linked  $link"
+    rm -f "$link"; ln -s "$src" "$link"; note "-> harness linked  $link"
   fi
 }
 
@@ -568,21 +738,21 @@ install_harness() {
   local out rc=0
   out="$(merge_harness_settings)" || rc=$?
   if [[ "$rc" -ne 0 ]]; then
-    bad "settings merge failed: ${out:-python3 error} — fix $CLAUDE_SETTINGS and re-run"
+    bad "settings merge failed: ${out:-python3 error} -- fix $CLAUDE_SETTINGS and re-run"
   else
     local line
     while IFS= read -r line; do
       case "$line" in
-        ADDED\ *)   note "→ settings: added        ${line#ADDED }" ;;
-        PRESENT\ *) note "→ settings: already there ${line#PRESENT }" ;;
+        ADDED\ *)   note "-> settings: added        ${line#ADDED }" ;;
+        PRESENT\ *) note "-> settings: already there ${line#PRESENT }" ;;
       esac
     done <<<"$out"
   fi
   if [[ "$PROBLEMS" -gt 0 ]]; then
-    echo "── $PROBLEMS problem(s) found"
+    echo "-- $PROBLEMS problem(s) found"
     exit 1
   fi
-  echo "── harness hooks wired ($CLAUDE_SETTINGS). New Claude Code sessions pick them up."
+  echo "-- harness hooks wired ($CLAUDE_SETTINGS). New Claude Code sessions pick them up."
   exit 0
 }
 
@@ -594,7 +764,7 @@ check_harness() { # --check: validate link + settings entries once installed;
   local link_ok=0
   [[ -L "$link" && "$(readlink "$link")" == "$src" ]] && link_ok=1
   if [[ "$link_ok" -eq 0 && ! -e "$link" ]] && ! grep -q '^PRESENT' <<<"$out"; then
-    note "· harness hooks not installed (optional — run: make harness)"
+    note "- harness hooks not installed (optional -- run: make harness)"
     return 0
   fi
   [[ "$link_ok" -eq 1 ]] || bad "harness link missing/wrong ($link)"
@@ -603,7 +773,7 @@ check_harness() { # --check: validate link + settings entries once installed;
       [[ "$line" == MISSING\ * ]] && bad "harness settings entry missing: ${line#MISSING }"
     done <<<"$out"
   elif [[ "$link_ok" -eq 1 ]]; then
-    note "✓ harness hooks (link + 2 settings entries)"
+    note "ok harness hooks (link + 2 settings entries)"
   fi
 }
 
@@ -615,19 +785,19 @@ UPGRADE_PENDING=0
 report_tool_upgrade() { # $1 = tool, $2 = required minimum; $BREW_OUTDATED may list it
   local name="$1" min="$2" cur
   if ! command -v "$name" >/dev/null 2>&1; then
-    echo "✗ $name: not installed · min $min — brew install $name"
+    echo "x $name: not installed - min $min -- brew install $name"
     UPGRADE_PENDING=1
     return 0
   fi
   cur="$(tool_version "$name")"
   if ! ver_ge "${cur:-0}" "$min"; then
-    echo "✗ $name: ${cur:-?} · min $min · BELOW minimum — brew upgrade $name"
+    echo "x $name: ${cur:-?} - min $min - BELOW minimum -- brew upgrade $name"
     UPGRADE_PENDING=1
   elif [[ -n "$BREW_OUTDATED" ]] && grep -qxF "$name" <<<"$BREW_OUTDATED"; then
-    echo "△ $name: $cur · min $min ok · newer in brew — brew upgrade $name"
+    echo "! $name: $cur - min $min ok - newer in brew -- brew upgrade $name"
     UPGRADE_PENDING=1
   else
-    echo "✓ $name: $cur · min $min · up to date"
+    echo "ok $name: $cur - min $min - up to date"
   fi
 }
 
@@ -644,21 +814,21 @@ run_upgrade() {
   if git -C "$REPO_DIR" fetch --quiet origin 2>/dev/null; then
     behind="$(git -C "$REPO_DIR" rev-list --count HEAD..origin/main 2>/dev/null || echo "?")"
     if [[ "$behind" == "0" ]]; then
-      echo "✓ skills repo: up to date with origin/main"
+      echo "ok skills repo: up to date with origin/main"
     else
-      echo "△ skills repo: $behind commit(s) behind origin/main — run: git pull && make install"
+      echo "! skills repo: $behind commit(s) behind origin/main -- run: git pull && make install"
       UPGRADE_PENDING=1
     fi
   else
-    echo "✗ skills repo: could not fetch origin — check network/remote"
+    echo "x skills repo: could not fetch origin -- check network/remote"
     UPGRADE_PENDING=1
   fi
 
   if [[ "$UPGRADE_PENDING" -gt 0 ]]; then
-    echo "── updates pending"
+    echo "-- updates pending"
     exit 1
   fi
-  echo "── everything up to date"
+  echo "-- everything up to date"
   exit 0
 }
 
@@ -678,10 +848,10 @@ fi
 
 # repo hygiene: skills are served from the checked-out branch
 BRANCH="$(git -C "$REPO_DIR" branch --show-current 2>/dev/null || echo '?')"
-[[ "$BRANCH" != "main" ]] && bad "repo is on branch '$BRANCH' — symlinks serve it to ALL agents (checkout main)"
+[[ "$BRANCH" != "main" ]] && bad "repo is on branch '$BRANCH' -- symlinks serve it to ALL agents (checkout main)"
 
 if [[ "$PROBLEMS" -gt 0 ]]; then
-  echo "── $PROBLEMS problem(s) found"
+  echo "-- $PROBLEMS problem(s) found"
   exit 1
 fi
-if [[ "$MODE" == "check" ]]; then echo "── chain healthy"; else echo "── in sync. Skills pick up on next session."; fi
+if [[ "$MODE" == "check" ]]; then echo "-- chain healthy"; else echo "-- in sync. Skills pick up on next session."; fi

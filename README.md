@@ -73,6 +73,7 @@ flowkit check      # doctor: validate every link without touching anything (exit
 flowkit prune      # sync + remove dead links left by renamed/deleted skills
 flowkit hooks      # wire centralized git hooks into the repo you're standing in
 flowkit upgrade    # lefthook/gitleaks versions + clone freshness (exit 1 if pending)
+flowkit about      # what flowkit is + this repo's detected flow status (for agents landing cold)
 ```
 
 `flowkit hooks` accepts `--team` and `--include-parent` — same semantics as the

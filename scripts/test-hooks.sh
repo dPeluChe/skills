@@ -388,10 +388,17 @@ console.log("embedded");
 ```
 EOF
   if run_install "$GCFG_NONE" --repo "$FENCED"; then
-    if grep -q "2 bloques de código en CLAUDE.md/AGENTS.md" "$TMP/out.log"; then
+    if grep -q "2 embedded code blocks in CLAUDE.md/AGENTS.md" "$TMP/out.log"; then
       ok "agent-docs fences: 2 extra fences counted, /doctos recommended, exit 0"
     else
       nope "agent-docs fences: fence count/notice missing (see $TMP/out.log)"
+    fi
+    if grep -q -- "---- copy below to your agent ----" "$TMP/out.log" \
+       && grep -q "Run /doctos on this repo: 2 embedded code blocks" "$TMP/out.log" \
+       && grep -q "For context on this tooling, run: flowkit about" "$TMP/out.log"; then
+      ok "agent block: actionable findings collected into the copy-paste section"
+    else
+      nope "agent block: delimited section or its action lines missing (see $TMP/out.log)"
     fi
   else
     nope "agent-docs fences: detection must never block the install"
@@ -409,10 +416,15 @@ lint: true
 ```
 EOF
   if run_install "$GCFG_NONE" --repo "$CLEANDOC" \
-     && ! grep -q "bloques de código" "$TMP/out.log"; then
+     && ! grep -q "embedded code blocks" "$TMP/out.log"; then
     ok "agent-docs fences: ship config yaml fence alone stays silent"
   else
     nope "agent-docs fences: false positive on the canonical ship config fence"
+  fi
+  if ! grep -q -- "---- copy below to your agent ----" "$TMP/out.log"; then
+    ok "agent block: repo with nothing actionable prints no block"
+  else
+    nope "agent block: printed despite no actions (see $TMP/out.log)"
   fi
 
   # global hooksPath WITH chain wrappers: proceed, stubs land in .git/hooks
@@ -455,6 +467,93 @@ EOF
     else
       nope "hooksPath broken: exit 1 but the missing wrapper is not named"
     fi
+  fi
+
+  # --team: lefthook.yml auto-created by 'lefthook install' must be removed
+  # (untracked + default content); config stays in lefthook-local.yml only.
+  # excludesFile pre-set in the temp gitconfig so the test never touches the
+  # user's real global ignore.
+  GCFG_TEAM="$TMP/gitconfig-team"
+  git config --file "$GCFG_TEAM" core.excludesFile "$TMP/team-global-ignore"
+  TEAMA="$TMP/team-auto"
+  make_repo "$TEAMA"
+  printf '# EXAMPLE USAGE:\n#\n#   https://lefthook.dev/configuration/\n' > "$TEAMA/lefthook.yml"
+  if run_install "$GCFG_TEAM" --repo "$TEAMA" --team; then
+    if [[ ! -f "$TEAMA/lefthook.yml" && -f "$TEAMA/lefthook-local.yml" ]] \
+       && grep -q "removed lefthook.yml auto-created" "$TMP/out.log"; then
+      ok "--team: auto-created (untracked, default) lefthook.yml removed, local yml kept"
+    else
+      nope "--team: auto-created lefthook.yml survived or removal not reported (see $TMP/out.log)"
+    fi
+  else
+    nope "--team: install exited non-zero on the auto-created-yml fixture"
+  fi
+
+  # --team: a TRACKED lefthook.yml belongs to the project -- keep it untouched
+  TEAMB="$TMP/team-tracked"
+  make_repo "$TEAMB"
+  printf 'pre-commit:\n  jobs: []\n' > "$TEAMB/lefthook.yml"
+  git -C "$TEAMB" add lefthook.yml
+  git -C "$TEAMB" -c user.email=t@t.t -c user.name=t commit -q -m "own lefthook config"
+  cp "$TEAMB/lefthook.yml" "$TMP/team-tracked.orig"
+  if run_install "$GCFG_TEAM" --repo "$TEAMB" --team; then
+    if cmp -s "$TEAMB/lefthook.yml" "$TMP/team-tracked.orig" \
+       && grep -q "lefthook-local.yml extends it" "$TMP/out.log"; then
+      ok "--team: tracked lefthook.yml untouched, extends-note printed"
+    else
+      nope "--team: tracked lefthook.yml modified or note missing (see $TMP/out.log)"
+    fi
+  else
+    nope "--team: install exited non-zero on the tracked-yml fixture"
+  fi
+
+  # repo-LOCAL core.hooksPath pointing at a TRACKED dir (versioned hooks):
+  # stubs must go to .git/hooks and the tracked dir must stay byte-identical
+  LOCALHP="$TMP/local-hookspath"
+  make_repo "$LOCALHP"
+  mkdir -p "$LOCALHP/.githooks"
+  printf '#!/bin/sh\n# project-owned hook\nexit 0\n' > "$LOCALHP/.githooks/pre-commit"
+  chmod +x "$LOCALHP/.githooks/pre-commit"
+  git -C "$LOCALHP" add .githooks
+  git -C "$LOCALHP" -c user.email=t@t.t -c user.name=t commit -q -m "versioned hooks"
+  git -C "$LOCALHP" config core.hooksPath .githooks
+  if run_install "$GCFG_NONE" --repo "$LOCALHP"; then
+    if [[ -z "$(git -C "$LOCALHP" status --porcelain -- .githooks)" ]] \
+       && grep -q "project-owned hook" "$LOCALHP/.githooks/pre-commit" \
+       && [[ -f "$LOCALHP/.git/hooks/pre-commit" ]] \
+       && grep -q "local core.hooksPath (.githooks) is tracked" "$TMP/out.log" \
+       && grep -q "verified clean" "$TMP/out.log"; then
+      ok "local tracked hooksPath: stubs in .git/hooks, .githooks intact and verified clean"
+    else
+      nope "local tracked hooksPath: tracked dir touched or wrong path taken (see $TMP/out.log)"
+    fi
+  else
+    nope "local tracked hooksPath: install exited non-zero"
+  fi
+
+  # leaky history: baseline table + grandfathered agent action, and the whole
+  # --repo output must be English + plain ASCII (no box-drawing, no Spanish)
+  LEAKY="$TMP/leaky-history"
+  make_repo "$LEAKY"
+  printf 'token = "dpat_%s"\n' "$(printf 'a%.0s' {1..64})" > "$LEAKY/historic.txt"
+  git -C "$LEAKY" add historic.txt
+  git -C "$LEAKY" -c user.email=t@t.t -c user.name=t commit -q -m "historic leak"
+  if run_install "$GCFG_NONE" --repo "$LEAKY"; then
+    if grep -q "baseline: 1 findings -- review them once" "$TMP/out.log" \
+       && grep -q "Baseline grandfathered 1 historical findings in historic.txt" "$TMP/out.log" \
+       && grep -q "Fill the TODOs in the '## ship config' block" "$TMP/out.log"; then
+      ok "baseline: findings reported in English + grandfathered agent action with file named"
+    else
+      nope "baseline: findings/agent action lines missing (see $TMP/out.log)"
+    fi
+    if ! grep -q "┌" "$TMP/out.log" && ! grep -q "─" "$TMP/out.log" \
+       && ! grep -q "hallazgos" "$TMP/out.log" && ! grep -q "bloques" "$TMP/out.log"; then
+      ok "--repo output: ASCII-only and English (no ┌/─ box-drawing, no Spanish)"
+    else
+      nope "--repo output: box-drawing or Spanish strings remain (see $TMP/out.log)"
+    fi
+  else
+    nope "leaky-history: install exited non-zero"
   fi
 
   # --upgrade: reports both tools + repo freshness, exits 0 or 1, never pulls
@@ -510,6 +609,49 @@ if [[ -x "$FLOWKIT" ]]; then
     ok "flowkit check: output and exit code ($dispatch_rc) identical to install.sh --check"
   else
     nope "flowkit check: dispatch diverges from install.sh --check (rc $dispatch_rc vs $direct_rc)"
+  fi
+
+  # about outside a git repo: static orientation only, exit 0
+  mkdir -p "$TMP/fk-notrepo"
+  if ( cd "$TMP/fk-notrepo" && "$FLOWKIT" about ) > "$TMP/fk-about-static.log" 2>&1 \
+     && grep -q "github.com/dPeluChe/skills" "$TMP/fk-about-static.log" \
+     && grep -q "harness guards" "$TMP/fk-about-static.log" \
+     && grep -q "CI backstop" "$TMP/fk-about-static.log" \
+     && ! grep -q "This repo (" "$TMP/fk-about-static.log"; then
+    ok "flowkit about (outside a repo): static part only, exit 0"
+  else
+    nope "flowkit about (outside a repo): wrong output or non-zero exit (see $TMP/fk-about-static.log)"
+  fi
+
+  # about inside a repo fixture: static + coherent dynamic status
+  FK_ABOUT="$TMP/fk-about-repo"
+  mkdir -p "$FK_ABOUT"
+  git -C "$FK_ABOUT" init -q
+  git -C "$FK_ABOUT" -c user.email=t@t.t -c user.name=t commit -q --allow-empty -m init
+  printf 'remotes: []\n' > "$FK_ABOUT/lefthook-local.yml"
+  printf '[]\n' > "$FK_ABOUT/.gitleaks-baseline.json"
+  cat > "$FK_ABOUT/CLAUDE.md" <<'EOF'
+# Fixture
+
+@~/.agents/skills/FLOW_CLAUDE.md
+
+## ship config
+
+```yaml
+lint:            # TODO e.g. npm run lint
+```
+EOF
+  if ( cd "$FK_ABOUT" && CLAUDE_SETTINGS_FILE="$TMP/fk-about-nosettings.json" "$FLOWKIT" about ) \
+       > "$TMP/fk-about-dyn.log" 2>&1 \
+     && grep -q "This repo (fk-about-repo)" "$TMP/fk-about-dyn.log" \
+     && grep -q "hooks mode:      lefthook-local.yml (personal)" "$TMP/fk-about-dyn.log" \
+     && grep -q "baseline:        present, 0 findings grandfathered" "$TMP/fk-about-dyn.log" \
+     && grep -q "ship config:     present (TODOs pending)" "$TMP/fk-about-dyn.log" \
+     && grep -q "FLOW import:     yes" "$TMP/fk-about-dyn.log" \
+     && grep -q "harness guards:  not installed" "$TMP/fk-about-dyn.log"; then
+    ok "flowkit about (inside a repo): dynamic status coherent with the fixture"
+  else
+    nope "flowkit about (inside a repo): dynamic lines wrong (see $TMP/fk-about-dyn.log)"
   fi
 
   # symlink resolution: run through a symlink exactly like ~/bin/flowkit does
@@ -727,7 +869,7 @@ print("yes" if ok else "no")
   if AGENTS_HOOKS_DIR="$HARNESS_TMP/hooks-harness" CLAUDE_SETTINGS_FILE="$H_SETTINGS" \
        AGENTS_SKILLS_DIR="$TMP/h-agents" CLAUDE_SKILLS_DIR="$TMP/h-claude" \
        FLOWKIT_BIN_DIR="$TMP/h-bin" bash "$REPO_DIR/scripts/install.sh" --check \
-       > "$TMP/out.log" 2>&1; grep -q "✓ harness hooks" "$TMP/out.log"; then
+       > "$TMP/out.log" 2>&1; grep -q "ok harness hooks" "$TMP/out.log"; then
     ok "--check: validates harness link + settings entries once installed"
   else
     nope "--check: harness validation line missing (see $TMP/out.log)"
