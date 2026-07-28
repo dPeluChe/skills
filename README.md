@@ -54,6 +54,31 @@ More coming as they mature from daily use.
 
 ## Install
 
+### flowkit (recommended)
+
+`flowkit` is the CLI for this repo — a generic manager for the skills + hooks + flow
+layer. Install once and every operation (sync, doctor, hook wiring, upgrades) is one
+command from any directory: `make install` links the skills chain AND drops a
+`flowkit` symlink into `~/bin` (it warns with the exact `~/.zshrc` line if `~/bin`
+is not in your PATH).
+
+```bash
+git clone https://github.com/dPeluChe/skills.git
+cd skills && make install   # skills chain + ~/bin/flowkit
+
+# from then on, from ANY directory:
+flowkit help       # subcommands, one line each
+flowkit install    # re-sync skills after a git pull
+flowkit check      # doctor: validate every link without touching anything (exit 0/1)
+flowkit prune      # sync + remove dead links left by renamed/deleted skills
+flowkit hooks      # wire centralized git hooks into the repo you're standing in
+flowkit upgrade    # lefthook/gitleaks versions + clone freshness (exit 1 if pending)
+```
+
+`flowkit hooks` accepts `--team` and `--include-parent` — same semantics as the
+installer (see [Hooks](#hooks-lefthook--gitleaks) below). The CLI is pure dispatch:
+all logic lives in `scripts/install.sh`, so the alternatives below stay equivalent.
+
 ### Claude Code (plugin)
 
 ```bash
@@ -61,30 +86,25 @@ More coming as they mature from daily use.
 /plugin install doctos@dpeluche-skills
 ```
 
-### Manual (symlink — updates with `git pull`)
+### Manual (make / scripts — alternative)
 
 ```bash
-git clone https://github.com/dPeluChe/skills.git
 cd skills && ./scripts/install.sh          # links all skills (chain: ~/.claude/skills → ~/.agents/skills → repo)
 ./scripts/install.sh ship                  # or just one
 ./scripts/install.sh --check               # doctor: validate every link without touching anything (exit 0/1)
 ./scripts/install.sh --prune               # also remove dead links left by renamed/deleted skills
+./scripts/install.sh --copy doctos         # copy instead of link (editable, frozen)
 ```
 
 The chain goes through `~/.agents/skills` as a shared hub so other agent harnesses
 can serve the same skills; the script creates both hops and is idempotent — run it
-after every `git pull` that adds skills.
+(or `flowkit install`) after every `git pull` that adds skills. `--check` also
+validates the `~/bin/flowkit` link.
 
-### Manual (copy — editable, frozen)
-
-```bash
-./scripts/install.sh --copy doctos
-```
-
-A `Makefile` wraps the common flows — `make help` lists them:
+The `Makefile` wraps the same flows — `make help` lists them:
 
 ```bash
-make install    # ./scripts/install.sh
+make install    # ./scripts/install.sh (also links ~/bin/flowkit)
 make check      # ./scripts/install.sh --check
 make prune      # ./scripts/install.sh --prune
 make upgrade    # ./scripts/install.sh --upgrade
@@ -97,9 +117,10 @@ Centralized git hooks served FROM this repo via lefthook `remotes` (refetched at
 24h): every wired repo gets the same pre-commit/pre-push guarantees without copying config.
 
 ```bash
+flowkit hooks [--team] [--include-parent]   # from inside the target repo (wires $PWD)
+# equivalents from this repo's clone:
 make hooks REPO=/path/to/repo           # solo repo → writes lefthook.yml
 make hooks REPO=/path/to/repo TEAM=1    # team repo → lefthook-local.yml (globally ignored)
-# direct script alternative:
 ./scripts/install.sh --repo /path/to/repo [--team]
 ```
 

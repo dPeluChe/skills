@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# flowkit — CLI entry point for dPeluChe/skills: the skills + hooks + flow layer.
+# Pure dispatch: every subcommand forwards to scripts/install.sh, which owns ALL
+# the logic. This script only resolves its own real location (it normally runs
+# through a ~/bin symlink) and maps subcommands to installer flags.
+set -euo pipefail
+
+resolve_self() { # portable readlink -f: follow symlinks to the real script path
+  local src="$1" dir target
+  while [[ -L "$src" ]]; do
+    dir="$(cd "$(dirname "$src")" && pwd)"
+    target="$(readlink "$src")"
+    case "$target" in
+      /*) src="$target" ;;
+      *)  src="$dir/$target" ;;
+    esac
+  done
+  dir="$(cd "$(dirname "$src")" && pwd)"
+  printf '%s/%s\n' "$dir" "$(basename "$src")"
+}
+
+SELF="$(resolve_self "${BASH_SOURCE[0]}")"
+REPO_DIR="$(cd "$(dirname "$SELF")/.." && pwd)"
+INSTALL="$REPO_DIR/scripts/install.sh"
+[[ -f "$INSTALL" ]] || { echo "✗ flowkit: scripts/install.sh not found under $REPO_DIR" >&2; exit 1; }
+
+usage() {
+  cat <<'EOF'
+flowkit — manager for the skills + hooks + flow layer
+
+Usage: flowkit <subcommand>
+
+  install    sync all skills into the symlink chain (~/.claude → ~/.agents → repo)
+  check      doctor mode — validate every link, change nothing (exit 0/1)
+  prune      sync + remove orphan links left by renamed/deleted skills
+  hooks      wire centralized git hooks into the repo you are standing in ($PWD) [--team] [--include-parent]
+  upgrade    report lefthook/gitleaks versions + clone freshness (exit 1 if pending)
+  help       show this help
+
+repo de procesos: github.com/dPeluChe/skills
+EOF
+}
+
+cmd="${1:-help}"
+[[ $# -gt 0 ]] && shift
+
+case "$cmd" in
+  install) exec bash "$INSTALL" "$@" ;;
+  check)   exec bash "$INSTALL" --check "$@" ;;
+  prune)   exec bash "$INSTALL" --prune "$@" ;;
+  hooks)   exec bash "$INSTALL" --repo "$PWD" "$@" ;;
+  upgrade) exec bash "$INSTALL" --upgrade "$@" ;;
+  help|-h|--help) usage ;;
+  *)
+    usage >&2
+    echo "" >&2
+    echo "✗ unknown subcommand: $cmd" >&2
+    exit 1
+    ;;
+esac

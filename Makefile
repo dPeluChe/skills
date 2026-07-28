@@ -8,8 +8,10 @@ TEAM ?=
 
 help: ## list available targets
 	@awk -F':.*## ' '/^[a-z-]+:.*## / { printf "  make %-24s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@echo ""
+	@echo "  after 'make install', the flowkit CLI is available globally: flowkit help"
 
-install: ## sync all skills into the symlink chain (~/.claude → ~/.agents → repo)
+install: ## sync all skills into the symlink chain (~/.claude → ~/.agents → repo) + ~/bin/flowkit
 	./scripts/install.sh
 
 check: ## doctor mode — validate every link, change nothing (exit 0/1)
