@@ -4,6 +4,10 @@
 # blind to project-specific secret formats) + verify measures EFFICACY, not
 # wiring (0-jobs inert gate, canary probe, hooks_skip, commit-msg breakdown,
 # flowkit hooks --help) ──
+# ── 0.1.5 field feedback: the canary runs the EFFECTIVE pre-commit hook (the
+# file git executes), so a placebo gate fails by canary, not only by the jobs
+# diagnostic; hooks_skip accepts one-line AND nested-map forms, and an
+# unrecognized format WARNs instead of being ignored in silence ──
 
 # README: the repo-local pattern, the portability note and hooks_skip must be
 # documented (no tools required for this check)
@@ -118,9 +122,9 @@ EOF
   run_gs --repo "$GSBROKE" || true   # wiring finishes; the verify inside already flags it
   if run_gs --repo "$GSBROKE" --verify; then
     nope "canary: an empty repo-local config must FAIL --verify"
-  elif grep -q "x canary: a synthetic AWS-style key passed the scan UNSEEN" "$TMP/out.log" \
+  elif grep -q "x canary: a synthetic AWS-style key passed the effective pre-commit hook UNSEEN" "$TMP/out.log" \
        && grep -q -- "-- verify: FAIL" "$TMP/out.log"; then
-    ok "canary: empty repo-local .gitleaks.toml -> synthetic secret unseen, verify exit 1"
+    ok "canary: empty repo-local .gitleaks.toml -> synthetic secret unseen by the real hook, verify exit 1"
   else
     nope "canary: exit 1 but the canary diagnosis is missing (see $TMP/out.log)"
   fi
@@ -149,6 +153,26 @@ EOF
   else
     nope "0-jobs: exit 1 but the overlay-only diagnosis is missing (see $TMP/out.log)"
   fi
+  # the placebo state must ALSO fail by canary: the effective hook runs, merges
+  # 0 jobs, exits 0 -> the canary sails through the very hook git would run.
+  # (0.1.4 canary called gitleaks directly and stayed GREEN here.)
+  if grep -q "x canary: a synthetic AWS-style key passed the effective pre-commit hook UNSEEN" "$TMP/out.log"; then
+    ok "0-jobs: canary fails through the EFFECTIVE hook too (verdict, not just the jobs diagnostic)"
+  else
+    nope "0-jobs: canary stayed green on a placebo gate (see $TMP/out.log)"
+  fi
+
+  # ── (5b) no effective pre-commit hook at all: canary names the void
+  GSNOHOOK="$TMP/gs-nohook"
+  make_repo "$GSNOHOOK"
+  cp "$BASE_YML" "$GSNOHOOK/lefthook.yml"   # config present, stubs never installed
+  if run_gs --repo "$GSNOHOOK" --verify; then
+    nope "no-hook: repo without any pre-commit hook must FAIL --verify"
+  elif grep -q "x canary: no effective pre-commit hook" "$TMP/out.log"; then
+    ok "no-hook: canary FAILs with 'no effective pre-commit hook' (git would run nothing)"
+  else
+    nope "no-hook: exit 1 but the no-effective-hook diagnosis is missing (see $TMP/out.log)"
+  fi
 
   # ── (6) hooks_skip: a deliberate, recorded skip is ok, not a permanent FAIL
   GSSKIP="$TMP/gs-skip"
@@ -172,12 +196,57 @@ hooks_skip: pre-push: "CI runs the same lint on every push"
 EOF
   if run_gs --repo "$GSSKIP" --verify; then
     if grep -q "ok pre-push (skipped: CI runs the same lint on every push)" "$TMP/out.log"; then
-      ok "hooks_skip: declared skip reported as ok-skipped with its reason, verify exit 0"
+      ok "hooks_skip one-line form: declared skip reported as ok-skipped with its reason, verify exit 0"
     else
-      nope "hooks_skip: exit 0 but the skipped line is missing (see $TMP/out.log)"
+      nope "hooks_skip one-line form: exit 0 but the skipped line is missing (see $TMP/out.log)"
     fi
   else
-    nope "hooks_skip: a declared conscious skip must not FAIL verify"
+    nope "hooks_skip one-line form: a declared conscious skip must not FAIL verify"
+  fi
+
+  # ── (6b) nested map form -- the plain YAML anyone writes -- must work too
+  # (0.1.4 ignored it IN SILENCE and verify failed on a declared skip)
+  cat > "$GSSKIP/CLAUDE.md" <<'EOF'
+# Test repo
+
+## ship config
+
+```yaml
+lint: true
+hooks_skip:
+  pre-push: "CI runs the same lint on every push"
+```
+EOF
+  if run_gs --repo "$GSSKIP" --verify; then
+    if grep -q "ok pre-push (skipped: CI runs the same lint on every push)" "$TMP/out.log" \
+       && ! grep -q "hooks_skip present but unparseable" "$TMP/out.log"; then
+      ok "hooks_skip nested map: declared skip honored (no unparseable WARN), verify exit 0"
+    else
+      nope "hooks_skip nested map: exit 0 but skipped line missing or spurious WARN (see $TMP/out.log)"
+    fi
+  else
+    nope "hooks_skip nested map: valid YAML map must not FAIL verify"
+  fi
+
+  # ── (6c) unrecognized format (flow list): loud WARN, declaration ignored,
+  # verify FAILs on the actually-missing pre-push -- never a silent discard
+  cat > "$GSSKIP/CLAUDE.md" <<'EOF'
+# Test repo
+
+## ship config
+
+```yaml
+lint: true
+hooks_skip: [pre-push]
+```
+EOF
+  if run_gs --repo "$GSSKIP" --verify; then
+    nope "hooks_skip unparseable: ignored declaration must FAIL verify (pre-push stub missing)"
+  elif grep -q "hooks_skip present but unparseable -- declaration ignored" "$TMP/out.log" \
+       && grep -q "x pre-push: hooks NOT active" "$TMP/out.log"; then
+    ok "hooks_skip unparseable: explicit WARN + declaration ignored, verify exit 1"
+  else
+    nope "hooks_skip unparseable: exit 1 but WARN or pre-push failure missing (see $TMP/out.log)"
   fi
 
   # ── (7) verify breakdown on a healthy repo: commit-msg + merged jobs +
@@ -185,7 +254,7 @@ EOF
   if run_gs --repo "$GSCENT" --verify \
      && grep -q "ok commit-msg: effective hooksPath invokes lefthook" "$TMP/out.log" \
      && grep -q "ok jobs: pre-commit resolves" "$TMP/out.log" \
-     && grep -q "ok canary: synthetic secret staged in an isolated index IS flagged" "$TMP/out.log"; then
+     && grep -q "ok canary: synthetic secret staged in an isolated index IS blocked by the effective pre-commit hook" "$TMP/out.log"; then
     ok "verify breakdown: commit-msg + merged jobs + canary reported on a healthy repo"
   else
     nope "verify breakdown: commit-msg/jobs/canary lines missing (see $TMP/out.log)"

@@ -65,6 +65,8 @@ simplify: 500   # run /simplify only if changed LOC > N (off = only on request)
 reviewer: rigo                                  # team repos only
 release_prefix: "STAGING RELEASE:|PROD RELEASE:" # only where applicable
 branch_cleanup: delete                          # delete | keep | ask
+hooks_skip:                                     # conscious git-hook gaps (flowkit verify
+  pre-push: "CI runs the same lint on every push"  # reports ok-skipped instead of failing)
 ```
 
 Key semantics, with defaults only where safe:
@@ -88,6 +90,9 @@ Key semantics, with defaults only where safe:
 - `loc_limit` (default 500) · `simplify` (default 500; `off` = only on request) ·
   `reviewer` (team repos) · `release_prefix` rules ·
   `branch_cleanup: delete | keep | ask` (default ask).
+- `hooks_skip` — nested map of git hooks this repo consciously does not run, with the reason
+  (`flowkit hooks --verify` reports them as ok-skipped instead of failing forever). The
+  one-line `hooks_skip: pre-push: "reason"` form is also accepted.
 
 ## Step 1: Pre-gates (mechanical; any failure = stop with report)
 

@@ -192,18 +192,32 @@ effective `core.hooksPath`) invoke lefthook for pre-commit, pre-push AND commit-
 exactly that state); which gitleaks config is in use (repo-local `.gitleaks.toml` vs
 central); and a **canary probe**: a synthetic AWS-style key is staged in an *isolated*
 temporary index (`GIT_INDEX_FILE` — the real index is never touched, the temp index is
-removed) and the exact scan the hook runs must flag it, otherwise verify fails with the gate
-declared ineffective. In particular, a repo whose LOCAL `core.hooksPath` points at a tracked
+removed) and the **effective pre-commit hook** — the exact file git executes
+(`core.hooksPath` local > global > `.git/hooks`) — is run against it. The verdict is the
+hook's: exit ≠ 0 **plus** explicit "leaks found" evidence (a crash without evidence is not a
+working gate; exit 0 means the commit would have sailed through). One pass covers
+config → hooksPath → lefthook → merged jobs → gitleaks, so a placebo state (stubs wired,
+zero jobs merged) fails by canary, not just by the jobs diagnostic — which stays, because it
+*names* the cause the canary only detects. No effective pre-commit hook at all is its own
+FAIL. In particular, a repo whose LOCAL `core.hooksPath` points at a tracked
 hooks dir (e.g. a versioned `.githooks/`) gets a plain **"hooks NOT active in this repo"**
 with the two ways out: PR the exact lefthook delegation line into the project's own hooks,
 or skip consciously. No false "wired ok". `--verify` also flags **orphan stubs** (lefthook
 hooks with no resolvable config — they break every push) and points to `flowkit unhook`.
 
-A deliberate gap is a decision, not a permanent failure: declare it as
-`hooks_skip: <hook>: "reason"` inside the `## ship config` block of CLAUDE.md and
-`--verify` reports `ok pre-push (skipped: reason)` instead of failing forever on a hook the
-project consciously does not run (the canary is skipped too when pre-commit itself is the
-declared gap).
+A deliberate gap is a decision, not a permanent failure: declare it inside the
+`## ship config` block of CLAUDE.md as a nested map —
+
+```yaml
+hooks_skip:
+  pre-push: "CI runs the same lint on every push"
+```
+
+— and `--verify` reports `ok pre-push (skipped: reason)` instead of failing forever on a
+hook the project consciously does not run (the canary is skipped too when pre-commit itself
+is the declared gap). The one-line `hooks_skip: pre-push: "reason"` form is also accepted;
+any *other* shape (e.g. a flow list) gets a loud `hooks_skip present but unparseable --
+declaration ignored` warning — a security declaration is never dropped in silence.
 
 `flowkit unhook` is the clean exit: removes the lefthook stubs from the effective hooksPath
 and `.git/hooks`, deletes OUR config files (`lefthook.yml`/`lefthook-local.yml` referencing
