@@ -27,3 +27,25 @@ Local hooks protect only whoever installed them. In henri/skysset the
 contributors who never ran `flowkit hooks` are unprotected client-side; CI is
 the only gate that applies to everyone who pushes. Priority when Antonio wires
 those repos with `--team`.
+
+## Nuance from the same field report: scope which gates by cost AND value
+
+Not every gate belongs at every layer. The reporter measured `format:check`
+at 20.5s and correctly withdrew the instinct to add it to pre-commit — but
+the sharp version of the lesson is: the cost was dominated by formatting
+*generated data* (a 4.5 MB research JSON payload), not source. So the rule
+for the generated CI is not "format checks are expensive" but "checking the
+format of generated/versioned data payloads is expensive and low-value —
+scope those gates to source, let the data pass". Any repo that versions large
+data catalogs (research dumps, fixtures, seed JSON) will hit this; the
+generated workflow should let `## ship config` express a path scope, not run
+every gate over every byte.
+
+## Structural gap this backstop does NOT close on its own
+
+The staged-vs-full-scope asymmetry (documented in README) is real: a local
+lint that only sees staged files misses a warning that *propagates* into an
+untouched file. CI full-scope catches it — that is the backstop's job. But if
+someone wants it caught LOCALLY, the only honest place is a full-tree lint at
+**pre-push**, never pre-commit (too slow per commit). The backstop reduces the
+blast radius of the asymmetry; it does not erase it.
