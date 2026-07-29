@@ -260,6 +260,23 @@ Four layers, increasing cost:
 | `/ship` | minutes | full gate ritual: lint 0 warnings, build/tests, LOC, secret scan on the diff, quality pass, evidence table |
 | CI | async | whatever the repo's pipeline adds on top — hooks complement CI, never replace it |
 
+**Known gap — pre-push scope is staged/pushed, CI scope is the whole tree.** The pre-push
+`lint:` runs the repo's own command as declared; if that command is staged-scoped (only the
+files in the push), a warning that a change *propagates* into a file the commit didn't touch
+(e.g. a type edit whose inference ripples) passes the hook and fails a full-scope CI. This is
+structural, not a bug: the hook is first-line defense over *what you push*, never a substitute
+for CI's full-tree pass. Two honest options per repo: (a) declare a full-scope `lint:` in
+`## ship config` and accept the extra seconds, or (b) keep it staged-fast and let CI be the
+backstop. flowkit does not choose for you — it runs what the block declares.
+
+**CI backstop (planned, not yet generated).** The one layer flowkit does not wire yet is the
+CI pass. When it lands it will be **generated from the same `## ship config` block** the hooks
+read — never hand-written in a separate `ci.yml`. Rationale from a field report: a repo whose
+gate list was duplicated across `pre-commit` and `ci.yml` drifted, and a fixer step (`prettier
+--write`) that exits 0 without converging shipped a file CI then rejected. One source the hooks
+and CI both consume is the only structure that cannot diverge — the same anti-divergence
+principle behind reading commands from `## ship config` instead of copying them.
+
 `merge_policy` (read by `/ship`) binds only the ship skill — a web merge or `gh pr merge`
 bypasses it entirely. It is the reminder, not the lock; the lock is server-side branch
 protection (require PR + approval), worth enabling once per supervised repo. Enforcement
