@@ -1,2 +1,6 @@
 .DS_Store
 dpeluche-skills-workspace/
+.claude/
+lefthook.yml
+lefthook-local.yml
+.gitleaks-baseline.json
