@@ -24,9 +24,16 @@ REPO_DIR="$(cd "$(dirname "$SELF")/.." && pwd)"
 INSTALL="$REPO_DIR/scripts/install.sh"
 [[ -f "$INSTALL" ]] || { echo "x flowkit: scripts/install.sh not found under $REPO_DIR" >&2; exit 1; }
 
+fk_version() { # prints "flowkit <VERSION> (<short sha>)"
+  local v sha
+  v="$(cat "$REPO_DIR/VERSION" 2>/dev/null || echo 0.0.0)"
+  sha="$(git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+  printf 'flowkit %s (%s)\n' "$v" "$sha"
+}
+
 usage() {
+  echo "$(fk_version) -- manager for the skills + hooks + flow layer"
   cat <<'EOF'
-flowkit -- manager for the skills + hooks + flow layer
 
 Usage: flowkit <subcommand>
 
@@ -36,6 +43,7 @@ Usage: flowkit <subcommand>
   hooks      wire centralized git hooks into the repo you are standing in ($PWD) [--team] [--include-parent]
   upgrade    report lefthook/gitleaks versions + clone freshness (exit 1 if pending)
   about      what flowkit is + this repo's detected flow status (for agents landing cold)
+  version    print flowkit version + repo short sha
   help       show this help
 
 process repo: github.com/dPeluChe/skills
@@ -52,6 +60,7 @@ case "$cmd" in
   hooks)   exec bash "$INSTALL" --repo "$PWD" "$@" ;;
   upgrade) exec bash "$INSTALL" --upgrade "$@" ;;
   about)   exec bash "$INSTALL" --about "$@" ;;
+  version|--version|-v) fk_version ;;
   help|-h|--help) usage ;;
   *)
     usage >&2
