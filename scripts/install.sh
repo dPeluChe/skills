@@ -70,6 +70,13 @@ mkdir -p "$AGENTS_DIR" "$CLAUDE_DIR"
 note() { echo "$@"; }
 bad()  { echo "x $*"; PROBLEMS=$((PROBLEMS + 1)); }
 
+flowkit_version() { # prints "flowkit <VERSION> (<short sha>)"
+  local v sha
+  v="$(cat "$REPO_DIR/VERSION" 2>/dev/null || echo 0.0.0)"
+  sha="$(git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+  printf 'flowkit %s (%s)\n' "$v" "$sha"
+}
+
 # ── one skill: ensure (or verify) both hops ────────────────────────────────
 sync_one() {
   local name="$1" src="$REPO_DIR/skills/$1"
@@ -607,8 +614,8 @@ if [[ "$MODE" == "repo" ]]; then install_repo; fi
 
 # -- about (--about): orientation for agents landing cold on a repo -----------
 run_about() {
+  echo "$(flowkit_version) -- manager for the skills + hooks + flow layer (github.com/dPeluChe/skills)"
   cat <<'EOF'
-flowkit -- manager for the skills + hooks + flow layer (github.com/dPeluChe/skills)
 
 Four layers keep agent-driven work consistent and safe:
   1. harness guards    Claude Code PreToolUse hooks (git-guard, secret-guard)
@@ -835,6 +842,7 @@ run_upgrade() {
 if [[ "$MODE" == "upgrade" ]]; then run_upgrade; fi
 
 # ── main ───────────────────────────────────────────────────────────────────
+[[ "$MODE" == "check" ]] && note "$(flowkit_version)"
 if [[ $# -gt 0 ]]; then
   for s in "$@"; do sync_one "$s"; done
 else
