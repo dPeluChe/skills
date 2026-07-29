@@ -52,8 +52,8 @@ else
       nope "shellcheck FAILED: $(basename "$b")"
     fi
   done
-  for s in "$REPO_DIR/bin/flowkit" "$REPO_DIR"/scripts/*.sh "$REPO_DIR"/scripts/tests/*.sh \
-           "$REPO_DIR"/hooks/harness/*.sh; do
+  for s in "$REPO_DIR/bin/flowkit" "$REPO_DIR"/scripts/*.sh "$REPO_DIR"/scripts/lib/*.sh \
+           "$REPO_DIR"/scripts/tests/*.sh "$REPO_DIR"/hooks/harness/*.sh; do
     if shellcheck "$s"; then
       ok "shellcheck clean: ${s#"$REPO_DIR"/}"
     else
