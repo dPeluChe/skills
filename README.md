@@ -72,12 +72,13 @@ flowkit install    # re-sync skills after a git pull
 flowkit check      # doctor: validate every link without touching anything (exit 0/1)
 flowkit prune      # sync + remove dead links left by renamed/deleted skills
 flowkit hooks      # wire centralized git hooks into the repo you're standing in
-flowkit hooks --verify   # only check the EFFECTIVE hook state (config + hooksPath + gitleaks), exit 0/1
+flowkit hooks --verify   # check the EFFECTIVE hook state: config + hooksPath + merged jobs
+                         # + gitleaks config in use + canary secret probe, exit 0/1
 flowkit unhook     # clean removal from the current repo: stubs, OUR configs, OUR exclude entries
 flowkit upgrade    # lefthook/gitleaks versions + clone freshness (exit 1 if pending);
                    # inside a wired repo it also refreshes that repo's lefthook remotes cache
 flowkit about      # what flowkit is + this repo's detected flow status (for agents landing cold)
-flowkit version    # flowkit 0.1.3 (<short sha>) — also --version / -v
+flowkit version    # flowkit 0.1.4 (<short sha>) — also --version / -v
 ```
 
 `flowkit hooks` accepts `--team` and `--include-parent` — same semantics as the
@@ -154,14 +155,55 @@ detector/fixture]` and shows its REAL line in the report — everything else sta
 The closing agent copy-block carries full detail per item: fence counts per file, baseline
 `file:line` + label, and the stack's suggested ship-config commands ready to paste.
 
-**The install ends with an honest verification** (`flowkit hooks --verify`): config present,
-the hooks git will *actually run* (the effective `core.hooksPath`) invoke lefthook, gitleaks
-accessible, no orphan stubs — exit 0/1. In particular, a repo whose LOCAL `core.hooksPath`
-points at a tracked hooks dir (e.g. a versioned `.githooks/`) gets a plain **"hooks NOT
-active in this repo"** with the two ways out: PR the exact lefthook delegation line into the
-project's own hooks, or skip consciously. No false "wired ok". `--verify` also flags **orphan
-stubs** (lefthook hooks with no resolvable config — they break every push) and points to
-`flowkit unhook`.
+### Repo-local gitleaks rules (`.gitleaks.toml`)
+
+The central `hooks/.gitleaks.toml` covers the token shapes that circulate across these repos
+plus the gitleaks defaults — but it is **blind to formats only YOUR project uses** (field
+case: 40-char alphanumeric CSPRNG tokens sail through a central scan as "no leaks found").
+If the target repo has a `.gitleaks.toml` at its root, the pre-commit scan, the install
+baseline and the verify canary all use **that** config instead of the central one.
+Recommended repo-local pattern — gitleaks defaults plus the project's own rules:
+
+```toml
+title = "my-project rules"
+
+[extend]
+useDefault = true          # keep the full gitleaks default ruleset
+
+[[rules]]
+id = "my-project-token"
+description = "my-project 40-char CSPRNG token"
+regex = '''\b[a-f0-9]{40}\b'''
+```
+
+Honest note on precedence: the repo-local file **replaces** the central config. gitleaks
+`[extend]` can also chain to a `path`, but the central file lives in a per-machine lefthook
+cache (`.git/info/lefthook-remotes/…`), so extending it by path is **NOT portable** — a
+repo-local config should either redeclare the central rules it cares about or accept
+defaults + its own rules. When a repo has no `.gitleaks.toml`, `flowkit hooks` adds a
+one-line nudge to the agent copy-block; the file is never stamped automatically — whether a
+generic fixed-length regex is worth its false positives is the project's decision.
+
+**The install ends with an honest verification** (`flowkit hooks --verify`) that measures
+**efficacy, not just wiring**: config present; the hooks git will *actually run* (the
+effective `core.hooksPath`) invoke lefthook for pre-commit, pre-push AND commit-msg; the
+**merged config resolves real jobs** (`lefthook dump` — a repo with only the personal
+`lefthook-local.yml` overlay merges ZERO jobs and the gate is silently inert: verify names
+exactly that state); which gitleaks config is in use (repo-local `.gitleaks.toml` vs
+central); and a **canary probe**: a synthetic AWS-style key is staged in an *isolated*
+temporary index (`GIT_INDEX_FILE` — the real index is never touched, the temp index is
+removed) and the exact scan the hook runs must flag it, otherwise verify fails with the gate
+declared ineffective. In particular, a repo whose LOCAL `core.hooksPath` points at a tracked
+hooks dir (e.g. a versioned `.githooks/`) gets a plain **"hooks NOT active in this repo"**
+with the two ways out: PR the exact lefthook delegation line into the project's own hooks,
+or skip consciously. No false "wired ok". `--verify` also flags **orphan stubs** (lefthook
+hooks with no resolvable config — they break every push) and points to `flowkit unhook`.
+
+A deliberate gap is a decision, not a permanent failure: declare it as
+`hooks_skip: <hook>: "reason"` inside the `## ship config` block of CLAUDE.md and
+`--verify` reports `ok pre-push (skipped: reason)` instead of failing forever on a hook the
+project consciously does not run (the canary is skipped too when pre-commit itself is the
+declared gap).
 
 `flowkit unhook` is the clean exit: removes the lefthook stubs from the effective hooksPath
 and `.git/hooks`, deletes OUR config files (`lefthook.yml`/`lefthook-local.yml` referencing
@@ -199,7 +241,7 @@ Four layers, increasing cost:
 | Layer | Budget | What runs |
 |---|---|---|
 | commit-msg | <1s | strips agent attribution trailers (Co-authored-by / Generated with / 🤖 footers) — authorship stays human: the person is the author, agents are tools |
-| pre-commit | <2s | gitleaks on staged · hard block on staged `.env*` (except `.env.example`) · LOC warning >500 lines (never blocks) |
+| pre-commit | <2s | gitleaks on staged (repo-local `.gitleaks.toml` wins over the central config) · hard block on staged `.env*` (except `.env.example`) · LOC warning >500 lines (never blocks) |
 | pre-push | <30s | the repo's own `lint:` / `typecheck:` read from its `## ship config` block — fail-soft warning if absent; docs-only and deletion-only pushes skip · docs nudge when code is pushed with zero `.md` touched (never blocks) |
 | `/ship` | minutes | full gate ritual: lint 0 warnings, build/tests, LOC, secret scan on the diff, quality pass, evidence table |
 | CI | async | whatever the repo's pipeline adds on top — hooks complement CI, never replace it |

@@ -107,6 +107,9 @@ EOF
 
   CLEANDOC="$TMP/cleandoc"
   make_repo "$CLEANDOC"
+  # a repo-local .gitleaks.toml so the project-formats nudge (0.1.4) does not
+  # fire either -- this fixture asserts the NOTHING-actionable case
+  printf '[extend]\nuseDefault = true\n' > "$CLEANDOC/.gitleaks.toml"
   cat > "$CLEANDOC/CLAUDE.md" <<'EOF'
 # Test repo
 
