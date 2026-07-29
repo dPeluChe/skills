@@ -818,7 +818,7 @@ verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification: config
   # a security declaration is never dropped in silence: a hooks_skip key in a
   # format neither parser understands gets a loud WARN instead of being ignored
   if ship_hooks_skip_unparseable "$target"; then
-    echo "! hooks_skip present but unparseable -- declaration ignored (use 'hooks_skip:' + indented '<hook>: \"reason\"' lines, or the one-line 'hooks_skip: <hook>: \"reason\"')"
+    echo "! WARN: hooks_skip present but unparseable -- declaration ignored (use 'hooks_skip:' + indented '<hook>: \"reason\"' lines, or the one-line 'hooks_skip: <hook>: \"reason\"')"
   fi
   for hook in pre-commit pre-push commit-msg; do
     skip_reason="$(ship_hooks_skip_reason "$target" "$hook")"
