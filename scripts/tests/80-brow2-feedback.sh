@@ -109,12 +109,14 @@ if [[ -x "$GG80" ]]; then
     nope "git-guard: command-assigned FLOWKIT_GIT_GUARD=off should pass with a warning"
   fi
   # 0.1.8: the documented remedy must work where the need is -- inside loops
+  # shellcheck disable=SC2016  # $b is a fixture string for the guard, not expansion
   if run_gg 'while read b; do FLOWKIT_GIT_GUARD=off git branch -D "$b"; done < lista' \
      && grep -q "FLOWKIT_GIT_GUARD=off" "$TMP/err.log"; then
     ok "git-guard: escape hatch works inside a loop body (after 'do')"
   else
     nope "git-guard: FLOWKIT_GIT_GUARD=off after 'do' must work (documented remedy)"
   fi
+  # shellcheck disable=SC2016
   run_gg 'while read b; do git branch -D "$b"; done < lista'; rc=$?
   if [[ "$rc" -eq 2 ]]; then
     ok "git-guard: loop WITHOUT the override still blocks branch -D"
