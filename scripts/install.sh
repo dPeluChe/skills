@@ -382,9 +382,12 @@ PY
     # team repos choose: share the ledger (commit) or keep it personal
     local share=""
     if [[ -t 0 ]]; then
-      read -r -p "share baseline with team (commit) or keep personal (git exclude)? [s/P] " share
+      note ".gitleaks-baseline.json -- who should use this grandfathered-findings list?"
+      note "  1) personal -- only this machine; kept out of git via .git/info/exclude  [default]"
+      note "  2) team     -- commit it so every contributor grandfathers the same findings"
+      read -r -p "choose [1/2, Enter = 1]: " share
     fi
-    if [[ "$share" == [sS]* ]]; then
+    if [[ "$share" == 2 || "$share" == [sS]* ]]; then
       note "-> baseline SHARED: commit .gitleaks-baseline.json so the whole team grandfathers the same findings"
     else
       exclude_add "$target" ".gitleaks-baseline.json"
@@ -858,8 +861,9 @@ wire_repo_hooks() { # $1 = target repo (absolute); full wiring of ONE repo, no e
   ensure_ship_config_template "$target"
   check_agent_docs_fences "$target"
   if docs_is_published_site "$target"; then
+    # agent guidance travels attached to the fence finding itself (see
+    # check_agent_docs_fences) -- a second standalone line duplicated it
     note "-> docs/ looks like a PUBLISHED SITE (CNAME/index.html/_config.yml or a Pages workflow)"
-    agent_action "/doctos here degrades to findings only -- docs/ is a published site, do NOT reorganize; fix in place."
   fi
   # the install ENDS with the effective-state verification -- no false "wired ok"
   LAST_VERIFY_RC=0
