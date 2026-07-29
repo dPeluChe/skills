@@ -299,12 +299,28 @@ chain_husky() { # $1 = target repo; append lefthook to husky hooks, never replac
   echo "  NOTE: hooks stay husky-managed; lefthook runs as the last step of each."
 }
 
+gitleaks_config_label() { # $1 = target repo; prints the label of the config the
+  # gitleaks-staged hook will use (repo-local wins over central, mirroring the
+  # precedence in hooks/lefthook-base.yml).
+  if [[ -f "$1/.gitleaks.toml" ]]; then
+    echo "repo-local .gitleaks.toml"
+  else
+    echo "central hooks/.gitleaks.toml"
+  fi
+}
+
 run_gitleaks_baseline() { # $1 = target repo, $2 = team (0/1)
-  local target="$1" team="${2:-0}" scan="git" n
+  local target="$1" team="${2:-0}" scan="git" n cfg
   local report="$target/.gitleaks-baseline.json"
   gitleaks git --help >/dev/null 2>&1 || scan="detect"
-  note "-> building gitleaks baseline (full history scan, one-time)..."
-  ( cd "$target" && gitleaks "$scan" --config "$REPO_DIR/hooks/.gitleaks.toml" \
+  # same precedence as the hook: repo-local .gitleaks.toml wins over central
+  if [[ -f "$target/.gitleaks.toml" ]]; then
+    cfg="$target/.gitleaks.toml"
+  else
+    cfg="$REPO_DIR/hooks/.gitleaks.toml"
+  fi
+  note "-> building gitleaks baseline (full history scan, one-time; config: $(gitleaks_config_label "$target"))..."
+  ( cd "$target" && gitleaks "$scan" --config "$cfg" \
       --report-path "$report" --report-format json --redact \
       --exit-code 0 >/dev/null 2>&1 ) || true
   if [[ ! -f "$report" ]]; then
@@ -431,6 +447,73 @@ ensure_flow_import() { # $1 = target repo, $2 = team (0/1): @import FLOW.
 ship_config_has_todos() { # $1 = CLAUDE.md path: TODOs left in the ship config block?
   awk '/^## ship config$/ { s = 1; next } s && /^## / { s = 0 } s' "$1" 2>/dev/null \
     | grep -q 'TODO'
+}
+
+ship_hooks_skip_reason() { # $1 = target repo, $2 = hook name; prints the reason
+  # declared as `hooks_skip: <hook>: reason` inside the ship config yaml fence
+  # of CLAUDE.md (same sed-parseable format as lint:/typecheck:) -- empty when
+  # the hook is not consciously skipped.
+  local block
+  # shellcheck disable=SC2016  # backtick fences are literal, not expansions
+  block="$(sed -n '/^## ship config$/,/^## /p' "$1/CLAUDE.md" 2>/dev/null \
+    | sed -n '/^```yaml$/,/^```$/p' | sed '1d;$d')"
+  printf '%s\n' "$block" \
+    | sed -n "s/^hooks_skip:[[:space:]]*$2:[[:space:]]*//p" \
+    | sed 's/[[:space:]]*#.*$//; s/^["'"'"']//; s/["'"'"']$//; s/[[:space:]]*$//' \
+    | head -1
+}
+
+lefthook_jobs_count() { # $1 = target repo, $2 = hook; how many jobs/commands the
+  # MERGED config (lefthook dump: local + remotes cache) resolves for that hook.
+  # Prints 0 when the config is inert or unparseable -- that IS the finding.
+  ( cd "$1" && lefthook dump -f json 2>/dev/null ) | python3 -c '
+import json, sys
+try:
+    cfg = json.load(sys.stdin)
+except Exception:
+    print(0)
+    raise SystemExit
+hook = cfg.get(sys.argv[1]) or {}
+print(len(hook.get("jobs") or []) + len(hook.get("commands") or {}))
+' "$2" 2>/dev/null || echo 0
+}
+
+canary_secret_scan() { # $1 = target repo. EFFICACY probe, not wiring: stage a
+  # synthetic AWS-style key in an ISOLATED temp index (GIT_INDEX_FILE) and run
+  # the same gitleaks invocation the pre-commit job runs. The user's real index
+  # is never touched; the temp index is removed. Returns 0 = canary flagged
+  # (gate effective), 1 = canary passed unseen, 2 = probe could not run.
+  # (Canary value assembled at runtime so no secret-shaped literal lives here.)
+  local target="$1" gitdir tmpidx blob rc=1 out canary
+  canary="$(printf 'AKIA%s' "2J94QXKZR7T3W8Y5")"
+  git -C "$target" rev-parse HEAD >/dev/null 2>&1 || return 2
+  gitdir="$(git -C "$target" rev-parse --absolute-git-dir)" || return 2
+  tmpidx="$gitdir/flowkit-canary-index.$$"
+  rm -f "$tmpidx"
+  blob="$(printf 'canary_key = "%s"\n' "$canary" \
+    | git -C "$target" hash-object -w --stdin)" || return 2
+  ( cd "$target" \
+    && GIT_INDEX_FILE="$tmpidx" git read-tree HEAD \
+    && GIT_INDEX_FILE="$tmpidx" git update-index --add \
+         --cacheinfo "100644,$blob,flowkit-canary-probe.txt" \
+  ) >/dev/null 2>&1 || { rm -f "$tmpidx"; return 2; }
+  # config precedence mirrors the hook: repo-local > remotes cache > this clone
+  local cargs=(git --staged --redact --no-banner) cfg=""
+  if [[ -f "$target/.gitleaks.toml" ]]; then
+    cfg="$target/.gitleaks.toml"
+  else
+    cfg="$(cd "$target" && find "$(git rev-parse --git-common-dir)/info/lefthook-remotes" \
+      -path '*/hooks/.gitleaks.toml' 2>/dev/null | head -1)"
+    [[ -z "$cfg" && -f "$REPO_DIR/hooks/.gitleaks.toml" ]] && cfg="$REPO_DIR/hooks/.gitleaks.toml"
+  fi
+  [[ -n "$cfg" ]] && cargs+=(--config "$cfg")
+  [[ -f "$target/.gitleaks-baseline.json" ]] \
+    && cargs+=(--baseline-path "$target/.gitleaks-baseline.json")
+  out="$( ( cd "$target" && GIT_INDEX_FILE="$tmpidx" gitleaks "${cargs[@]}" ) 2>&1 )" && rc=1 || rc=0
+  # exit != 0 alone could be a config error -- require the explicit verdict line
+  grep -q "leaks found" <<<"$out" || rc=1
+  rm -f "$tmpidx"
+  return "$rc"
 }
 
 detect_stack_name() { # $1 = target repo; prints cargo|npm|python|go|generic
@@ -669,9 +752,13 @@ hook_invokes_lefthook() { # $1 = target, $2 = hook name; does the hook git will
 }
 
 verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification: config
-  # present + the hooks git actually runs invoke lefthook + gitleaks accessible
-  # + no orphan stubs. Prints a report; returns 0 active / 1 not.
+  # present + the hooks git actually runs invoke lefthook + the merged config
+  # resolves REAL jobs + gitleaks accessible (and which config it uses) + a
+  # canary secret is actually flagged + no orphan stubs. A hook consciously
+  # skipped via `hooks_skip: <hook>: reason` in the ship config block reports
+  # ok-skipped instead of failing. Prints a report; returns 0 active / 1 not.
   local target="$1" rc=0 cfg="" ehp gitdir hook f stubs=0 resolvable=0
+  local skip_reason jobs
   ehp="$(effective_hooks_dir "$target")"
   gitdir="$(git -C "$target" rev-parse --absolute-git-dir)"
   echo "-- verify: effective hook state ($target)"
@@ -681,7 +768,12 @@ verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification: config
     echo "x config: no lefthook.yml/lefthook-local.yml referencing $REMOTE_URL"
     rc=1
   fi
-  for hook in pre-commit pre-push; do
+  for hook in pre-commit pre-push commit-msg; do
+    skip_reason="$(ship_hooks_skip_reason "$target" "$hook")"
+    if [[ -n "$skip_reason" ]]; then
+      echo "ok $hook (skipped: $skip_reason) -- conscious skip declared in ship config hooks_skip"
+      continue
+    fi
     if hook_invokes_lefthook "$target" "$hook"; then
       echo "ok $hook: effective hooksPath invokes lefthook"
     else
@@ -689,6 +781,22 @@ verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification: config
       rc=1
     fi
   done
+  # wiring can be perfect and the gate still INERT: the merged config must
+  # resolve real jobs (field case: only lefthook-local.yml present -> 0 jobs)
+  if [[ -n "$cfg" ]] && command -v lefthook >/dev/null 2>&1 \
+     && [[ -z "$(ship_hooks_skip_reason "$target" pre-commit)" ]]; then
+    jobs="$(lefthook_jobs_count "$target" pre-commit)"
+    if [[ "$jobs" -gt 0 ]]; then
+      echo "ok jobs: pre-commit resolves $jobs job(s) (lefthook dump)"
+    else
+      if [[ -f "$target/lefthook-local.yml" && ! -f "$target/lefthook.yml" ]]; then
+        echo "x jobs: pre-commit resolves 0 jobs -- only personal overlay present; without a base config lefthook merges no jobs (lefthook-local.yml alone is inert: write lefthook.yml with the remotes block, or re-run: flowkit hooks)"
+      else
+        echo "x jobs: pre-commit resolves 0 jobs ('lefthook dump') -- the gate is inert (empty config or remotes cache never fetched; run: flowkit upgrade inside this repo to refresh it)"
+      fi
+      rc=1
+    fi
+  fi
   if command -v lefthook >/dev/null 2>&1; then
     echo "ok lefthook: $(tool_version lefthook) accessible"
   else
@@ -697,6 +805,24 @@ verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification: config
   fi
   if command -v gitleaks >/dev/null 2>&1; then
     echo "ok gitleaks: $(tool_version gitleaks) accessible"
+    if [[ -f "$target/.gitleaks.toml" ]]; then
+      echo "ok gitleaks config: repo-local .gitleaks.toml (replaces the central rules -- keep '[extend] useDefault = true' inside it)"
+    else
+      echo "ok gitleaks config: central (hooks/.gitleaks.toml via lefthook remotes)"
+    fi
+    # canary: prove EFFICACY, not just wiring -- a synthetic secret staged in
+    # an isolated temp index must be flagged by the exact scan the hook runs
+    if [[ -n "$(ship_hooks_skip_reason "$target" pre-commit)" ]]; then
+      echo "- canary: skipped (pre-commit consciously skipped via hooks_skip)"
+    else
+      canary_secret_scan "$target"
+      case "$?" in
+        0) echo "ok canary: synthetic secret staged in an isolated index IS flagged ($(gitleaks_config_label "$target"))" ;;
+        1) echo "x canary: a synthetic AWS-style key passed the scan UNSEEN ($(gitleaks_config_label "$target")) -- the secret gate is ineffective; a repo-local .gitleaks.toml must extend the defaults ([extend] useDefault = true)"
+           rc=1 ;;
+        *) echo "- canary: probe could not run (no HEAD yet?) -- efficacy unproven, wiring checks above still hold" ;;
+      esac
+    fi
   else
     echo "x gitleaks: not found -- secret scan will be skipped (brew install gitleaks)"
     rc=1
@@ -857,6 +983,11 @@ wire_repo_hooks() { # $1 = target repo (absolute); full wiring of ONE repo, no e
   [[ "$team" == 1 ]] && cleanup_team_autocreated_yml "$target" "$had_lefthook_yml"
 
   run_gitleaks_baseline "$target" "$team"
+  # never stamped automatically: a generic fixed-length regex is a false-positive
+  # decision only the project can make -- the agent block carries the nudge
+  if [[ ! -f "$target/.gitleaks.toml" ]]; then
+    agent_action "Project-specific secret formats (e.g. fixed-length CSPRNG tokens) are invisible to the central rules -- add a repo-local .gitleaks.toml (extend useDefault) with a rule for YOUR token format."
+  fi
   ensure_flow_import "$target" "$team"
   ensure_ship_config_template "$target"
   check_agent_docs_fences "$target"

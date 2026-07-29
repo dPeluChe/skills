@@ -1,0 +1,212 @@
+# shellcheck shell=bash
+# shellcheck disable=SC2154  # TMP/REPO_DIR/INSTALL/FLOWKIT/BASE_YML come from 00-helpers.sh via the runner
+# ── 0.1.4 field feedback: repo-local .gitleaks.toml scope (central rules are
+# blind to project-specific secret formats) + verify measures EFFICACY, not
+# wiring (0-jobs inert gate, canary probe, hooks_skip, commit-msg breakdown,
+# flowkit hooks --help) ──
+
+# README: the repo-local pattern, the portability note and hooks_skip must be
+# documented (no tools required for this check)
+if grep -q "useDefault = true" "$REPO_DIR/README.md" \
+   && grep -q "NOT portable" "$REPO_DIR/README.md" \
+   && grep -q "hooks_skip" "$REPO_DIR/README.md"; then
+  ok "README: repo-local gitleaks pattern + portability note + hooks_skip documented"
+else
+  nope "README: repo-local gitleaks / hooks_skip documentation missing"
+fi
+
+if command -v lefthook >/dev/null 2>&1 && command -v gitleaks >/dev/null 2>&1; then
+  GS_GCFG="$TMP/gs-gitconfig"; : > "$GS_GCFG"
+  git config --file "$GS_GCFG" core.excludesFile "$TMP/gs-global-ignore"
+
+  run_gs() { # isolated env, everything into $TMP; args = install.sh args
+    AGENTS_SKILLS_DIR="$TMP/gs-agents" CLAUDE_SKILLS_DIR="$TMP/gs-claude" \
+      GIT_CONFIG_GLOBAL="$GS_GCFG" bash "$INSTALL" "$@" \
+      > "$TMP/out.log" 2> "$TMP/err.log" < /dev/null
+  }
+
+  # browv2-style CSPRNG token: 40 hex chars, shape invisible to the default +
+  # central rules (entropy below the generic threshold) — assembled at runtime
+  # so this source file never carries a secret-shaped literal
+  GS_TOK="$(printf '4f9d8c2b1e%.0s' {1..4})"
+
+  write_project_gitleaks() { # $1 = repo dir; extend useDefault + project rule
+    cat > "$1/.gitleaks.toml" <<'EOF'
+title = "project rules"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "project-csprng-token"
+description = "project 40-char CSPRNG token"
+regex = '''\b[a-f0-9]{40}\b'''
+EOF
+  }
+
+  # ── (1) blindness: a staged project token PASSES pre-commit on central rules
+  GSBLIND="$TMP/gs-blind"
+  make_repo "$GSBLIND"
+  cp "$BASE_YML" "$GSBLIND/lefthook.yml"
+  printf 'access_token = "%s"\n' "$GS_TOK" > "$GSBLIND/service-config.txt"
+  git -C "$GSBLIND" add service-config.txt
+  if ( cd "$GSBLIND" && GIT_CONFIG_GLOBAL="$GS_GCFG" lefthook run pre-commit ) \
+       > "$TMP/out.log" 2>&1; then
+    ok "blindness: project CSPRNG token invisible to central rules (pre-commit exit 0)"
+  else
+    nope "blindness fixture: pre-commit should pass WITHOUT a repo-local config (see $TMP/out.log)"
+  fi
+
+  # ── (1) cure: repo-local .gitleaks.toml with the project rule BLOCKS it
+  write_project_gitleaks "$GSBLIND"
+  if ( cd "$GSBLIND" && GIT_CONFIG_GLOBAL="$GS_GCFG" lefthook run pre-commit ) \
+       > "$TMP/out.log" 2>&1; then
+    nope "cure: repo-local .gitleaks.toml rule did NOT block the staged token"
+  else
+    ok "cure: repo-local .gitleaks.toml (extend useDefault + project rule) blocks pre-commit"
+  fi
+
+  # ── (2) central path: baseline + verify name the config, agent block nudges
+  GSCENT="$TMP/gs-central"
+  make_repo "$GSCENT"
+  if run_gs --repo "$GSCENT"; then
+    if grep -q "config: central hooks/.gitleaks.toml" "$TMP/out.log" \
+       && grep -q "ok gitleaks config: central (hooks/.gitleaks.toml via lefthook remotes)" "$TMP/out.log"; then
+      ok "central path: baseline and verify both name the central config"
+    else
+      nope "central path: config-in-use labels missing (see $TMP/out.log)"
+    fi
+    if grep -q "add a repo-local .gitleaks.toml (extend useDefault) with a rule for YOUR token format" "$TMP/out.log"; then
+      ok "agent block: repo without .gitleaks.toml gets the project-formats nudge"
+    else
+      nope "agent block: project-formats nudge missing (see $TMP/out.log)"
+    fi
+  else
+    nope "central path: install exited non-zero"
+  fi
+
+  # ── (3) repo-local path: baseline honors project rules, verify labels it,
+  # nudge absent (the repo already made its decision)
+  GSLOCAL="$TMP/gs-local"
+  make_repo "$GSLOCAL"
+  write_project_gitleaks "$GSLOCAL"
+  printf 'access_token = "%s"\n' "$GS_TOK" > "$GSLOCAL/historic.txt"
+  git -C "$GSLOCAL" add historic.txt
+  git -C "$GSLOCAL" -c user.email=t@t.t -c user.name=t commit -q -m "historic token"
+  if run_gs --repo "$GSLOCAL"; then
+    if grep -q "config: repo-local .gitleaks.toml" "$TMP/out.log" \
+       && grep -q "baseline: 1 findings" "$TMP/out.log" \
+       && grep -q "ok gitleaks config: repo-local .gitleaks.toml" "$TMP/out.log"; then
+      ok "repo-local path: baseline caught the project token (1 finding) + verify labels the config"
+    else
+      nope "repo-local path: baseline finding or config label missing (see $TMP/out.log)"
+    fi
+    if ! grep -q "add a repo-local .gitleaks.toml" "$TMP/out.log"; then
+      ok "agent block: repo WITH .gitleaks.toml gets no redundant nudge"
+    else
+      nope "agent block: nudge printed despite an existing .gitleaks.toml"
+    fi
+  else
+    nope "repo-local path: install exited non-zero"
+  fi
+
+  # ── (4) canary catches an INEFFECTIVE config: rules dropped (no extend,
+  # no rules) -> the synthetic secret passes unseen -> verify FAIL
+  GSBROKE="$TMP/gs-broken-cfg"
+  make_repo "$GSBROKE"
+  printf 'title = "empty config -- no extend, no rules"\n' > "$GSBROKE/.gitleaks.toml"
+  run_gs --repo "$GSBROKE" || true   # wiring finishes; the verify inside already flags it
+  if run_gs --repo "$GSBROKE" --verify; then
+    nope "canary: an empty repo-local config must FAIL --verify"
+  elif grep -q "x canary: a synthetic AWS-style key passed the scan UNSEEN" "$TMP/out.log" \
+       && grep -q -- "-- verify: FAIL" "$TMP/out.log"; then
+    ok "canary: empty repo-local .gitleaks.toml -> synthetic secret unseen, verify exit 1"
+  else
+    nope "canary: exit 1 but the canary diagnosis is missing (see $TMP/out.log)"
+  fi
+
+  # ── (5) 0-jobs inert gate (field state): ONLY lefthook-local.yml present --
+  # wiring checks all pass (stubs + config), the MERGED config resolves nothing
+  GSINERT="$TMP/gs-inert"
+  make_repo "$GSINERT"
+  cat > "$GSINERT/lefthook-local.yml" <<'EOF'
+remotes:
+  - git_url: https://github.com/dPeluChe/skills
+    ref: main
+    refetch_frequency: 24h
+    configs:
+      - hooks/lefthook-base.yml
+EOF
+  for h in pre-commit pre-push commit-msg; do
+    printf '#!/bin/sh\nlefthook run %s "$@"\n' "$h" > "$GSINERT/.git/hooks/$h"
+    chmod +x "$GSINERT/.git/hooks/$h"
+  done
+  if run_gs --repo "$GSINERT" --verify; then
+    nope "0-jobs: overlay-only repo must FAIL --verify (the gate is inert)"
+  elif grep -q "x jobs: pre-commit resolves 0 jobs" "$TMP/out.log" \
+       && grep -q "only personal overlay present; without a base config lefthook merges no jobs" "$TMP/out.log"; then
+    ok "0-jobs: lefthook-local.yml alone -> inert gate detected and named, verify exit 1"
+  else
+    nope "0-jobs: exit 1 but the overlay-only diagnosis is missing (see $TMP/out.log)"
+  fi
+
+  # ── (6) hooks_skip: a deliberate, recorded skip is ok, not a permanent FAIL
+  GSSKIP="$TMP/gs-skip"
+  make_repo "$GSSKIP"
+  run_gs --repo "$GSSKIP" || true
+  rm -f "$GSSKIP/.git/hooks/pre-push"
+  if run_gs --repo "$GSSKIP" --verify; then
+    nope "hooks_skip control: missing pre-push stub without a declared skip must FAIL"
+  else
+    ok "hooks_skip control: missing pre-push stub fails verify (exit 1)"
+  fi
+  cat > "$GSSKIP/CLAUDE.md" <<'EOF'
+# Test repo
+
+## ship config
+
+```yaml
+lint: true
+hooks_skip: pre-push: "CI runs the same lint on every push"
+```
+EOF
+  if run_gs --repo "$GSSKIP" --verify; then
+    if grep -q "ok pre-push (skipped: CI runs the same lint on every push)" "$TMP/out.log"; then
+      ok "hooks_skip: declared skip reported as ok-skipped with its reason, verify exit 0"
+    else
+      nope "hooks_skip: exit 0 but the skipped line is missing (see $TMP/out.log)"
+    fi
+  else
+    nope "hooks_skip: a declared conscious skip must not FAIL verify"
+  fi
+
+  # ── (7) verify breakdown on a healthy repo: commit-msg + merged jobs +
+  # canary all reported; canary leaves no trace in the repo
+  if run_gs --repo "$GSCENT" --verify \
+     && grep -q "ok commit-msg: effective hooksPath invokes lefthook" "$TMP/out.log" \
+     && grep -q "ok jobs: pre-commit resolves" "$TMP/out.log" \
+     && grep -q "ok canary: synthetic secret staged in an isolated index IS flagged" "$TMP/out.log"; then
+    ok "verify breakdown: commit-msg + merged jobs + canary reported on a healthy repo"
+  else
+    nope "verify breakdown: commit-msg/jobs/canary lines missing (see $TMP/out.log)"
+  fi
+  gs_leftover=("$GSCENT"/.git/*canary*)
+  if [[ -z "$(git -C "$GSCENT" diff --cached --name-only)" ]] \
+     && [[ ! -e "${gs_leftover[0]}" ]]; then
+    ok "canary hygiene: real index untouched, temp index removed"
+  else
+    nope "canary hygiene: leftovers in the real index or .git"
+  fi
+
+  # ── (8) flowkit hooks --help: help, not 'unknown --repo option: --help'
+  if ( cd "$GSCENT" && GIT_CONFIG_GLOBAL="$GS_GCFG" "$FLOWKIT" hooks --help ) \
+       > "$TMP/gs-help.log" 2>&1 \
+     && grep -q "Usage: flowkit" "$TMP/gs-help.log" \
+     && ! grep -q "unknown --repo option" "$TMP/gs-help.log"; then
+    ok "flowkit hooks --help: shows the general help, exit 0"
+  else
+    nope "flowkit hooks --help: dispatch broken (see $TMP/gs-help.log)"
+  fi
+else
+  echo "· lefthook/gitleaks not installed — gitleaks-scope fixtures skipped (non-fatal)"
+fi

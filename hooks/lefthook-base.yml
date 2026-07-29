@@ -32,6 +32,11 @@ pre-commit:
   parallel: false
   jobs:
     # (a) secret scan on staged changes — hard block on any leak.
+    # Config precedence: a repo-local .gitleaks.toml at the repo root WINS over
+    # the central hooks/.gitleaks.toml from the remotes cache — projects with
+    # their own secret formats (fixed-length CSPRNG tokens etc.) extend the
+    # gitleaks defaults ([extend] useDefault = true) plus their own rules.
+    # No repo-local file → central config, as before.
     - name: gitleaks-staged
       run: |
         set -u
@@ -39,8 +44,12 @@ pre-commit:
           echo "[hooks] gitleaks not installed (brew install gitleaks) — secret scan SKIPPED" >&2
           exit 0
         fi
-        cfg="$(find "$(git rev-parse --git-common-dir)/info/lefthook-remotes" \
-          -path '*/hooks/.gitleaks.toml' 2>/dev/null | head -1)"
+        if [ -f .gitleaks.toml ]; then
+          cfg=".gitleaks.toml"
+        else
+          cfg="$(find "$(git rev-parse --git-common-dir)/info/lefthook-remotes" \
+            -path '*/hooks/.gitleaks.toml' 2>/dev/null | head -1)"
+        fi
         set -- git --staged --redact
         if [ -n "$cfg" ]; then
           set -- "$@" --config "$cfg"

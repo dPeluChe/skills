@@ -41,7 +41,8 @@ Usage: flowkit <subcommand>
   check      doctor mode -- validate every link, change nothing (exit 0/1)
   prune      sync + remove orphan links left by renamed/deleted skills
   hooks      wire centralized git hooks into the repo you are standing in ($PWD) [--team] [--include-parent]
-             --verify: only check the EFFECTIVE hook state (config + hooksPath + gitleaks), exit 0/1
+             --verify: check the EFFECTIVE hook state (config + hooksPath + merged jobs
+             + gitleaks config in use + canary secret probe), exit 0/1
   unhook     clean removal from $PWD: lefthook stubs, OUR config files, OUR exclude entries
   upgrade    report lefthook/gitleaks versions + clone freshness (exit 1 if pending);
              inside a wired repo it also refreshes that repo's lefthook remotes cache
@@ -55,6 +56,13 @@ EOF
 
 cmd="${1:-help}"
 [[ $# -gt 0 ]] && shift
+
+# `flowkit <subcommand> --help` shows this help instead of leaking the flag
+# into the installer (which used to die with "unknown --repo option: --help")
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  usage
+  exit 0
+fi
 
 case "$cmd" in
   install) exec bash "$INSTALL" "$@" ;;

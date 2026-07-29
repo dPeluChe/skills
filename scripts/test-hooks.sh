@@ -14,6 +14,10 @@
 #   80-brow2-feedback.sh   0.1.3 browv2 feedback: no-block by construction,
 #                          git-guard assignment semantics, unhook without
 #                          lefthook, about orphan hint, compact output
+#   90-gitleaks-scope.sh   0.1.4 field feedback: repo-local .gitleaks.toml wins
+#                          over central rules; verify measures EFFICACY (0-jobs
+#                          inert gate, canary probe, hooks_skip, commit-msg,
+#                          flowkit hooks --help)
 #
 # Modules are sourced here in lexical order, in ONE shell, so they share the
 # helpers and accumulate into the same counters. Output contract (consumed by
