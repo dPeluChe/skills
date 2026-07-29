@@ -97,12 +97,14 @@ pre-push:
     - name: docs-nudge
       run: |
         {
-          files="{push_files}"
-          files="${files:-}"
+          # lefthook substitutes {push_files} as a PRE-QUOTED per-file list --
+          # consuming it positionally is the only correct parse (a string
+          # assignment executes the second file as a command)
+          # shellcheck disable=SC1083
+          set -- {push_files}
           code=0
           docs=0
-          # shellcheck disable=SC2086
-          for f in $files; do
+          for f in "$@"; do
             case "$f" in
               *.md) docs=1 ;;
               src/*|convex/*|app/*|*.ts|*.tsx|*.rs|*.py|*.go) code=1 ;;
@@ -129,18 +131,19 @@ pre-push:
         lint_cmd=""
         type_cmd=""
         {
-          files="{push_files}"
+          # pre-quoted per-file list from lefthook -- positional consumption
+          # shellcheck disable=SC1083
+          set -- {push_files}
 
           # skip total: nothing pushed (branch deletions / tag-only moves)
-          if [ -z "$(printf '%s' "$files" | tr -d '[:space:]')" ]; then
+          if [ "$#" -eq 0 ]; then
             skip="empty"
           fi
 
           # skip lint: docs-only push (every pushed file is .md)
           if [ -z "$skip" ]; then
             only_md=1
-            # shellcheck disable=SC2086
-            for f in $files; do
+            for f in "$@"; do
               case "$f" in
                 *.md) ;;
                 *) only_md=0; break ;;

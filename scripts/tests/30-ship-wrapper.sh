@@ -85,6 +85,17 @@ EOF
   else
     nope "skip: empty push_files should exit 0"
   fi
+
+  # 0.1.9: lefthook substitutes {push_files} PRE-QUOTED per file -- the real
+  # form must parse clean (no "command not found", no "unbound variable")
+  # and filenames with spaces must survive
+  if run_wrapper "$TMP/fix-valid" "\"src/app.ts\" \".gitleaks-baseline.json\" \"con espacio.md\"" \
+     && ! grep -q "command not found" "$TMP/err.log" \
+     && ! grep -q "unbound variable" "$TMP/err.log"; then
+    ok "real lefthook substitution (pre-quoted list + spaced filename): clean parse, no noise"
+  else
+    nope "pre-quoted push_files must parse positionally without noise (see $TMP/err.log)"
+  fi
 fi
 
 # ── gitleaks config sanity (only when gitleaks is available) ────────────────
