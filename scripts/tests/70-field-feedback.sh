@@ -69,12 +69,15 @@ if command -v lefthook >/dev/null 2>&1 && command -v gitleaks >/dev/null 2>&1; t
   make_repo "$FFPUB"
   mkdir -p "$FFPUB/docs"
   printf 'example.com\n' > "$FFPUB/docs/CNAME"
+  # a fence in CLAUDE.md: the /doctos guidance travels ATTACHED to the fence
+  # finding (a standalone second line used to duplicate it)
+  printf '# CLAUDE.md\n\n```js\nconsole.log(1)\n```\n' > "$FFPUB/CLAUDE.md"
   if run_ff --repo "$FFPUB"; then
-    if grep -q "PUBLISHED SITE" "$TMP/out.log" \
-       && grep -q "findings only -- docs/ is a published site, do NOT reorganize; fix in place" "$TMP/out.log"; then
-      ok "published site: guard note + degraded /doctos action in the agent block"
+    hits="$(grep -c "findings only -- docs/ is a published site, do NOT reorganize; fix in place" "$TMP/out.log" || true)"
+    if grep -q "PUBLISHED SITE" "$TMP/out.log" && [ "$hits" -eq 1 ]; then
+      ok "published site: guard note + /doctos guidance attached once (no dupe)"
     else
-      nope "published site: guard missing (see $TMP/out.log)"
+      nope "published site: guard missing or duplicated (hits=$hits, see $TMP/out.log)"
     fi
   else
     nope "published site: install exited non-zero"
