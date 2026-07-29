@@ -24,7 +24,10 @@ fi
 # parens), optionally behind env/export or other leading VAR=val words. A
 # prose mention (PR body, echo, docs) is data, not an assignment — it never
 # triggers the guard.
-re_assign_pre='(^|[;&|(])[[:space:]]*((env|export)[[:space:]]+)?([A-Za-z_][A-Za-z_0-9]*=[^[:space:]]*[[:space:]]+)*'
+# assignment position includes after do/then/else/{ so the escape hatch works
+# inside loops and conditionals -- the documented remedy must work where the
+# need is (deleting N branches in a loop is THE use case)
+re_assign_pre='(^|[;&|({]|[[:space:]](do|then|else)[[:space:]])[[:space:]]*((env|export)[[:space:]]+)?([A-Za-z_][A-Za-z_0-9]*=[^[:space:]]*[[:space:]]+)*'
 re_lefthook0=${re_assign_pre}'LEFTHOOK='
 re_guard_off=${re_assign_pre}'FLOWKIT_GIT_GUARD=off([[:space:]]|$)'
 
