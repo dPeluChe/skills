@@ -449,18 +449,58 @@ ship_config_has_todos() { # $1 = CLAUDE.md path: TODOs left in the ship config b
     | grep -q 'TODO'
 }
 
-ship_hooks_skip_reason() { # $1 = target repo, $2 = hook name; prints the reason
-  # declared as `hooks_skip: <hook>: reason` inside the ship config yaml fence
-  # of CLAUDE.md (same sed-parseable format as lint:/typecheck:) -- empty when
-  # the hook is not consciously skipped.
-  local block
+ship_config_block() { # $1 = target repo; prints the ship config yaml fence body
   # shellcheck disable=SC2016  # backtick fences are literal, not expansions
-  block="$(sed -n '/^## ship config$/,/^## /p' "$1/CLAUDE.md" 2>/dev/null \
-    | sed -n '/^```yaml$/,/^```$/p' | sed '1d;$d')"
-  printf '%s\n' "$block" \
-    | sed -n "s/^hooks_skip:[[:space:]]*$2:[[:space:]]*//p" \
+  sed -n '/^## ship config$/,/^## /p' "$1/CLAUDE.md" 2>/dev/null \
+    | sed -n '/^```yaml$/,/^```$/p' | sed '1d;$d'
+}
+
+ship_hooks_skip_reason() { # $1 = target repo, $2 = hook name; prints the reason
+  # a hook is consciously skipped, declared inside the ship config yaml fence
+  # of CLAUDE.md -- empty when the hook is not skipped. BOTH forms are read:
+  #   hooks_skip: pre-push: "reason"     (historical one-liner)
+  #   hooks_skip:                        (nested map -- plain YAML)
+  #     pre-push: "reason"
+  local block reason
+  block="$(ship_config_block "$1")"
+  reason="$(printf '%s\n' "$block" \
+    | sed -n "s/^hooks_skip:[[:space:]]*$2:[[:space:]]*//p" | head -1)"
+  if [[ -z "$reason" ]]; then
+    reason="$(printf '%s\n' "$block" | awk -v hook="$2" '
+      /^hooks_skip:[[:space:]]*(#.*)?$/ { inmap = 1; next }
+      inmap && /^[^ \t]/ { inmap = 0 }
+      inmap {
+        line = $0
+        sub(/^[ \t]+/, "", line)
+        if (index(line, hook ":") == 1) {
+          sub(/^[^:]*:[[:space:]]*/, "", line)
+          print line
+          exit
+        }
+      }
+    ')"
+  fi
+  printf '%s\n' "$reason" \
     | sed 's/[[:space:]]*#.*$//; s/^["'"'"']//; s/["'"'"']$//; s/[[:space:]]*$//' \
     | head -1
+}
+
+ship_hooks_skip_unparseable() { # $1 = target repo; 0 when a hooks_skip key is
+  # present but matches NEITHER accepted form (e.g. a flow list `[pre-push]`).
+  # A security declaration must never be discarded in silence -- verify WARNs.
+  local block
+  block="$(ship_config_block "$1")"
+  printf '%s\n' "$block" | grep -q '^hooks_skip:' || return 1
+  printf '%s\n' "$block" \
+    | grep -Eq '^hooks_skip:[[:space:]]*[A-Za-z][A-Za-z-]*:[[:space:]]*[^[:space:]]' \
+    && return 1
+  printf '%s\n' "$block" | awk '
+    /^hooks_skip:[[:space:]]*(#.*)?$/ { inmap = 1; next }
+    inmap && /^[^ \t]/ { inmap = 0 }
+    inmap && /^[ \t]+[A-Za-z][A-Za-z-]*:[[:space:]]*[^[:space:]]/ { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' && return 1
+  return 0
 }
 
 lefthook_jobs_count() { # $1 = target repo, $2 = hook; how many jobs/commands the
@@ -478,16 +518,24 @@ print(len(hook.get("jobs") or []) + len(hook.get("commands") or {}))
 ' "$2" 2>/dev/null || echo 0
 }
 
-canary_secret_scan() { # $1 = target repo. EFFICACY probe, not wiring: stage a
-  # synthetic AWS-style key in an ISOLATED temp index (GIT_INDEX_FILE) and run
-  # the same gitleaks invocation the pre-commit job runs. The user's real index
-  # is never touched; the temp index is removed. Returns 0 = canary flagged
-  # (gate effective), 1 = canary passed unseen, 2 = probe could not run.
+canary_secret_scan() { # $1 = target repo. EFFICACY probe of the EFFECTIVE gate:
+  # stage a synthetic AWS-style key in an ISOLATED temp index (GIT_INDEX_FILE)
+  # and run the pre-commit hook GIT ITSELF would run (core.hooksPath local >
+  # global > .git/hooks -- effective_hooks_dir). That one pass covers
+  # config -> hooksPath -> lefthook -> merged jobs -> gitleaks: a placebo state
+  # (stubs wired, 0 jobs merged) now fails HERE, not only in the jobs check.
+  # The user's real index is never touched; the temp index is removed.
+  # Returns 0 = hook BLOCKED the canary (exit != 0 + "leaks found" evidence),
+  # 1 = canary passed unseen (or the hook failed without leak evidence --
+  # a crash is not a working gate), 2 = probe could not run,
+  # 3 = no effective pre-commit hook exists.
   # (Canary value assembled at runtime so no secret-shaped literal lives here.)
-  local target="$1" gitdir tmpidx blob rc=1 out canary
+  local target="$1" gitdir tmpidx blob rc=1 out canary hookfile
   canary="$(printf 'AKIA%s' "2J94QXKZR7T3W8Y5")"
   git -C "$target" rev-parse HEAD >/dev/null 2>&1 || return 2
   gitdir="$(git -C "$target" rev-parse --absolute-git-dir)" || return 2
+  hookfile="$(effective_hooks_dir "$target")/pre-commit"
+  [[ -x "$hookfile" ]] || return 3
   tmpidx="$gitdir/flowkit-canary-index.$$"
   rm -f "$tmpidx"
   blob="$(printf 'canary_key = "%s"\n' "$canary" \
@@ -497,21 +545,20 @@ canary_secret_scan() { # $1 = target repo. EFFICACY probe, not wiring: stage a
     && GIT_INDEX_FILE="$tmpidx" git update-index --add \
          --cacheinfo "100644,$blob,flowkit-canary-probe.txt" \
   ) >/dev/null 2>&1 || { rm -f "$tmpidx"; return 2; }
-  # config precedence mirrors the hook: repo-local > remotes cache > this clone
-  local cargs=(git --staged --redact --no-banner) cfg=""
-  if [[ -f "$target/.gitleaks.toml" ]]; then
-    cfg="$target/.gitleaks.toml"
+  # the verdict comes from the hook git executes, never from a direct scanner
+  # call: "the scanner would flag it" is not "the commit gets blocked".
+  # Warm-up run first: lefthook fetches its remotes cache on the FIRST run and
+  # executes the just-fetched jobs even when the steady-state merge is empty
+  # (overlay-only placebo blocks exactly once, then goes inert) -- the verdict
+  # that matters is the SECOND run's: what every future commit gets.
+  ( cd "$target" && GIT_INDEX_FILE="$tmpidx" "$hookfile" ) >/dev/null 2>&1 || true
+  if out="$(cd "$target" && GIT_INDEX_FILE="$tmpidx" "$hookfile" 2>&1)"; then
+    rc=1   # the commit would have gone through
+  elif grep -q "leaks found" <<<"$out"; then
+    rc=0   # blocked, and blocked BY the secret -- not a crash
   else
-    cfg="$(cd "$target" && find "$(git rev-parse --git-common-dir)/info/lefthook-remotes" \
-      -path '*/hooks/.gitleaks.toml' 2>/dev/null | head -1)"
-    [[ -z "$cfg" && -f "$REPO_DIR/hooks/.gitleaks.toml" ]] && cfg="$REPO_DIR/hooks/.gitleaks.toml"
+    rc=1
   fi
-  [[ -n "$cfg" ]] && cargs+=(--config "$cfg")
-  [[ -f "$target/.gitleaks-baseline.json" ]] \
-    && cargs+=(--baseline-path "$target/.gitleaks-baseline.json")
-  out="$( ( cd "$target" && GIT_INDEX_FILE="$tmpidx" gitleaks "${cargs[@]}" ) 2>&1 )" && rc=1 || rc=0
-  # exit != 0 alone could be a config error -- require the explicit verdict line
-  grep -q "leaks found" <<<"$out" || rc=1
   rm -f "$tmpidx"
   return "$rc"
 }
@@ -768,6 +815,11 @@ verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification: config
     echo "x config: no lefthook.yml/lefthook-local.yml referencing $REMOTE_URL"
     rc=1
   fi
+  # a security declaration is never dropped in silence: a hooks_skip key in a
+  # format neither parser understands gets a loud WARN instead of being ignored
+  if ship_hooks_skip_unparseable "$target"; then
+    echo "! hooks_skip present but unparseable -- declaration ignored (use 'hooks_skip:' + indented '<hook>: \"reason\"' lines, or the one-line 'hooks_skip: <hook>: \"reason\"')"
+  fi
   for hook in pre-commit pre-push commit-msg; do
     skip_reason="$(ship_hooks_skip_reason "$target" "$hook")"
     if [[ -n "$skip_reason" ]]; then
@@ -811,14 +863,16 @@ verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification: config
       echo "ok gitleaks config: central (hooks/.gitleaks.toml via lefthook remotes)"
     fi
     # canary: prove EFFICACY, not just wiring -- a synthetic secret staged in
-    # an isolated temp index must be flagged by the exact scan the hook runs
+    # an isolated temp index must be BLOCKED by the pre-commit hook git runs
     if [[ -n "$(ship_hooks_skip_reason "$target" pre-commit)" ]]; then
       echo "- canary: skipped (pre-commit consciously skipped via hooks_skip)"
     else
       canary_secret_scan "$target"
       case "$?" in
-        0) echo "ok canary: synthetic secret staged in an isolated index IS flagged ($(gitleaks_config_label "$target"))" ;;
-        1) echo "x canary: a synthetic AWS-style key passed the scan UNSEEN ($(gitleaks_config_label "$target")) -- the secret gate is ineffective; a repo-local .gitleaks.toml must extend the defaults ([extend] useDefault = true)"
+        0) echo "ok canary: synthetic secret staged in an isolated index IS blocked by the effective pre-commit hook ($(gitleaks_config_label "$target"))" ;;
+        1) echo "x canary: a synthetic AWS-style key passed the effective pre-commit hook UNSEEN ($(gitleaks_config_label "$target")) -- the secret gate is ineffective (inert config merging 0 jobs, dropped rules -- a repo-local .gitleaks.toml must keep [extend] useDefault = true -- or a hook crash without a leak verdict)"
+           rc=1 ;;
+        3) echo "x canary: no effective pre-commit hook -- git would run NOTHING at commit time (expected at $ehp/pre-commit)"
            rc=1 ;;
         *) echo "- canary: probe could not run (no HEAD yet?) -- efficacy unproven, wiring checks above still hold" ;;
       esac
