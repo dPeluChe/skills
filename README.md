@@ -72,9 +72,12 @@ flowkit install    # re-sync skills after a git pull
 flowkit check      # doctor: validate every link without touching anything (exit 0/1)
 flowkit prune      # sync + remove dead links left by renamed/deleted skills
 flowkit hooks      # wire centralized git hooks into the repo you're standing in
-flowkit upgrade    # lefthook/gitleaks versions + clone freshness (exit 1 if pending)
+flowkit hooks --verify   # only check the EFFECTIVE hook state (config + hooksPath + gitleaks), exit 0/1
+flowkit unhook     # clean removal from the current repo: stubs, OUR configs, OUR exclude entries
+flowkit upgrade    # lefthook/gitleaks versions + clone freshness (exit 1 if pending);
+                   # inside a wired repo it also refreshes that repo's lefthook remotes cache
 flowkit about      # what flowkit is + this repo's detected flow status (for agents landing cold)
-flowkit version    # flowkit 0.1.0 (<short sha>) — also --version / -v
+flowkit version    # flowkit 0.1.1 (<short sha>) — also --version / -v
 ```
 
 `flowkit hooks` accepts `--team` and `--include-parent` — same semantics as the
@@ -134,10 +137,44 @@ The installer checks minimum versions (lefthook ≥ 1.10, gitleaks ≥ 8.19), ch
 existing husky setup instead of replacing it, builds a one-time gitleaks baseline
 (`.gitleaks-baseline.json`) with a findings summary, links `FLOW_CLAUDE.md` into the target
 repo's CLAUDE.md, and stamps a `## ship config` template (the block where each repo declares
-its own `lint:` / `typecheck:` commands) if missing. It also counts embedded code fences in
+its own `lint:` / `typecheck:` commands) if missing. The template is **stack-aware**: if the
+repo has `.github/workflows/*.yml`, real lint/typecheck/build/test commands are extracted and
+pre-filled (each marked `# from <workflow> -- verify`); otherwise the TODO examples match the
+detected stack (Cargo.toml → cargo, package.json → npm, pyproject.toml → ruff/pytest,
+go.mod → go). It also counts embedded code fences in
 CLAUDE.md/AGENTS.md (agent instruction files reference paths, they don't embed code — the
 ship config yaml fence is the one canonical exception) and recommends `/doctos` to clean up;
-detection only, never blocks.
+detection only, never blocks. If `docs/` looks like a **published site** (CNAME, index.html,
+_config.yml, or a Pages workflow), that recommendation degrades to *findings only — do NOT
+reorganize; fix in place*, and the same guard is a rule inside the doctos skill itself.
+
+Baseline findings get **context labels**: a finding inside a `test`/`fixture`/`spec` file, or
+whose line reads like a regex literal (`\b`, `[0-9A-Z]{`…), is tagged `[likely
+detector/fixture]` and shows its REAL line in the report — everything else stays redacted.
+The closing agent copy-block carries full detail per item: fence counts per file, baseline
+`file:line` + label, and the stack's suggested ship-config commands ready to paste.
+
+**The install ends with an honest verification** (`flowkit hooks --verify`): config present,
+the hooks git will *actually run* (the effective `core.hooksPath`) invoke lefthook, gitleaks
+accessible, no orphan stubs — exit 0/1. In particular, a repo whose LOCAL `core.hooksPath`
+points at a tracked hooks dir (e.g. a versioned `.githooks/`) gets a plain **"hooks NOT
+active in this repo"** with the two ways out: PR the exact lefthook delegation line into the
+project's own hooks, or skip consciously. No false "wired ok". `--verify` also flags **orphan
+stubs** (lefthook hooks with no resolvable config — they break every push) and points to
+`flowkit unhook`.
+
+`flowkit unhook` is the clean exit: removes the lefthook stubs from the effective hooksPath
+and `.git/hooks`, deletes OUR config files (`lefthook.yml`/`lefthook-local.yml` referencing
+this repo — a tracked or foreign one is respected with a notice), clears our
+`.git/info/exclude` entries, and reports a table of everything removed.
+
+**Team repos (`--team`) stay portable**: the `FLOW_CLAUDE.md` import references a
+machine-local path, so it goes to `CLAUDE.local.md` (supported by Claude Code, added to
+`.git/info/exclude`) — the committed CLAUDE.md only receives the portable `## ship config`
+block. The baseline asks *"share baseline with team (commit) or keep personal (git
+exclude)? [s/P]"* — default personal (`.git/info/exclude`); answer `s` to commit
+`.gitleaks-baseline.json` so the whole team grandfathers the same findings. Solo mode keeps
+today's behavior (import in CLAUDE.md, baseline committable).
 
 Pointing `--repo` at a **workspace** (a git repo whose 1st-level children are git repos
 themselves) wires every child instead — same solo/team logic per child, closing with a
@@ -152,7 +189,10 @@ where the chain picks them up. Missing wrappers fail the install with the culpri
 `make upgrade` (or `./scripts/install.sh --upgrade`) reports installed lefthook/gitleaks
 versions against the required minimums (plus `brew outdated` when brew exists) and how many
 commits your clone sits behind `origin/main` — exit 0 all fresh, 1 something pending. It
-never pulls for you; when behind it suggests `git pull && make install`.
+never pulls for you; when behind it suggests `git pull && make install`. Run from inside a
+**wired** repo, it additionally runs `lefthook install` there to refresh that repo's remotes
+cache ("remotes refreshed") so a just-merged hooks change lands now instead of after the 24h
+refetch window.
 
 Four layers, increasing cost:
 

@@ -41,7 +41,10 @@ Usage: flowkit <subcommand>
   check      doctor mode -- validate every link, change nothing (exit 0/1)
   prune      sync + remove orphan links left by renamed/deleted skills
   hooks      wire centralized git hooks into the repo you are standing in ($PWD) [--team] [--include-parent]
-  upgrade    report lefthook/gitleaks versions + clone freshness (exit 1 if pending)
+             --verify: only check the EFFECTIVE hook state (config + hooksPath + gitleaks), exit 0/1
+  unhook     clean removal from $PWD: lefthook stubs, OUR config files, OUR exclude entries
+  upgrade    report lefthook/gitleaks versions + clone freshness (exit 1 if pending);
+             inside a wired repo it also refreshes that repo's lefthook remotes cache
   about      what flowkit is + this repo's detected flow status (for agents landing cold)
   version    print flowkit version + repo short sha
   help       show this help
@@ -58,6 +61,7 @@ case "$cmd" in
   check)   exec bash "$INSTALL" --check "$@" ;;
   prune)   exec bash "$INSTALL" --prune "$@" ;;
   hooks)   exec bash "$INSTALL" --repo "$PWD" "$@" ;;
+  unhook)  exec bash "$INSTALL" --unhook "$PWD" "$@" ;;
   upgrade) exec bash "$INSTALL" --upgrade "$@" ;;
   about)   exec bash "$INSTALL" --about "$@" ;;
   version|--version|-v) fk_version ;;

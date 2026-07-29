@@ -9,6 +9,8 @@
 #   40-install-repo.sh     install.sh --repo (workspace, hooksPath, --team, baseline, --upgrade)
 #   50-harness.sh          Claude Code PreToolUse guards + settings merge
 #   60-flowkit.sh          flowkit CLI dispatch, symlink resolution, about, version
+#   70-field-feedback.sh   0.1.1 field feedback: --verify, unhook, team portability,
+#                          stack templates, baseline context, published-site guard
 #
 # Modules are sourced here in lexical order, in ONE shell, so they share the
 # helpers and accumulate into the same counters. Output contract (consumed by

@@ -228,6 +228,17 @@ EOF
     else
       nope "local tracked hooksPath: tracked dir touched or wrong path taken (see $TMP/out.log)"
     fi
+    # wiring honesty: the install must say the stubs are dead code and offer
+    # the two exits (delegation PR with the exact snippet, or conscious skip)
+    if grep -q "hooks NOT active in this repo" "$TMP/out.log" \
+       && grep -q 'lefthook run pre-commit "\$@"' "$TMP/out.log" \
+       && grep -q "skip consciously" "$TMP/out.log" \
+       && grep -q -- "-- verify: FAIL" "$TMP/out.log" \
+       && grep -q "NOT fully active" "$TMP/out.log"; then
+      ok "local tracked hooksPath: honest 'hooks NOT active' + both exits + closing verify FAIL"
+    else
+      nope "local tracked hooksPath: honesty lines or closing verify missing (see $TMP/out.log)"
+    fi
   else
     nope "local tracked hooksPath: install exited non-zero"
   fi
