@@ -18,6 +18,16 @@
 #                                     # gets wired instead; the parent is skipped
 #                                     # unless --include-parent (workspace roots
 #                                     # carry their own no-commit locks).
+#   ./scripts/install.sh --repo <path> --verify
+#                                     # verify the EFFECTIVE hook state of <path>:
+#                                     # config present + effective hooksPath
+#                                     # invokes lefthook + gitleaks accessible +
+#                                     # no orphan stubs -- exit 0/1
+#   ./scripts/install.sh --unhook <path>
+#                                     # clean removal from <path>: lefthook stubs
+#                                     # (effective hooksPath + .git/hooks), OUR
+#                                     # lefthook config files and OUR
+#                                     # .git/info/exclude entries
 #   ./scripts/install.sh --upgrade    # report lefthook/gitleaks versions vs minimums
 #                                     # (+ brew outdated) and this clone vs
 #                                     # origin/main — exit 0 fresh, 1 pending
@@ -43,6 +53,7 @@ BIN_DIR="${FLOWKIT_BIN_DIR:-$HOME/bin}"
 HARNESS_LINK="${AGENTS_HOOKS_DIR:-$HOME/.agents/hooks-harness}"
 CLAUDE_SETTINGS="${CLAUDE_SETTINGS_FILE:-$HOME/.claude/settings.json}"
 MODE="sync"; COPY=0; PROBLEMS=0; TARGET_REPO=""; TEAM=0; INCLUDE_PARENT=0
+VERIFY_ONLY=0; VERIFY_FAILED=0; LAST_VERIFY_RC=0
 
 case "${1:-}" in
   --check)   MODE="check"; shift ;;
@@ -59,9 +70,14 @@ case "${1:-}" in
         --team)           TEAM=1; shift ;;
         --children-only)  INCLUDE_PARENT=0; shift ;;  # default; kept explicit
         --include-parent) INCLUDE_PARENT=1; shift ;;
+        --verify)         VERIFY_ONLY=1; shift ;;
         *) echo "x unknown --repo option: $1" >&2; exit 1 ;;
       esac
     done
+    ;;
+  --unhook)
+    MODE="unhook"; shift
+    TARGET_REPO="${1:?usage: install.sh --unhook <path>}"; shift
     ;;
 esac
 
@@ -283,8 +299,8 @@ chain_husky() { # $1 = target repo; append lefthook to husky hooks, never replac
   echo "  NOTE: hooks stay husky-managed; lefthook runs as the last step of each."
 }
 
-run_gitleaks_baseline() { # $1 = target repo
-  local target="$1" scan="git" n
+run_gitleaks_baseline() { # $1 = target repo, $2 = team (0/1)
+  local target="$1" team="${2:-0}" scan="git" n
   local report="$target/.gitleaks-baseline.json"
   gitleaks git --help >/dev/null 2>&1 || scan="detect"
   note "-> building gitleaks baseline (full history scan, one-time)..."
@@ -299,35 +315,107 @@ run_gitleaks_baseline() { # $1 = target repo
     || grep -c '"RuleID"' "$report" || echo "?")"
   echo "  baseline: $n findings -- review them once"
   if [[ "$n" != "0" && "$n" != "?" ]]; then
-    echo "  +- file - rule -----------------------------"
-    python3 - "$report" 2>/dev/null <<'PY' || true
-import json, sys
-for f in json.load(open(sys.argv[1]))[:20]:
-    print(f"  | {f.get('File', '?')} - {f.get('RuleID', '?')}")
+    echo "  +- file:line - rule ------------------------"
+    python3 - "$report" "$target" 2>/dev/null <<'PY' || true
+import json, os, re, sys
+
+report, root = sys.argv[1], sys.argv[2]
+
+def context(f):
+    # (likely, real_line): "likely detector/fixture" when the finding sits in a
+    # test/fixture/spec file or its line reads like a regex literal.
+    path, ln = f.get("File", ""), f.get("StartLine") or 0
+    line = ""
+    try:
+        with open(os.path.join(root, path), errors="replace") as fh:
+            line = fh.read().splitlines()[ln - 1].strip()
+    except Exception:
+        line = ""
+    likely = bool(re.search(r"test|fixture|spec", path.lower()))
+    if line and re.search(r"\\b|\\d|\[0-9|\[A-Z|\{\d+,|\(\?i\)", line):
+        likely = True
+    return likely, line
+
+for f in json.load(open(report))[:20]:
+    where = f"{f.get('File', '?')}:{f.get('StartLine', '?')}"
+    likely, line = context(f)
+    tag = " [likely detector/fixture]" if likely else ""
+    print(f"  | {where} - {f.get('RuleID', '?')}{tag}")
+    if likely and line:
+        print(f"  |   {line[:120]}")
 PY
     echo "  +-------------------------------------------"
     echo "  These findings are grandfathered by the baseline; NEW leaks still block."
+    echo "  [likely detector/fixture] entries show their REAL line (test/fixture file"
+    echo "  or regex literal); the rest stay redacted."
     local files
-    files="$(python3 - "$report" 2>/dev/null <<'PY' || echo "the baseline report"
-import json, sys
-seen = []
-for f in json.load(open(sys.argv[1])):
-    p = f.get("File", "?")
-    if p not in seen:
-        seen.append(p)
-extra = f" and {len(seen) - 3} more" if len(seen) > 3 else ""
-print(", ".join(seen[:3]) + extra)
+    files="$(python3 - "$report" "$target" 2>/dev/null <<'PY' || echo "the baseline report"
+import json, os, re, sys
+
+report, root = sys.argv[1], sys.argv[2]
+
+def likely(f):
+    path, ln = f.get("File", ""), f.get("StartLine") or 0
+    if re.search(r"test|fixture|spec", path.lower()):
+        return True
+    try:
+        with open(os.path.join(root, path), errors="replace") as fh:
+            line = fh.read().splitlines()[ln - 1]
+    except Exception:
+        return False
+    return bool(re.search(r"\\b|\\d|\[0-9|\[A-Z|\{\d+,|\(\?i\)", line))
+
+items = []
+for f in json.load(open(report)):
+    tag = ", likely detector/fixture" if likely(f) else ""
+    items.append(f"{f.get('File', '?')}:{f.get('StartLine', '?')} "
+                 f"({f.get('RuleID', '?')}{tag})")
+extra = f" and {len(items) - 6} more" if len(items) > 6 else ""
+print("; ".join(items[:6]) + extra)
 PY
 )"
     agent_action "Baseline grandfathered $n historical findings in $files -- confirm they are dead/test data."
   else
     echo "  (0 findings -- clean history, baseline kept as an empty ledger)"
   fi
+  if [[ "$team" == 1 ]]; then
+    # team repos choose: share the ledger (commit) or keep it personal
+    local share=""
+    if [[ -t 0 ]]; then
+      read -r -p "share baseline with team (commit) or keep personal (git exclude)? [s/P] " share
+    fi
+    if [[ "$share" == [sS]* ]]; then
+      note "-> baseline SHARED: commit .gitleaks-baseline.json so the whole team grandfathers the same findings"
+    else
+      exclude_add "$target" ".gitleaks-baseline.json"
+      note "-> baseline personal: .gitleaks-baseline.json added to .git/info/exclude (default; re-run with 's' to share)"
+    fi
+  fi
 }
 
-ensure_flow_import() { # $1 = target repo: @import FLOW into its CLAUDE.md
-  local target="$1" cmd="$1/CLAUDE.md" line='@~/.agents/skills/FLOW_CLAUDE.md'
+ensure_flow_import() { # $1 = target repo, $2 = team (0/1): @import FLOW.
+  # The import references a machine-local path (~/.agents/...), so on team
+  # repos it goes to CLAUDE.local.md (personal, git-excluded) -- the committed
+  # CLAUDE.md must stay portable for teammates without flowkit.
+  local target="$1" team="${2:-0}" line='@~/.agents/skills/FLOW_CLAUDE.md' cmd
   ensure_flow_link
+  if [[ "$team" == 1 ]]; then
+    if grep -qF "$line" "$target/CLAUDE.md" 2>/dev/null; then
+      note "-> committed CLAUDE.md already imports FLOW_CLAUDE.md -- consider moving that line to CLAUDE.local.md (machine-local path, not portable)"
+      return 0
+    fi
+    cmd="$target/CLAUDE.local.md"
+    [[ -f "$cmd" ]] || { printf '# CLAUDE.local.md -- personal, never committed\n' > "$cmd"; note "-> created CLAUDE.local.md"; }
+    exclude_add "$target" "CLAUDE.local.md"
+    if grep -qF "$line" "$cmd"; then
+      note "-> CLAUDE.local.md already imports FLOW_CLAUDE.md"
+    else
+      printf '\n%s\n' "$line" >> "$cmd"
+      note "-> added FLOW_CLAUDE.md import to CLAUDE.local.md (excluded via .git/info/exclude)"
+    fi
+    return 0
+  fi
+  cmd="$target/CLAUDE.md"
   [[ -f "$cmd" ]] || { printf '# CLAUDE.md\n' > "$cmd"; note "-> created CLAUDE.md"; }
   if grep -qF "$line" "$cmd"; then
     note "-> CLAUDE.md already imports FLOW_CLAUDE.md"
@@ -342,37 +430,128 @@ ship_config_has_todos() { # $1 = CLAUDE.md path: TODOs left in the ship config b
     | grep -q 'TODO'
 }
 
-ensure_ship_config_template() { # $1 = target repo: stamp the block if missing
-  local cmd="$1/CLAUDE.md"
+detect_stack_name() { # $1 = target repo; prints cargo|npm|python|go|generic
+  if   [[ -f "$1/Cargo.toml" ]];     then echo cargo
+  elif [[ -f "$1/package.json" ]];   then echo npm
+  elif [[ -f "$1/pyproject.toml" ]]; then echo python
+  elif [[ -f "$1/go.mod" ]];         then echo go
+  else echo generic; fi
+}
+
+stack_suggested_cmds() { # $1 = stack; one-line paste-ready suggestion (or empty)
+  case "$1" in
+    cargo)  echo "lint: cargo fmt --check && cargo clippy -- -D warnings; build: cargo build; test: cargo test" ;;
+    npm)    echo "lint: npm run lint; typecheck: npx tsc --noEmit; build: npm run build; test: npm test" ;;
+    python) echo "lint: ruff check .; test: pytest" ;;
+    go)     echo "lint: go vet ./...; build: go build ./...; test: go test ./..." ;;
+    *)      echo "" ;;
+  esac
+}
+
+ci_grep_cmd() { # $1 = target, $2 = ERE; prints "cmd<TAB>workflow" of the first
+  # single-line `run:` command in .github/workflows/ matching the pattern.
+  local f cmd
+  for f in "$1"/.github/workflows/*.yml "$1"/.github/workflows/*.yaml; do
+    [[ -f "$f" ]] || continue
+    cmd="$(sed -n 's/^[[:space:]-]*run:[[:space:]]*//p' "$f" \
+      | grep -vE '^[|>]' | grep -E "$2" | head -1)"
+    [[ -n "$cmd" ]] && { printf '%s\t%s\n' "$cmd" "$(basename "$f")"; return 0; }
+  done
+  return 1
+}
+
+ensure_ship_config_template() { # $1 = target repo: stamp the block if missing.
+  # Values come from the repo's CI workflows when extractable (marked
+  # "# from <workflow> -- verify"); fallback is stack-flavored TODO examples.
+  local target="$1" cmd="$1/CLAUDE.md" stack suggest fill_action hit from
+  stack="$(detect_stack_name "$target")"
+  suggest="$(stack_suggested_cmds "$stack")"
+  fill_action="Fill the TODOs in the '## ship config' block of CLAUDE.md (lint/build/test commands for this stack)."
+  [[ -n "$suggest" ]] && fill_action="$fill_action Suggested ($stack): $suggest -- paste and verify."
   if grep -q '^## ship config' "$cmd" 2>/dev/null; then
     note "-> CLAUDE.md already has a '## ship config' block"
-    ship_config_has_todos "$cmd" && agent_action \
-      "Fill the TODOs in the '## ship config' block of CLAUDE.md (lint/build/test commands for this stack)."
+    ship_config_has_todos "$cmd" && agent_action "$fill_action"
     return 0
   fi
-  cat >> "$cmd" <<'EOF'
+  [[ -f "$cmd" ]] || { printf '# CLAUDE.md\n' > "$cmd"; note "-> created CLAUDE.md"; }
+
+  local lint_line type_line build_line test_line ci_used=0
+  case "$stack" in
+    cargo)
+      lint_line='lint:            # TODO e.g. cargo fmt --check && cargo clippy -- -D warnings'
+      type_line='typecheck:       # TODO usually covered by clippy/build'
+      build_line='build:           # TODO e.g. cargo build'
+      test_line='test:            # TODO e.g. cargo test'
+      ;;
+    npm)
+      lint_line='lint:            # TODO e.g. npm run lint'
+      type_line='typecheck:       # TODO e.g. npx tsc --noEmit'
+      build_line='build:           # TODO e.g. npm run build'
+      test_line='test:            # TODO e.g. npm test (omit if none)'
+      ;;
+    python)
+      lint_line='lint:            # TODO e.g. ruff check .'
+      type_line='typecheck:       # TODO e.g. mypy .'
+      build_line='build:           # TODO omit if none'
+      test_line='test:            # TODO e.g. pytest'
+      ;;
+    go)
+      lint_line='lint:            # TODO e.g. go vet ./...'
+      type_line='typecheck:       # TODO covered by go build'
+      build_line='build:           # TODO e.g. go build ./...'
+      test_line='test:            # TODO e.g. go test ./...'
+      ;;
+    *)
+      lint_line='lint:            # TODO e.g. npm run lint'
+      type_line='typecheck:       # TODO e.g. npx tsc --noEmit'
+      build_line='build:           # TODO e.g. npm run build'
+      test_line='test:            # TODO omit if none'
+      ;;
+  esac
+  # better than guessing: real commands already exercised by CI
+  if hit="$(ci_grep_cmd "$target" '(^|[[:space:]/-])(lint|eslint|ruff check|clippy|fmt --check|golangci-lint)')"; then
+    from="${hit#*$'\t'}"; lint_line="lint: ${hit%%$'\t'*}   # from $from -- verify"; ci_used=1
+  fi
+  if hit="$(ci_grep_cmd "$target" '(tsc|typecheck|type-check|mypy|go vet)')"; then
+    from="${hit#*$'\t'}"; type_line="typecheck: ${hit%%$'\t'*}   # from $from -- verify"; ci_used=1
+  fi
+  if hit="$(ci_grep_cmd "$target" '(^|[[:space:]])[[:alnum:]_ -]*build')"; then
+    from="${hit#*$'\t'}"; build_line="build: ${hit%%$'\t'*}   # from $from -- verify"; ci_used=1
+  fi
+  if hit="$(ci_grep_cmd "$target" '(^|[[:space:]])(test|pytest|jest|vitest)')"; then
+    from="${hit#*$'\t'}"; test_line="test: ${hit%%$'\t'*}   # from $from -- verify"; ci_used=1
+  fi
+
+  cat >> "$cmd" <<EOF
 
 ## ship config
 
-```yaml
-lint:            # TODO e.g. npm run lint
-typecheck:       # TODO e.g. npx tsc --noEmit
-build:           # TODO e.g. npm run build
-test:            # TODO omit if none
+\`\`\`yaml
+$lint_line
+$type_line
+$build_line
+$test_line
 merge_policy: ask   # auto | ask
 loc_limit: 500
 simplify: 500       # run /simplify only if changed LOC > N (off = only on request)
-```
+\`\`\`
 EOF
-  note "-> stamped '## ship config' template in CLAUDE.md (fill the TODOs)"
-  agent_action "Fill the TODOs in the '## ship config' block of CLAUDE.md (lint/build/test commands for this stack)."
+  if [[ "$ci_used" == 1 ]]; then
+    note "-> stamped '## ship config' template in CLAUDE.md ($stack stack; commands pre-filled from CI workflows -- verify them)"
+    agent_action "Verify the CI-derived commands in the '## ship config' block of CLAUDE.md (marked '# from <workflow> -- verify')."
+    ship_config_has_todos "$cmd" && agent_action "$fill_action"
+    return 0
+  else
+    note "-> stamped '## ship config' template in CLAUDE.md ($stack stack detected -- fill the TODOs)"
+    agent_action "$fill_action"
+  fi
 }
 
 check_agent_docs_fences() { # $1 = target repo: agent instruction files must
   # reference paths, never embed code. Count ``` fences in CLAUDE.md/AGENTS.md,
   # excluding the canonical yaml fence of the "## ship config" section.
   # Detect + recommend only — the agent running the install launches /doctos.
-  local target="$1" file count=0 n
+  local target="$1" file count=0 n detail=""
   for file in CLAUDE.md AGENTS.md; do
     [[ -f "$target/$file" ]] || continue
     n="$(awk '
@@ -386,10 +565,15 @@ check_agent_docs_fences() { # $1 = target repo: agent instruction files must
       END { print n + 0 }
     ' "$target/$file")"
     count=$((count + n))
+    [[ "$n" -gt 0 ]] && detail="${detail:+$detail, }$file: $n"
   done
   if [[ "$count" -gt 0 ]]; then
     note "-> $count embedded code blocks in CLAUDE.md/AGENTS.md -- agent instruction files should reference paths, not embed code; run /doctos to clean them up"
-    agent_action "Run /doctos on this repo: $count embedded code blocks in CLAUDE.md/AGENTS.md."
+    if docs_is_published_site "$target"; then
+      agent_action "Run /doctos on this repo: $count embedded code blocks in CLAUDE.md/AGENTS.md ($detail). Findings only -- docs/ is a published site, do NOT reorganize; fix in place."
+    else
+      agent_action "Run /doctos on this repo: $count embedded code blocks in CLAUDE.md/AGENTS.md ($detail)."
+    fi
   fi
 }
 
@@ -423,6 +607,128 @@ local_tracked_hookspath() { # $1 = target repo; prints the repo-relative LOCAL
   esac
   [[ -n "$(git -C "$target" ls-files -- "$lp" 2>/dev/null)" ]] || return 1
   printf '%s\n' "$lp"
+}
+
+effective_hooks_dir() { # $1 = target repo; ABSOLUTE dir git actually consults
+  # for hooks: core.hooksPath (local wins over global) or .git/hooks.
+  local target="$1" hp
+  hp="$(git -C "$target" config core.hooksPath 2>/dev/null || true)"
+  if [[ -z "$hp" ]]; then
+    printf '%s/hooks\n' "$(git -C "$target" rev-parse --absolute-git-dir)"
+    return 0
+  fi
+  hp="${hp/#\~/$HOME}"
+  case "$hp" in
+    /*) printf '%s\n' "$hp" ;;
+    *)  printf '%s/%s\n' "$target" "$hp" ;;
+  esac
+}
+
+exclude_add() { # $1 = target repo, $2 = exact line for .git/info/exclude
+  local ex
+  ex="$(git -C "$1" rev-parse --absolute-git-dir)/info/exclude"
+  mkdir -p "$(dirname "$ex")"
+  grep -qxF "$2" "$ex" 2>/dev/null || printf '%s\n' "$2" >> "$ex"
+}
+
+exclude_remove() { # $1 = target repo, $2 = exact line; 0 only if it was removed
+  local ex tmp
+  ex="$(git -C "$1" rev-parse --absolute-git-dir)/info/exclude"
+  { [[ -f "$ex" ]] && grep -qxF "$2" "$ex"; } || return 1
+  tmp="$(mktemp)"
+  grep -vxF "$2" "$ex" > "$tmp" || true
+  mv "$tmp" "$ex"
+}
+
+lefthook_cfg_file() { # $1 = target; prints the config file referencing our remote
+  local target="$1" f
+  for f in lefthook.yml lefthook-local.yml; do
+    if [[ -f "$target/$f" ]] && grep -qF "$REMOTE_URL" "$target/$f"; then
+      printf '%s\n' "$f"; return 0
+    fi
+  done
+  return 1
+}
+
+hook_invokes_lefthook() { # $1 = target, $2 = hook name; does the hook git will
+  # ACTUALLY run invoke lefthook (directly, or via a chain wrapper delegating to
+  # a lefthook stub in .git/hooks)?
+  local target="$1" hook="$2" ehp file gitdir
+  ehp="$(effective_hooks_dir "$target")"
+  file="$ehp/$hook"
+  [[ -f "$file" ]] || return 1
+  grep -q lefthook "$file" && return 0
+  if grep -q 'git rev-parse --git-dir' "$file"; then
+    gitdir="$(git -C "$target" rev-parse --absolute-git-dir)"
+    [[ -f "$gitdir/hooks/$hook" ]] && grep -q lefthook "$gitdir/hooks/$hook" && return 0
+  fi
+  return 1
+}
+
+verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification: config
+  # present + the hooks git actually runs invoke lefthook + gitleaks accessible
+  # + no orphan stubs. Prints a report; returns 0 active / 1 not.
+  local target="$1" rc=0 cfg="" ehp gitdir hook f stubs=0 resolvable=0
+  ehp="$(effective_hooks_dir "$target")"
+  gitdir="$(git -C "$target" rev-parse --absolute-git-dir)"
+  echo "-- verify: effective hook state ($target)"
+  if cfg="$(lefthook_cfg_file "$target")"; then
+    echo "ok config: $cfg references $REMOTE_URL"
+  else
+    echo "x config: no lefthook.yml/lefthook-local.yml referencing $REMOTE_URL"
+    rc=1
+  fi
+  for hook in pre-commit pre-push; do
+    if hook_invokes_lefthook "$target" "$hook"; then
+      echo "ok $hook: effective hooksPath invokes lefthook"
+    else
+      echo "x $hook: hooks NOT active -- the hook git runs ($ehp/$hook) never invokes lefthook"
+      rc=1
+    fi
+  done
+  if command -v lefthook >/dev/null 2>&1; then
+    echo "ok lefthook: $(tool_version lefthook) accessible"
+  else
+    echo "x lefthook: not found (brew install lefthook)"
+    rc=1
+  fi
+  if command -v gitleaks >/dev/null 2>&1; then
+    echo "ok gitleaks: $(tool_version gitleaks) accessible"
+  else
+    echo "x gitleaks: not found -- secret scan will be skipped (brew install gitleaks)"
+    rc=1
+  fi
+  # orphan stubs: lefthook hook files present while no config resolves --
+  # lefthook errors out on every push instead of running jobs
+  for f in "$ehp"/* "$gitdir"/hooks/*; do
+    [[ -f "$f" ]] && grep -q lefthook "$f" 2>/dev/null && { stubs=1; break; }
+  done
+  if [[ "$stubs" == 1 ]]; then
+    if [[ -n "$cfg" ]] && command -v lefthook >/dev/null 2>&1 \
+       && ( cd "$target" && lefthook dump >/dev/null 2>&1 ); then
+      resolvable=1
+    fi
+    if [[ "$resolvable" == 0 ]]; then
+      echo "x orphan lefthook stubs -- they will break pushes; run: flowkit unhook"
+      rc=1
+    fi
+  fi
+  if [[ "$rc" -eq 0 ]]; then
+    echo "-- verify: PASS (hooks active end-to-end)"
+  else
+    echo "-- verify: FAIL -- hooks are NOT fully active in this repo"
+  fi
+  return "$rc"
+}
+
+docs_is_published_site() { # $1 = target: docs/ serves a live website (GitHub
+  # Pages & co.) -- reorganizing it breaks live URLs.
+  local t="$1" f
+  for f in CNAME index.html _config.yml; do
+    [[ -e "$t/docs/$f" ]] && return 0
+  done
+  grep -qsE 'actions/(configure-pages|deploy-pages|jekyll)|github-pages|mkdocs gh-deploy' \
+    "$t"/.github/workflows/*.yml "$t"/.github/workflows/*.yaml 2>/dev/null
 }
 
 verify_tracked_hooks_dir_clean() { # $1 = target repo, $2 = tracked hooks dir
@@ -506,11 +812,25 @@ wire_repo_hooks() { # $1 = target repo (absolute); full wiring of ONE repo, no e
     gitdir="$(git -C "$target" rev-parse --absolute-git-dir)"
     if ( cd "$target" && GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath \
         GIT_CONFIG_VALUE_0="$gitdir/hooks" lefthook install --force ); then
-      note "-> local core.hooksPath ($local_hp) is tracked -- lefthook stubs installed in .git/hooks instead; the project's hooks in $local_hp stay intact and chain in if the global wrapper exists"
+      note "-> local core.hooksPath ($local_hp) is tracked -- lefthook stubs installed in .git/hooks; the project's hooks in $local_hp stay intact"
     else
       bad "lefthook install --force failed -- see its message above; fix and re-run"
     fi
     verify_tracked_hooks_dir_clean "$target" "$local_hp"
+    # honesty check: with a LOCAL core.hooksPath git only ever runs $local_hp --
+    # the stubs in .git/hooks are dead code unless the project's hooks delegate
+    local delegated=1 h
+    for h in pre-commit pre-push; do
+      hook_invokes_lefthook "$target" "$h" || delegated=0
+    done
+    if [[ "$delegated" == 0 ]]; then
+      note "!! hooks NOT active in this repo: git uses the tracked hooksPath ($local_hp), so the lefthook stubs in .git/hooks are never invoked"
+      note "   two ways out:"
+      note "   1) PR a delegation line into the project's own hooks -- append to $local_hp/pre-commit and $local_hp/pre-push (matching hook name):"
+      note '        command -v lefthook >/dev/null 2>&1 && lefthook run pre-commit "$@"'
+      note "   2) skip consciously: this repo keeps only its own hooks (re-check any time with: flowkit hooks --verify)"
+      agent_action "Hooks NOT active in this repo (tracked core.hooksPath $local_hp). Either PR the lefthook delegation line into $local_hp/pre-commit and $local_hp/pre-push, or record the conscious skip."
+    fi
   elif [[ "$hookspath" == broken:* ]]; then
     bad "global core.hooksPath set but chain wrapper(s) missing for: ${hookspath#broken:} -- each wrapper must delegate to \$(git rev-parse --git-dir)/hooks/<hook>; add them and re-run"
   elif [[ "$hookspath" == "chained" ]]; then
@@ -533,10 +853,21 @@ wire_repo_hooks() { # $1 = target repo (absolute); full wiring of ONE repo, no e
 
   [[ "$team" == 1 ]] && cleanup_team_autocreated_yml "$target" "$had_lefthook_yml"
 
-  run_gitleaks_baseline "$target"
-  ensure_flow_import "$target"
+  run_gitleaks_baseline "$target" "$team"
+  ensure_flow_import "$target" "$team"
   ensure_ship_config_template "$target"
   check_agent_docs_fences "$target"
+  if docs_is_published_site "$target"; then
+    note "-> docs/ looks like a PUBLISHED SITE (CNAME/index.html/_config.yml or a Pages workflow)"
+    agent_action "/doctos here degrades to findings only -- docs/ is a published site, do NOT reorganize; fix in place."
+  fi
+  # the install ENDS with the effective-state verification -- no false "wired ok"
+  LAST_VERIFY_RC=0
+  verify_repo_hooks "$target" || LAST_VERIFY_RC=1
+  if [[ "$LAST_VERIFY_RC" -ne 0 ]]; then
+    VERIFY_FAILED=$((VERIFY_FAILED + 1))
+    agent_action "flowkit hooks --verify FAILED for this repo -- hooks are not fully active; see the verify lines above (delegation PR or conscious skip)."
+  fi
   print_agent_actions
 }
 
@@ -553,6 +884,11 @@ install_repo() {
   target="$(cd "$TARGET_REPO" 2>/dev/null && pwd)" || die "not a directory: $TARGET_REPO"
   git -C "$target" rev-parse --git-dir >/dev/null 2>&1 || die "not a git repo: $target"
 
+  # --verify: effective-state check only, no wiring, exit 0/1
+  if [[ "$VERIFY_ONLY" == 1 ]]; then
+    if verify_repo_hooks "$target"; then exit 0; else exit 1; fi
+  fi
+
   check_tool_versions
 
   local children=()
@@ -565,7 +901,11 @@ install_repo() {
       echo "-- $PROBLEMS problem(s) found"
       exit 1
     fi
-    echo "-- hooks wired into $target. First commit exercises them."
+    if [[ "$VERIFY_FAILED" -gt 0 ]]; then
+      echo "-- wiring finished, but hooks are NOT fully active in $target -- see the verify report above."
+    else
+      echo "-- hooks wired into $target. First commit exercises them."
+    fi
     exit 0
   fi
 
@@ -590,6 +930,8 @@ install_repo() {
     wire_repo_hooks "$child"
     if [[ "$PROBLEMS" -gt "$before" ]]; then
       results+=("$name|$((PROBLEMS - before)) problem(s)")
+    elif [[ "$LAST_VERIFY_RC" -ne 0 ]]; then
+      results+=("$name|hooks NOT active (verify failed)")
     else
       results+=("$name|ok")
     fi
@@ -606,11 +948,89 @@ install_repo() {
     echo "-- $PROBLEMS problem(s) found"
     exit 1
   fi
-  echo "-- hooks wired into ${#targets[@]} repo(s). First commit in each exercises them."
+  if [[ "$VERIFY_FAILED" -gt 0 ]]; then
+    echo "-- wired ${#targets[@]} repo(s); hooks NOT fully active in $VERIFY_FAILED of them -- see the verify lines above."
+  else
+    echo "-- hooks wired into ${#targets[@]} repo(s). First commit in each exercises them."
+  fi
   exit 0
 }
 
 if [[ "$MODE" == "repo" ]]; then install_repo; fi
+
+# ── unhook (--unhook <path>): clean removal of OUR wiring from one repo ─────
+run_unhook() {
+  local target gitdir ehp d f rel base line
+  local removed=()
+  target="$(cd "$TARGET_REPO" 2>/dev/null && pwd)" || die "not a directory: $TARGET_REPO"
+  git -C "$target" rev-parse --git-dir >/dev/null 2>&1 || die "not a git repo: $target"
+  gitdir="$(git -C "$target" rev-parse --absolute-git-dir)"
+  ehp="$(effective_hooks_dir "$target")"
+
+  # lefthook stubs: effective hooksPath + .git/hooks. Tracked files that
+  # mention lefthook (a project-owned delegation) are respected with a notice.
+  local dirs=("$gitdir/hooks")
+  if [[ "$ehp" != "$gitdir/hooks" ]]; then
+    case "$ehp" in
+      "$target"/*|"$gitdir"/*) dirs+=("$ehp") ;;
+      *) note "! effective hooksPath ($ehp) lives outside this repo (shared by others) -- not touched" ;;
+    esac
+  fi
+  for d in "${dirs[@]}"; do
+    for f in "$d"/*; do
+      [[ -f "$f" ]] || continue
+      grep -q lefthook "$f" 2>/dev/null || continue
+      case "$f" in
+        "$gitdir"/*) ;;
+        "$target"/*)
+          rel="${f#"$target"/}"
+          if git -C "$target" ls-files --error-unmatch "$rel" >/dev/null 2>&1; then
+            note "! $rel is TRACKED and mentions lefthook -- left in place (remove the delegation line via PR if unwanted)"
+            continue
+          fi
+          ;;
+      esac
+      rm -f "$f"
+      removed+=("lefthook stub|$f")
+    done
+  done
+
+  # OUR config files: only the ones referencing our remote AND untracked.
+  for base in lefthook.yml lefthook-local.yml; do
+    f="$target/$base"
+    [[ -f "$f" ]] || continue
+    if git -C "$target" ls-files --error-unmatch "$base" >/dev/null 2>&1; then
+      note "! $base is tracked (project-owned) -- left in place"
+    elif grep -qF "$REMOTE_URL" "$f"; then
+      rm -f "$f"
+      removed+=("our config|$f")
+    else
+      note "! $base does not reference $REMOTE_URL (not ours) -- left in place"
+    fi
+  done
+
+  # OUR .git/info/exclude entries (written by --team wiring).
+  for line in "CLAUDE.local.md" ".gitleaks-baseline.json"; do
+    if exclude_remove "$target" "$line"; then
+      removed+=("exclude entry|$line (.git/info/exclude)")
+    fi
+  done
+
+  echo ""
+  echo "-- unhook report ($target)"
+  if [[ "${#removed[@]}" -eq 0 ]]; then
+    echo "  nothing to remove -- repo was not wired (or already clean)"
+  else
+    printf '  %-16s %s\n' "removed" "what"
+    printf '  %-16s %s\n' "-------" "----"
+    for f in "${removed[@]}"; do
+      printf '  %-16s %s\n' "${f%%|*}" "${f##*|}"
+    done
+  fi
+  exit 0
+}
+
+if [[ "$MODE" == "unhook" ]]; then run_unhook; fi
 
 # -- about (--about): orientation for agents landing cold on a repo -----------
 run_about() {
@@ -815,6 +1235,23 @@ run_upgrade() {
   fi
   report_tool_upgrade lefthook "$MIN_LEFTHOOK"
   report_tool_upgrade gitleaks "$MIN_GITLEAKS"
+
+  # standing inside a WIRED repo: refresh that repo's lefthook remotes cache so
+  # a just-merged hooks change lands now instead of after the 24h refetch window
+  local cwd_root="" cwd_gitdir
+  cwd_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  if [[ -n "$cwd_root" && "$cwd_root" != "$REPO_DIR" ]] \
+     && command -v lefthook >/dev/null 2>&1 \
+     && lefthook_cfg_file "$cwd_root" >/dev/null; then
+    cwd_gitdir="$(git -C "$cwd_root" rev-parse --absolute-git-dir)"
+    if ( cd "$cwd_root" && GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath \
+        GIT_CONFIG_VALUE_0="$cwd_gitdir/hooks" lefthook install --force >/dev/null 2>&1 ); then
+      echo "ok $(basename "$cwd_root"): remotes refreshed (lefthook install re-synced this repo's cache)"
+    else
+      echo "x $(basename "$cwd_root"): lefthook install failed -- remotes NOT refreshed"
+      UPGRADE_PENDING=1
+    fi
+  fi
 
   # this skills clone vs its public remote — report only, never pull
   local behind

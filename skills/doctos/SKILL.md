@@ -174,6 +174,7 @@ Full scan of the project's documentation health.
 ### Steps
 
 1. **List all .md files at project root** — identify which are allowed vs violations
+1a. **Published-site guard** — if `docs/` contains `CNAME`, `index.html`, or `_config.yml`, or `.github/workflows/` has a Pages deploy workflow (`configure-pages`, `deploy-pages`, `jekyll`, `github-pages`, `mkdocs gh-deploy`), then `docs/` is a **published site**: the whole run degrades to **findings only — do NOT reorganize; fix in place**. Report every issue as usual, but never move, rename, or restructure anything under `docs/` (moves break live URLs). Mark the audit header with "docs/ is a published site — findings only" so CLEAN mode inherits the restriction
 2. **Scan docs/ folder** — check subfolder names, file names, structure
 3. **Check naming conventions** — find lowercase folders, inconsistent file names, .txt docs
 4. **Detect obsolete documents** — two signals:
@@ -315,6 +316,8 @@ Proceed? (y/n)
 ### Handling edge cases
 
 **File name conflicts:** If moving `ARCHITECTURE.md` from root to `docs/ARCHITECTURE/` but `docs/ARCHITECTURE/ARCHITECTURE.md` already exists — ask the user whether to merge, rename, or skip.
+
+**Published docs sites:** if the audit flagged `docs/` as a published site (CNAME / index.html / _config.yml / Pages workflow), CLEAN must refuse every move or rename under `docs/` — only in-place content fixes (stale claims, archival notes prepended without moving the file) are allowed. Say so explicitly in the plan.
 
 **Non-markdown files in docs/:** Shell scripts (`.sh`), config files, images — these are fine. Only audit `.md` and `.txt` files.
 
