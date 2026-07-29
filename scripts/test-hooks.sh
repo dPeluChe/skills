@@ -11,6 +11,9 @@
 #   60-flowkit.sh          flowkit CLI dispatch, symlink resolution, about, version
 #   70-field-feedback.sh   0.1.1 field feedback: --verify, unhook, team portability,
 #                          stack templates, baseline context, published-site guard
+#   80-brow2-feedback.sh   0.1.3 browv2 feedback: no-block by construction,
+#                          git-guard assignment semantics, unhook without
+#                          lefthook, about orphan hint, compact output
 #
 # Modules are sourced here in lexical order, in ONE shell, so they share the
 # helpers and accumulate into the same counters. Output contract (consumed by

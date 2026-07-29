@@ -20,13 +20,22 @@ except Exception:
 fi
 [[ -n "${CMD:-}" ]] || exit 0
 
-# Not a git command and no hook-bypass env -> silent pass
+# Bypass vars count only in ASSIGNMENT POSITION: at a command start (^ ; & |
+# parens), optionally behind env/export or other leading VAR=val words. A
+# prose mention (PR body, echo, docs) is data, not an assignment — it never
+# triggers the guard.
+re_assign_pre='(^|[;&|(])[[:space:]]*((env|export)[[:space:]]+)?([A-Za-z_][A-Za-z_0-9]*=[^[:space:]]*[[:space:]]+)*'
+re_lefthook0=${re_assign_pre}'LEFTHOOK='
+re_guard_off=${re_assign_pre}'FLOWKIT_GIT_GUARD=off([[:space:]]|$)'
+
+# Not a git command and no hook-bypass assignment -> silent pass
 re_has_git='(^|[^[:alnum:]_./-])git([[:space:]]|$)'
-if ! [[ "$CMD" =~ $re_has_git || "$CMD" == *"LEFTHOOK=0"* ]]; then
+if ! [[ "$CMD" =~ $re_has_git || "$CMD" =~ $re_lefthook0 ]]; then
   exit 0
 fi
 
-if [[ "${FLOWKIT_GIT_GUARD:-}" == "off" ]]; then
+# escape hatch: honored from the hook's env OR assigned on the command itself
+if [[ "${FLOWKIT_GIT_GUARD:-}" == "off" || "$CMD" =~ $re_guard_off ]]; then
   echo "[git-guard] FLOWKIT_GIT_GUARD=off — destructive-git protection disabled for this command" >&2
   exit 0
 fi
@@ -45,7 +54,7 @@ block() { # $1 = what matched, $2 = guidance
 G='(^|[;&|[:space:]()])git([[:space:]]+(-[cC][[:space:]]+[^[:space:]]+|--[^[:space:]]+|-[[:alnum:]]+))*[[:space:]]+'
 
 # ── our hook bypasses first: they defeat every other guard ─────────────────
-[[ "$CMD" == *"LEFTHOOK=0"* ]] && block "LEFTHOOK=0 (hook bypass)" \
+[[ "$CMD" =~ $re_lefthook0 ]] && block "LEFTHOOK= assignment (hook bypass)" \
   "Do not disable lefthook; let the hooks run and fix what they flag."
 re_no_verify=${G}'[^;&|]*--no-verify'
 [[ "$CMD" =~ $re_no_verify ]] && block "--no-verify (hook bypass)" \

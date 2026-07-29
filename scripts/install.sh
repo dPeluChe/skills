@@ -1052,7 +1052,7 @@ EOF
   git rev-parse --show-toplevel >/dev/null 2>&1 || exit 0
 
   local root name hooks_mode="none" baseline="none" ship="absent" flow="no"
-  local guards="not installed" n
+  local guards="not installed" n ehp gitdir f orphan=0
   root="$(git rev-parse --show-toplevel)"
   name="$(basename "$root")"
   if git -C "$root" ls-files --error-unmatch lefthook.yml >/dev/null 2>&1; then
@@ -1079,6 +1079,15 @@ EOF
      && grep -qF 'hooks-harness/secret-guard.sh' "$CLAUDE_SETTINGS" 2>/dev/null; then
     guards="installed"
   fi
+  # orphan stubs: lefthook hook files present with no config at all --
+  # every push errors out; unhook is the way out (same advice as --verify)
+  if [[ ! -f "$root/lefthook.yml" && ! -f "$root/lefthook-local.yml" ]]; then
+    ehp="$(effective_hooks_dir "$root")"
+    gitdir="$(git -C "$root" rev-parse --absolute-git-dir)"
+    for f in "$ehp"/* "$gitdir"/hooks/*; do
+      [[ -f "$f" ]] && grep -q lefthook "$f" 2>/dev/null && { orphan=1; break; }
+    done
+  fi
   echo ""
   echo "This repo ($name):"
   echo "  hooks mode:      $hooks_mode"
@@ -1086,6 +1095,9 @@ EOF
   echo "  ship config:     $ship"
   echo "  FLOW import:     $flow"
   echo "  harness guards:  $guards"
+  if [[ "$orphan" == 1 ]]; then
+    echo "  orphan stubs:    lefthook stubs with NO config -- pushes will fail; run: flowkit unhook"
+  fi
   exit 0
 }
 

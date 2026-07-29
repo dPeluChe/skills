@@ -77,6 +77,11 @@ Key semantics, with defaults only where safe:
   required proofs pass (the user's standing instruction in some solo repos: "no dejes los prs
   abiertos"). `ask` = draft → show exactly what will run → explicit OK → execute. Team repos and
   supervised flows are `ask` even if the session feels fluid.
+  **Scope honesty**: merge_policy binds ONLY the ship skill when invoked — nothing stops a web
+  merge or `gh pr merge` outside it. It is the reminder, not the lock. The lock is server-side
+  branch protection (Settings → Branches → require PR + approval); recommend it once per
+  supervised repo. Enforcement scale in one line:
+  memory < tool-read config < server-side protection < compiler invariant.
 - `required_proofs` — per-repo/per-area field tests that must pass BEFORE merge regardless of
   policy (e.g. "convex/mcp* touched → run scripts/mcp-smoke.mjs, exit 0"). Heavier flows declare
   heavier proofs; a green build is not proof that the feature works.
