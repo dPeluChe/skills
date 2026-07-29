@@ -71,9 +71,10 @@ if command -v lefthook >/dev/null 2>&1 && command -v gitleaks >/dev/null 2>&1; t
   printf 'example.com\n' > "$FFPUB/docs/CNAME"
   # a fence in CLAUDE.md: the /doctos guidance travels ATTACHED to the fence
   # finding (a standalone second line used to duplicate it)
+  # shellcheck disable=SC2016  # backticks are literal markdown fences
   printf '# CLAUDE.md\n\n```js\nconsole.log(1)\n```\n' > "$FFPUB/CLAUDE.md"
   if run_ff --repo "$FFPUB"; then
-    hits="$(grep -c "findings only -- docs/ is a published site, do NOT reorganize; fix in place" "$TMP/out.log" || true)"
+    hits="$(grep -ic "indings only -- docs/ is a published site, do NOT reorganize; fix in place" "$TMP/out.log" || true)"
     if grep -q "PUBLISHED SITE" "$TMP/out.log" && [ "$hits" -eq 1 ]; then
       ok "published site: guard note + /doctos guidance attached once (no dupe)"
     else
