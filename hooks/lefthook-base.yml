@@ -17,6 +17,17 @@
 # · commit-msg (strips agent attribution — authorship stays human).
 # Scripts are POSIX sh (lefthook runs commands through `sh -c`).
 
+# Compact output, always (lefthook >= 1.10 `output:` allowlist): jobs print
+# only their REAL output plus the short summary — no meta banner, no
+# per-command decoration. The default ~20 lines of ANSI drawing bury the one
+# error that matters when stdout is redirected (agents, CI, `git push 2>&1`),
+# and humans read the compact form faster too. lefthook cannot condition this
+# on TTY from config, so compact is the permanent mode (documented in README).
+output:
+  - summary
+  - execution_out
+  - failure
+
 pre-commit:
   parallel: false
   jobs:
@@ -69,68 +80,87 @@ pre-push:
   parallel: false
   jobs:
     # Docs nudge: code files pushed but ZERO .md touched — print a reminder.
-    # Never blocks; the real judgment happens in ship Step 3 / standup.
+    # Never blocks BY CONSTRUCTION: the whole body is one guarded group, so a
+    # crash anywhere inside (missing command, bad substitution, stray 127)
+    # degrades to exit 0 instead of killing the push — the no-block contract
+    # must not depend on reaching the last line. Real judgment happens in
+    # ship Step 3 / standup.
     - name: docs-nudge
       run: |
-        files="{push_files}"
-        files="${files:-}"
-        code=0
-        docs=0
-        # shellcheck disable=SC2086
-        for f in $files; do
-          case "$f" in
-            *.md) docs=1 ;;
-            src/*|convex/*|app/*|*.ts|*.tsx|*.rs|*.py|*.go) code=1 ;;
-          esac
-        done
-        if [ "$code" -eq 1 ] && [ "$docs" -eq 0 ]; then
-          echo "[hooks] code changed, no docs touched -- check if docs/mds need an update after this change" >&2
-        fi
+        {
+          files="{push_files}"
+          files="${files:-}"
+          code=0
+          docs=0
+          # shellcheck disable=SC2086
+          for f in $files; do
+            case "$f" in
+              *.md) docs=1 ;;
+              src/*|convex/*|app/*|*.ts|*.tsx|*.rs|*.py|*.go) code=1 ;;
+            esac
+          done
+          if [ "$code" -eq 1 ] && [ "$docs" -eq 0 ]; then
+            echo "[hooks] code changed, no docs touched -- check if docs/mds need an update after this change" >&2
+          fi
+        } || true
         exit 0
 
     # Runs the repo's own lint/typecheck, declared in the "## ship config"
-    # block (exact heading + yaml fence) of the repo's CLAUDE.md. Fail-soft:
-    # no block / no keys -> loud warning, push goes through.
+    # block (exact heading + yaml fence) of the repo's CLAUDE.md. Blocks BY
+    # DESIGN when lint/typecheck fail; everything else is fail-soft BY
+    # CONSTRUCTION: the config-reading machinery is guarded, so a crash there
+    # (parse error, missing command) leaves the commands empty and falls
+    # through to the loud warning + exit 0 — never a stray 127 blocking.
     - name: ship-config-gate
       run: |
         set -u
-        files="{push_files}"
         warn() { printf '[hooks] %s\n' "$*" >&2; }
-
-        # skip total: nothing pushed (branch deletions / tag-only moves)
-        if [ -z "$(printf '%s' "$files" | tr -d '[:space:]')" ]; then
-          exit 0
-        fi
-
-        # skip lint: docs-only push (every pushed file is .md)
-        only_md=1
-        # shellcheck disable=SC2086
-        for f in $files; do
-          case "$f" in
-            *.md) ;;
-            *) only_md=0; break ;;
-          esac
-        done
-        if [ "$only_md" -eq 1 ]; then
-          warn "docs-only push — lint/typecheck skipped"
-          exit 0
-        fi
-
-        # parse the "## ship config" block from the local CLAUDE.md
-        root="$(git rev-parse --show-toplevel)"
-        block=""
-        if [ -f "$root/CLAUDE.md" ]; then
-          # shellcheck disable=SC2016  # backtick fences are literal, not expansions
-          block="$(sed -n '/^## ship config$/,/^## /p' "$root/CLAUDE.md" \
-            | sed -n '/^```yaml$/,/^```$/p' | sed '1d;$d')"
-        fi
+        skip=""
+        root=""
         lint_cmd=""
         type_cmd=""
-        if [ -n "$block" ]; then
-          lint_cmd="$(printf '%s\n' "$block" | sed -n 's/^lint:[[:space:]]*//p' \
-            | sed 's/[[:space:]]*#.*$//' | head -1)"
-          type_cmd="$(printf '%s\n' "$block" | sed -n 's/^typecheck:[[:space:]]*//p' \
-            | sed 's/[[:space:]]*#.*$//' | head -1)"
+        {
+          files="{push_files}"
+
+          # skip total: nothing pushed (branch deletions / tag-only moves)
+          if [ -z "$(printf '%s' "$files" | tr -d '[:space:]')" ]; then
+            skip="empty"
+          fi
+
+          # skip lint: docs-only push (every pushed file is .md)
+          if [ -z "$skip" ]; then
+            only_md=1
+            # shellcheck disable=SC2086
+            for f in $files; do
+              case "$f" in
+                *.md) ;;
+                *) only_md=0; break ;;
+              esac
+            done
+            if [ "$only_md" -eq 1 ]; then
+              skip="docs"
+            fi
+          fi
+
+          # parse the "## ship config" block from the local CLAUDE.md
+          root="$(git rev-parse --show-toplevel)"
+          block=""
+          if [ -n "$root" ] && [ -f "$root/CLAUDE.md" ]; then
+            # shellcheck disable=SC2016  # backtick fences are literal, not expansions
+            block="$(sed -n '/^## ship config$/,/^## /p' "$root/CLAUDE.md" \
+              | sed -n '/^```yaml$/,/^```$/p' | sed '1d;$d')"
+          fi
+          if [ -n "$block" ]; then
+            lint_cmd="$(printf '%s\n' "$block" | sed -n 's/^lint:[[:space:]]*//p' \
+              | sed 's/[[:space:]]*#.*$//' | head -1)"
+            type_cmd="$(printf '%s\n' "$block" | sed -n 's/^typecheck:[[:space:]]*//p' \
+              | sed 's/[[:space:]]*#.*$//' | head -1)"
+          fi
+        } || true
+        [ "$skip" = "empty" ] && exit 0
+        if [ "$skip" = "docs" ]; then
+          warn "docs-only push — lint/typecheck skipped"
+          exit 0
         fi
         if [ -z "$lint_cmd" ] && [ -z "$type_cmd" ]; then
           warn "=============================================================="

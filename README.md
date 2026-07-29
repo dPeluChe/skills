@@ -77,7 +77,7 @@ flowkit unhook     # clean removal from the current repo: stubs, OUR configs, OU
 flowkit upgrade    # lefthook/gitleaks versions + clone freshness (exit 1 if pending);
                    # inside a wired repo it also refreshes that repo's lefthook remotes cache
 flowkit about      # what flowkit is + this repo's detected flow status (for agents landing cold)
-flowkit version    # flowkit 0.1.1 (<short sha>) — also --version / -v
+flowkit version    # flowkit 0.1.3 (<short sha>) — also --version / -v
 ```
 
 `flowkit hooks` accepts `--team` and `--include-parent` — same semantics as the
@@ -204,6 +204,17 @@ Four layers, increasing cost:
 | `/ship` | minutes | full gate ritual: lint 0 warnings, build/tests, LOC, secret scan on the diff, quality pass, evidence table |
 | CI | async | whatever the repo's pipeline adds on top — hooks complement CI, never replace it |
 
+`merge_policy` (read by `/ship`) binds only the ship skill — a web merge or `gh pr merge`
+bypasses it entirely. It is the reminder, not the lock; the lock is server-side branch
+protection (require PR + approval), worth enabling once per supervised repo. Enforcement
+scale: memory < tool-read config < server-side protection < compiler invariant.
+
+Hook output is pinned compact (`output: [summary, execution_out, failure]` in
+`hooks/lefthook-base.yml`): jobs print only their real output plus the short summary — no
+ASCII banner burying the one error that matters when stdout is redirected. lefthook cannot
+condition output on TTY from config, so compact is the permanent mode; humans read it
+faster too.
+
 On agent attribution: the first line of defense is `includeCoAuthoredBy: false` in Claude
 Code settings; the commit-msg hook is the net for configs that drift or agents that ignore
 it. If stripping would empty the whole message, the original is kept untouched.
@@ -214,7 +225,9 @@ Git hooks catch bad commits; these two PreToolUse guards catch the agent's tool 
 before it runs. `git-guard.sh` (matcher `Bash`) blocks destructive git — `push --force`
 (`--force-with-lease` passes), `reset --hard`, `clean -f`, `branch -D`, `filter-branch`,
 `stash drop/clear`, `checkout -- .`, `update-ref -d` — plus our own bypasses `--no-verify`
-and `LEFTHOOK=0`; escape hatch for a human-approved case: `FLOWKIT_GIT_GUARD=off`.
+and `LEFTHOOK=0` (detected only in ASSIGNMENT position on the command — a prose mention in
+a PR body or echo is data, never a trigger); escape hatch for a human-approved case:
+`FLOWKIT_GIT_GUARD=off` (from the environment or assigned on the command itself).
 `secret-guard.sh` (matcher `Edit|Write`) runs the content through gitleaks with
 `hooks/.gitleaks.toml` (regex fallback when gitleaks is absent) and refuses `.env*`
 targets outright. `make harness` symlinks `~/.agents/hooks-harness` and merges both
