@@ -72,10 +72,12 @@ pre-push:
     # Never blocks; the real judgment happens in ship Step 3 / standup.
     - name: docs-nudge
       run: |
+        files="{push_files}"
+        files="${files:-}"
         code=0
         docs=0
-        for f in {push_files} ""; do
-          [ -n "$f" ] || continue
+        # shellcheck disable=SC2086
+        for f in $files; do
           case "$f" in
             *.md) docs=1 ;;
             src/*|convex/*|app/*|*.ts|*.tsx|*.rs|*.py|*.go) code=1 ;;
