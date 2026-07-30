@@ -174,7 +174,7 @@ Full scan of the project's documentation health.
 ### Steps
 
 1. **List all .md files at project root** — identify which are allowed vs violations
-1a. **Published-site guard** — if `docs/` contains `CNAME`, `index.html`, or `_config.yml`, or `.github/workflows/` has a Pages deploy workflow (`configure-pages`, `deploy-pages`, `jekyll`, `github-pages`, `mkdocs gh-deploy`), then `docs/` is a **published site**: the whole run degrades to **findings only — do NOT reorganize; fix in place**. Report every issue as usual, but never move, rename, or restructure anything under `docs/` (moves break live URLs). Mark the audit header with "docs/ is a published site — findings only" so CLEAN mode inherits the restriction
+1a. **Published-site guard** — if `docs/` contains `CNAME`, `index.html`, or `_config.yml`, or `.github/workflows/` has a Pages deploy workflow (`configure-pages`, `deploy-pages`, `jekyll`, `github-pages`, `mkdocs gh-deploy`), then `docs/` is a **published site**: the whole run degrades to **findings only — do NOT reorganize; fix in place**. Report every issue as usual, but never move, rename, or restructure anything under `docs/` (moves break live URLs). Mark the audit header with "docs/ is a published site — findings only" so CLEAN mode inherits the restriction. **Report this ONLY when the guard fires** — when `docs/` is a normal documentation folder, say nothing about it: a "docs/ is not a published site" line is noise, it states the default and confuses the reader into thinking it means something. This guard applies to full AUDIT too, not just scoped runs.
 2. **Scan docs/ folder** — check subfolder names, file names, structure
 3. **Check naming conventions** — find lowercase folders, inconsistent file names, .txt docs
 4. **Detect obsolete documents** — two signals:
@@ -186,7 +186,10 @@ Full scan of the project's documentation health.
 6. **Check docs/README.md** — does it exist? does it have documentation rules?
 7. **Audit agent instruction files** — apply the CLAUDE.md / AGENTS.md hygiene rules (see "Agent instruction files" section): flag embedded code blocks, stale tech claims, and task tracking inside them
 7b. **Essay-comments in code (in passing, no full sweep)** — comment blocks over ~3 lines that narrate the logic, noticed while verifying other findings, are findings too: report each with a suggested docs/ destination (usually ARCHITECTURE/ or GUIDES/) so the block shrinks to a one-line WHY pointer in code
-8. **Report everything:**
+8. **Report everything.** Wording rules so the report reads clearly to someone who doesn't know doctos's model:
+   - **Always use literal paths**, not the bare word "docs". "3 files loose in `docs/`" is ambiguous (the folder? documentation in general?); write "3 files directly inside `docs/`, not yet sorted into a subfolder (ARCHITECTURE/GUIDES/…)". Name the actual files.
+   - `docs/` in a finding ALWAYS means the literal `docs/` directory at the repo root — never "documentation" as a concept. If you mean the concept, write "the documentation".
+   - Only report findings, not clean checks: a line confirming a rule already holds ("root is clean", "docs/ is not a published site") is noise — omit it. The report is a list of what to fix, not a checklist of what passed.
 
 ```
 ## Doctos Audit — [Project Name]
@@ -215,7 +218,7 @@ Full scan of the project's documentation health.
 
 ### Missing structure
 - docs/README.md — no documentation index
-- docs/GUIDES/ — no guides folder (5 guide-like files are loose in docs/)
+- docs/GUIDES/ — no guides folder (5 guide-like files sit directly in `docs/`, not in a subfolder: SETUP.md, DEPLOY.md, TESTING.md, …)
 - docs/ARCHIVED/ — no archive folder (obsolete files mixed with active ones)
 
 ### Potentially obsolete — 2 files (90+ days untouched)
