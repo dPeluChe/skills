@@ -168,6 +168,14 @@ editing a repo-local config, run `flowkit hooks --verify`: the canary stages a s
 secret and confirms the effective hook actually blocks it. A rule you have not watched go red
 is not verified.
 
+**Writing ABOUT a secret-shaped string** (documenting why a finding is benign, a false
+positive, or public-by-design) trips the same scan that flagged it — you cannot record the
+"why" without re-triggering. Append an inline `gitleaks:allow` comment to that specific line
+(`# gitleaks:allow`, `// gitleaks:allow`, `<!-- gitleaks:allow -->`): gitleaks skips exactly
+that line, so the explanation can live next to the value. For the harness `secret-guard`
+(which runs on Edit/Write before a file exists), the same inline marker on the line is
+honored via `hooks/.gitleaks.toml`. Do NOT weaken a rule to document one string.
+
 ### Repo-local gitleaks rules (`.gitleaks.toml`)
 
 The central `hooks/.gitleaks.toml` covers the token shapes that circulate across these repos

@@ -20,6 +20,12 @@ except Exception:
 fi
 [[ -n "${CMD:-}" ]] || exit 0
 
+# Normalize newlines to ';' -- an agent command is almost always multiline, and
+# a bypass/destructive form on line 2+ must anchor like it does after a ';'. The
+# regex `^` in bash =~ matches start of STRING only, so without this a
+# `true<newline>LEFTHOOK=0 git push` slipped the guard (field report).
+CMD="$(printf '%s' "$CMD" | tr '\n\r' ';;')"
+
 # Bypass-var detection runs on the command with QUOTED SPANS STRIPPED: an
 # assignment inside single/double quotes is data (a grep pattern, a PR body, a
 # doc line), never an assignment the shell would honor. Field false positives:

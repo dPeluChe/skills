@@ -31,7 +31,13 @@ run_gitleaks_baseline() { # $1 = target repo, $2 = team (0/1)
     bad "gitleaks baseline scan produced no report -- run it manually"
     return 0
   fi
-  n="$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))))' "$report" 2>/dev/null \
+  # dedup by (File, StartLine, RuleID): a git-history scan reports the same
+  # leak once per commit that carried it -- the count and list must not
+  # double-report (field case: one Sentry DSN shown twice, "3" when it was 2)
+  n="$(python3 -c 'import json,sys
+f=json.load(open(sys.argv[1]))
+u={(x.get("File"),x.get("StartLine"),x.get("RuleID")) for x in f}
+print(len(u))' "$report" 2>/dev/null \
     || grep -c '"RuleID"' "$report" || echo "?")"
   echo "  baseline: $n findings -- review them once"
   if [[ "$n" != "0" && "$n" != "?" ]]; then
@@ -56,7 +62,14 @@ def context(f):
         likely = True
     return likely, line
 
-for f in json.load(open(report))[:20]:
+seen = set()
+for f in json.load(open(report)):
+    key = (f.get("File"), f.get("StartLine"), f.get("RuleID"))
+    if key in seen:
+        continue
+    seen.add(key)
+    if len(seen) > 20:
+        break
     where = f"{f.get('File', '?')}:{f.get('StartLine', '?')}"
     likely, line = context(f)
     tag = " [likely detector/fixture]" if likely else ""
@@ -94,7 +107,7 @@ extra = f" and {len(items) - 6} more" if len(items) > 6 else ""
 print("; ".join(items[:6]) + extra)
 PY
 )"
-    agent_action "Baseline grandfathered $n historical findings in $files -- confirm they are dead/test data."
+    agent_action "Baseline grandfathered $n historical finding(s) in $files -- CLASSIFY each (do not assume dead): real secret to ROTATE at its provider / public-by-design (e.g. a Sentry DSN that ships in the bundle) / false positive (a var or key name that only looks secret-shaped). A clean baseline is not a rotation receipt."
   else
     echo "  (0 findings -- clean history, baseline kept as an empty ledger)"
   fi
@@ -279,7 +292,7 @@ npm_ship_lines() { # $1 = target repo; prints "key<TAB>ship-config-line" for
   # present, name absent ones explicitly, keep the project-references tsconfig
   # fix for typecheck, and label the stack Next/Vite. No scripts at all -> the
   # generic TODOs (each line says the script is absent).
-  local target="$1" pkg="$1/package.json" fw fwc="" scripts s ts_script="" test_script="" tsref="" f
+  local target="$1" pkg="$1/package.json" fw fwc="" scripts s ts_script="" test_script=""
   fw="$(detect_npm_framework "$pkg")"
   [[ -n "$fw" ]] && fwc=" [$fw]"
   scripts="$(pkg_scripts "$pkg")"
@@ -300,12 +313,18 @@ npm_ship_lines() { # $1 = target repo; prints "key<TAB>ship-config-line" for
     # a root tsconfig that is a project-references stub ("files": [] +
     # "references": [...]) makes `tsc --noEmit` a NO-OP that passes green while
     # checking nothing -- point at the real project tsconfig instead.
-    for f in "$target"/tsconfig.*.json; do
-      [[ -f "$f" ]] || continue
-      case "$f" in *node*) continue ;; esac
-      tsref="${f##*/}"; break
+    # Sibling dirs with their OWN tsconfig that the root does NOT reference
+    # (convex/, functions/, workers/, server/) are checked by NEITHER
+    # `tsc --noEmit` NOR `tsc -b` NOR the framework build -- field case: a repo
+    # shipped green with convex/ broken. Chain a -p check per unreferenced sibling.
+    sib=""
+    for d in convex functions workers server supabase/functions; do
+      if [[ -f "$target/$d/tsconfig.json" ]] \
+         && ! grep -q "$d" "$target/tsconfig.json" 2>/dev/null; then
+        sib="$sib && npx tsc --noEmit -p $d/tsconfig.json"
+      fi
     done
-    printf 'typecheck\ttypecheck:       # TODO root tsconfig is a references stub -- use: npx tsc --noEmit -p %s (plain tsc --noEmit checks NOTHING here)\n' "${tsref:-tsconfig.app.json}"
+    printf 'typecheck\ttypecheck:       # TODO root tsconfig is a references stub -- use: npx tsc -b --noEmit%s (plain tsc --noEmit checks NOTHING; -b alone skips unreferenced siblings like convex/)\n' "$sib"
   else
     printf 'typecheck\ttypecheck:       # TODO e.g. npx tsc --noEmit (no typecheck script in package.json)\n'
   fi
