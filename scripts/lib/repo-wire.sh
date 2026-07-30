@@ -224,7 +224,7 @@ wire_repo_hooks() { # $1 = target repo (absolute); full wiring of ONE repo, no e
   # never stamped automatically: a generic fixed-length regex is a false-positive
   # decision only the project can make -- the agent block carries the nudge
   if [[ ! -f "$target/.gitleaks.toml" ]]; then
-    agent_action "Project-specific secret formats (e.g. fixed-length CSPRNG tokens) are invisible to the central rules -- add a repo-local .gitleaks.toml (extend useDefault) with a rule for YOUR token format."
+    agent_action "Secret scanning uses the central rules (dpat_/GitHub-PAT/AWS/Sentry/Postgres/ITERIS + docs allowlist). ONLY if this repo mints its OWN token format that none of those cover, add a repo-local .gitleaks.toml -- but note it REPLACES the central config, so it MUST start with '[extend] useDefault = true' AND re-declare the central rules you still need, or you downgrade coverage. If the repo only consumes standard tokens (JWT, BYO keys), do NOT add one -- central already covers it."
   fi
   ensure_flow_import "$target" "$team"
   ensure_ship_config_template "$target"

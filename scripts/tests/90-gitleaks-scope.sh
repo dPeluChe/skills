@@ -80,10 +80,13 @@ EOF
     else
       nope "central path: config-in-use labels missing (see $TMP/out.log)"
     fi
-    if grep -q "add a repo-local .gitleaks.toml (extend useDefault) with a rule for YOUR token format" "$TMP/out.log"; then
-      ok "agent block: repo without .gitleaks.toml gets the project-formats nudge"
+    # nudge must warn a local config REPLACES the central (downgrade risk),
+    # not just "add one" -- field feedback: naive add loses central coverage
+    if grep -q "it REPLACES the central config" "$TMP/out.log" \
+       && grep -q "do NOT add one" "$TMP/out.log"; then
+      ok "agent block: nudge warns local .gitleaks.toml replaces central (no naive-add downgrade)"
     else
-      nope "agent block: project-formats nudge missing (see $TMP/out.log)"
+      nope "agent block: replace-warning nudge missing (see $TMP/out.log)"
     fi
   else
     nope "central path: install exited non-zero"
