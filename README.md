@@ -158,11 +158,14 @@ The closing agent copy-block carries full detail per item: fence counts per file
 ### Repo-local gitleaks rules (`.gitleaks.toml`)
 
 The central `hooks/.gitleaks.toml` covers the token shapes that circulate across these repos
-plus the gitleaks defaults — but it is **blind to formats only YOUR project uses** (field
-case: 40-char alphanumeric CSPRNG tokens sail through a central scan as "no leaks found").
-If the target repo has a `.gitleaks.toml` at its root, the pre-commit scan, the install
-baseline and the verify canary all use **that** config instead of the central one.
-Recommended repo-local pattern — gitleaks defaults plus the project's own rules:
+(dpat_/GitHub-PAT/AWS/Sentry/Postgres/ITERIS) plus the gitleaks defaults and a docs allowlist.
+**Most repos need no repo-local config** — if yours only consumes standard tokens (JWT, BYO
+keys the user types and never commits), the central rules already cover it; adding a local
+file would only *remove* coverage. Add one **only** when your project mints its OWN format
+that none of the central rules match (field case: 40-char alphanumeric CSPRNG tokens sail
+through a central scan as "no leaks found"). When present, the repo-local `.gitleaks.toml`
+**replaces** the central one for the pre-commit scan, the install baseline and the verify
+canary — so it must carry its own coverage forward. Recommended pattern:
 
 ```toml
 title = "my-project rules"
