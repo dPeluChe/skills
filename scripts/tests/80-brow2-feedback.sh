@@ -129,6 +129,34 @@ if [[ -x "$GG80" ]]; then
   else
     nope "git-guard: --no-verify with a prose escape mention must still block (rc=$rc)"
   fi
+
+  # ── 0.1.15: a bypass var inside a QUOTED span is data, never an assignment.
+  # Field false positives: the `|` / `(` inside quotes used to land in
+  # assignment position and block. The four forms must behave:
+  gg80q_bad=0
+  # (1) single-quoted grep pattern -- the '|' before LEFTHOOK= is quoted
+  # shellcheck disable=SC2016  # single quotes are the fixture, not expansion
+  if ! { run_gg 'grep '\''|LEFTHOOK='\'' hooks/lefthook-base.yml' && [[ ! -s "$TMP/err.log" ]]; }; then
+    nope "git-guard: grep '|LEFTHOOK=' (quoted) must pass silently"
+    gg80q_bad=1
+  fi
+  # (2) double-quoted PR body with an assignment-position char inside the quote
+  if ! { run_gg 'gh pr create --body "never run (LEFTHOOK=0) or ; LEFTHOOK=0 git push here"' && [[ ! -s "$TMP/err.log" ]]; }; then
+    nope "git-guard: gh pr create --body \"...(LEFTHOOK=0)...\" (quoted) must pass silently"
+    gg80q_bad=1
+  fi
+  # (3) unquoted assignment still blocks
+  run_gg 'LEFTHOOK=0 git push'; rc=$?
+  if [[ "$rc" -ne 2 || ! -s "$TMP/err.log" ]]; then
+    nope "git-guard: unquoted LEFTHOOK=0 git push must still block (rc=$rc)"
+    gg80q_bad=1
+  fi
+  # (4) unquoted escape hatch still passes with a warning
+  if ! { run_gg 'FLOWKIT_GIT_GUARD=off git push --force' && grep -q "FLOWKIT_GIT_GUARD=off" "$TMP/err.log"; }; then
+    nope "git-guard: unquoted FLOWKIT_GIT_GUARD=off git push --force must pass with a warning"
+    gg80q_bad=1
+  fi
+  [[ "$gg80q_bad" -eq 0 ]] && ok "git-guard 0.1.15: quoted bypass vars pass (grep/gh body), unquoted still block/escape"
 else
   nope "hooks/harness/git-guard.sh missing or not executable (0.1.3 fixtures)"
 fi

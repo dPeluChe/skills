@@ -20,10 +20,34 @@ except Exception:
 fi
 [[ -n "${CMD:-}" ]] || exit 0
 
+# Bypass-var detection runs on the command with QUOTED SPANS STRIPPED: an
+# assignment inside single/double quotes is data (a grep pattern, a PR body, a
+# doc line), never an assignment the shell would honor. Field false positives:
+# `grep '|LEFTHOOK='` and `gh pr create --body "...LEFTHOOK=0..."` blocked
+# because the guard saw the text as an assignment. Walk char by char, dropping
+# everything inside a quote (emit a space so token boundaries survive); an
+# escaped or unterminated quote just drops the rest, which is safe (it is data).
+strip_quotes() {
+  local s="$1" out="" i c q=""
+  for (( i = 0; i < ${#s}; i++ )); do
+    c="${s:i:1}"
+    if [[ -n "$q" ]]; then
+      [[ "$c" == "$q" ]] && q=""
+      continue
+    fi
+    case "$c" in
+      \'|\") q="$c"; out+=" " ;;
+      *)     out+="$c" ;;
+    esac
+  done
+  printf '%s' "$out"
+}
+CMD_NOQ="$(strip_quotes "$CMD")"
+
 # Bypass vars count only in ASSIGNMENT POSITION: at a command start (^ ; & |
 # parens), optionally behind env/export or other leading VAR=val words. A
 # prose mention (PR body, echo, docs) is data, not an assignment — it never
-# triggers the guard.
+# triggers the guard (quotes are already stripped in CMD_NOQ).
 # assignment position includes after do/then/else/{ so the escape hatch works
 # inside loops and conditionals -- the documented remedy must work where the
 # need is (deleting N branches in a loop is THE use case)
@@ -31,14 +55,15 @@ re_assign_pre='(^|[;&|({]|[[:space:]](do|then|else)[[:space:]])[[:space:]]*((env
 re_lefthook0=${re_assign_pre}'LEFTHOOK='
 re_guard_off=${re_assign_pre}'FLOWKIT_GIT_GUARD=off([[:space:]]|$)'
 
-# Not a git command and no hook-bypass assignment -> silent pass
+# Not a git command and no hook-bypass assignment -> silent pass. The git probe
+# keeps the full command; the bypass-assignment probe uses the unquoted copy.
 re_has_git='(^|[^[:alnum:]_./-])git([[:space:]]|$)'
-if ! [[ "$CMD" =~ $re_has_git || "$CMD" =~ $re_lefthook0 ]]; then
+if ! [[ "$CMD" =~ $re_has_git || "$CMD_NOQ" =~ $re_lefthook0 ]]; then
   exit 0
 fi
 
 # escape hatch: honored from the hook's env OR assigned on the command itself
-if [[ "${FLOWKIT_GIT_GUARD:-}" == "off" || "$CMD" =~ $re_guard_off ]]; then
+if [[ "${FLOWKIT_GIT_GUARD:-}" == "off" || "$CMD_NOQ" =~ $re_guard_off ]]; then
   echo "[git-guard] FLOWKIT_GIT_GUARD=off — destructive-git protection disabled for this command" >&2
   exit 0
 fi
@@ -57,7 +82,7 @@ block() { # $1 = what matched, $2 = guidance
 G='(^|[;&|[:space:]()])git([[:space:]]+(-[cC][[:space:]]+[^[:space:]]+|--[^[:space:]]+|-[[:alnum:]]+))*[[:space:]]+'
 
 # ── our hook bypasses first: they defeat every other guard ─────────────────
-[[ "$CMD" =~ $re_lefthook0 ]] && block "LEFTHOOK= assignment (hook bypass)" \
+[[ "$CMD_NOQ" =~ $re_lefthook0 ]] && block "LEFTHOOK= assignment (hook bypass)" \
   "Do not disable lefthook; let the hooks run and fix what they flag."
 re_no_verify=${G}'[^;&|]*--no-verify'
 [[ "$CMD" =~ $re_no_verify ]] && block "--no-verify (hook bypass)" \

@@ -18,49 +18,96 @@ print(len(hook.get("jobs") or []) + len(hook.get("commands") or {}))
 ' "$2" 2>/dev/null || echo 0
 }
 
-canary_secret_scan() { # $1 = target repo. EFFICACY probe of the EFFECTIVE gate:
-  # stage a synthetic AWS-style key in an ISOLATED temp index (GIT_INDEX_FILE)
-  # and run the pre-commit hook GIT ITSELF would run (core.hooksPath local >
-  # global > .git/hooks -- effective_hooks_dir). That one pass covers
-  # config -> hooksPath -> lefthook -> merged jobs -> gitleaks: a placebo state
-  # (stubs wired, 0 jobs merged) now fails HERE, not only in the jobs check.
-  # The user's real index is never touched; the temp index is removed.
-  # Returns 0 = hook BLOCKED the canary (exit != 0 + "leaks found" evidence),
-  # 1 = canary passed unseen (or the hook failed without leak evidence --
-  # a crash is not a working gate), 2 = probe could not run,
+canary_panel() { # prints "label<TAB>line-content", one synthetic secret per
+  # CENTRAL CUSTOM rule in hooks/.gitleaks.toml + a generic high-entropy value
+  # (proves [extend] useDefault = true is still on). Every value is ASSEMBLED
+  # AT RUNTIME from fragments so no secret-shaped literal ever lives in this
+  # file -- the secret-guard blocks those (and would block this very file).
+  # High-entropy pieces come from /dev/urandom via head|tr|cut (head reads a
+  # finite slice, so no pipe closes upstream -- no SIGPIPE under pipefail).
+  # The postgres host avoids 'example'/'placeholder' -- those are allowlisted
+  # and would make a real block read as UNSEEN.
+  local hex64 hex32 akia gen iter24 pgpw
+  hex64="$(printf '0123456789abcdef%.0s' 1 2 3 4)"
+  hex32="$(printf '0123456789abcdef%.0s' 1 2)"
+  akia="$(printf 'AKIA%s' '2J94QXKZR7T3W8Y5')"
+  gen="$(head -c 400 /dev/urandom 2>/dev/null | LC_ALL=C tr -dc 'A-Za-z0-9' | cut -c1-40)"
+  iter24="$(head -c 400 /dev/urandom 2>/dev/null | LC_ALL=C tr -dc 'A-Za-z0-9' | cut -c1-24)"
+  pgpw="$(head -c 400 /dev/urandom 2>/dev/null | LC_ALL=C tr -dc 'A-Za-z0-9' | cut -c1-16)"
+  printf 'dpat\ttoken = "dpat_%s"\n' "$hex64"
+  printf 'aws\tkey = "%s"\n' "$akia"
+  printf 'postgres-uri\turl = "%s%s:%s%s"\n' 'postgres''ql://' 'svcuser' "$pgpw" '@db.prod.internal/appdb'
+  printf 'sentry-dsn\tdsn = "https://%s@o987654.ingest.sentry.io/7654321"\n' "$hex32"
+  printf 'iteris-token\tITERIS_SYNC_TOKEN=sync_%s\n' "$iter24"
+  printf 'generic-high-entropy\tapi_key = "%s"\n' "$gen"
+}
+
+canary_secret_scan() { # $1 = target repo. EFFICACY probe of the EFFECTIVE gate,
+  # per SHAPE. Stage each synthetic secret from canary_panel in its OWN
+  # ISOLATED temp index (GIT_INDEX_FILE) and run the pre-commit hook GIT ITSELF
+  # would run (core.hooksPath local > global > .git/hooks -- effective_hooks_dir).
+  # Each probe covers config -> hooksPath -> lefthook -> merged jobs -> gitleaks.
+  # Testing a PANEL (not one shape) catches the TASK-108 class: a repo-local
+  # .gitleaks.toml that keeps [extend] useDefault = true but DROPS a central
+  # custom rule (dpat_/postgres/Sentry/ITERIS) still blocks an AWS-only canary
+  # (AWS is a default) while it silently stopped catching the dropped shape.
+  # Reports which shapes are caught vs UNSEEN via CANARY_REPORT / CANARY_UNSEEN;
+  # the verdict for every shape comes from the hook, never a direct scanner call.
+  # The user's real index is never touched; each temp index is removed.
+  # Returns 0 = every shape BLOCKED, 1 = at least one shape passed UNSEEN
+  # (dropped rule / hook crash without a leak verdict), 2 = probe could not run,
   # 3 = no effective pre-commit hook exists.
-  # (Canary value assembled at runtime so no secret-shaped literal lives here.)
-  local target="$1" gitdir tmpidx blob rc=1 out canary hookfile
-  canary="$(printf 'AKIA%s' "2J94QXKZR7T3W8Y5")"
+  local target="$1" gitdir tmpidx blob out hookfile label content
+  local -a unseen=()
+  CANARY_REPORT=""; CANARY_UNSEEN=""
   git -C "$target" rev-parse HEAD >/dev/null 2>&1 || return 2
   gitdir="$(git -C "$target" rev-parse --absolute-git-dir)" || return 2
   hookfile="$(effective_hooks_dir "$target")/pre-commit"
   [[ -x "$hookfile" ]] || return 3
   tmpidx="$gitdir/flowkit-canary-index.$$"
-  rm -f "$tmpidx"
-  blob="$(printf 'canary_key = "%s"\n' "$canary" \
-    | git -C "$target" hash-object -w --stdin)" || return 2
-  ( cd "$target" \
-    && GIT_INDEX_FILE="$tmpidx" git read-tree HEAD \
-    && GIT_INDEX_FILE="$tmpidx" git update-index --add \
-         --cacheinfo "100644,$blob,flowkit-canary-probe.txt" \
-  ) >/dev/null 2>&1 || { rm -f "$tmpidx"; return 2; }
-  # the verdict comes from the hook git executes, never from a direct scanner
-  # call: "the scanner would flag it" is not "the commit gets blocked".
+
+  stage_one() { # $1 = filename, $2 = line content -> fresh isolated temp index
+    rm -f "$tmpidx"
+    blob="$(printf '%s\n' "$2" | git -C "$target" hash-object -w --stdin)" || return 1
+    ( cd "$target" \
+      && GIT_INDEX_FILE="$tmpidx" git read-tree HEAD \
+      && GIT_INDEX_FILE="$tmpidx" git update-index --add \
+           --cacheinfo "100644,$blob,$1" \
+    ) >/dev/null 2>&1
+  }
+
   # Warm-up run first: lefthook fetches its remotes cache on the FIRST run and
   # executes the just-fetched jobs even when the steady-state merge is empty
   # (overlay-only placebo blocks exactly once, then goes inert) -- the verdict
-  # that matters is the SECOND run's: what every future commit gets.
-  ( cd "$target" && GIT_INDEX_FILE="$tmpidx" "$hookfile" ) >/dev/null 2>&1 || true
-  if out="$(cd "$target" && GIT_INDEX_FILE="$tmpidx" "$hookfile" 2>&1)"; then
-    rc=1   # the commit would have gone through
-  elif grep -q "leaks found" <<<"$out"; then
-    rc=0   # blocked, and blocked BY the secret -- not a crash
-  else
-    rc=1
+  # that matters is the STEADY-STATE run's, what every future commit gets. Do
+  # it ONCE, before the per-shape loop, so no single shape absorbs the warm-up.
+  if ! stage_one "flowkit-canary-warmup.txt" '# flowkit canary warm-up (no secret)'; then
+    rm -f "$tmpidx"; return 2
   fi
+  ( cd "$target" && GIT_INDEX_FILE="$tmpidx" "$hookfile" ) >/dev/null 2>&1 || true
+
+  while IFS=$'\t' read -r label content; do
+    [[ -n "$label" ]] || continue
+    if ! stage_one "flowkit-canary-$label.txt" "$content"; then
+      rm -f "$tmpidx"; return 2
+    fi
+    # the verdict comes from the hook git executes, never from a direct scanner
+    # call: "the scanner would flag it" is not "the commit gets blocked".
+    if out="$(cd "$target" && GIT_INDEX_FILE="$tmpidx" "$hookfile" 2>&1)"; then
+      CANARY_REPORT+="  - $label: UNSEEN"$'\n'   # the commit would have gone through
+      unseen+=("$label")
+    elif grep -q "leaks found" <<<"$out"; then
+      CANARY_REPORT+="  - $label: caught"$'\n'   # blocked, and blocked BY the secret
+    else
+      CANARY_REPORT+="  - $label: UNSEEN (hook failed without a leak verdict)"$'\n'
+      unseen+=("$label")
+    fi
+  done < <(canary_panel)
   rm -f "$tmpidx"
-  return "$rc"
+
+  CANARY_UNSEEN="${unseen[*]}"
+  [[ "${#unseen[@]}" -eq 0 ]] || return 1
+  return 0
 }
 
 lefthook_cfg_file() { # $1 = target; prints the config file referencing our remote
@@ -152,15 +199,19 @@ verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification: config
     else
       echo "ok gitleaks config: central (hooks/.gitleaks.toml via lefthook remotes)"
     fi
-    # canary: prove EFFICACY, not just wiring -- a synthetic secret staged in
-    # an isolated temp index must be BLOCKED by the pre-commit hook git runs
+    # canary: prove EFFICACY, not just wiring -- a PANEL of synthetic secrets,
+    # one per central custom rule, each staged in its own isolated temp index
+    # and required to be BLOCKED by the pre-commit hook git runs. Per-shape
+    # report names exactly which rule stopped blocking, not just "something".
     if [[ -n "$(ship_hooks_skip_reason "$target" pre-commit)" ]]; then
       echo "- canary: skipped (pre-commit consciously skipped via hooks_skip)"
     else
       canary_secret_scan "$target"
       case "$?" in
-        0) echo "ok canary: synthetic secret staged in an isolated index IS blocked by the effective pre-commit hook ($(gitleaks_config_label "$target"))" ;;
-        1) echo "x canary: a synthetic AWS-style key passed the effective pre-commit hook UNSEEN ($(gitleaks_config_label "$target")) -- the secret gate is ineffective (inert config merging 0 jobs, dropped rules -- a repo-local .gitleaks.toml must keep [extend] useDefault = true -- or a hook crash without a leak verdict)"
+        0) echo "ok canary: panel of synthetic secrets (one per central rule) ALL blocked by the effective pre-commit hook ($(gitleaks_config_label "$target"))"
+           printf '%s' "$CANARY_REPORT" ;;
+        1) echo "x canary: shape(s) passed the effective pre-commit hook UNSEEN: $CANARY_UNSEEN ($(gitleaks_config_label "$target")) -- these central rules stopped blocking (dropped rules -- a repo-local .gitleaks.toml must keep [extend] useDefault = true AND re-declare the central rules -- inert config merging 0 jobs, or a hook crash without a leak verdict)"
+           printf '%s' "$CANARY_REPORT"
            rc=1 ;;
         3) echo "x canary: no effective pre-commit hook -- git would run NOTHING at commit time (expected at $ehp/pre-commit)"
            rc=1 ;;

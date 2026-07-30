@@ -225,6 +225,109 @@ stack_suggested_cmds() { # $1 = stack; one-line paste-ready suggestion (or empty
   esac
 }
 
+pkg_scripts() { # $1 = package.json; prints the script NAMES, one per line
+  [[ -f "$1" ]] || return 0
+  if python3 - "$1" 2>/dev/null <<'PY'
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except Exception:
+    raise SystemExit(1)
+for k in (d.get("scripts") or {}):
+    print(k)
+PY
+  then
+    return 0
+  fi
+  # python3 unavailable/failed -> crude grep of the "scripts" object keys
+  sed -n '/"scripts"[[:space:]]*:/,/}/p' "$1" 2>/dev/null \
+    | grep -oE '"[A-Za-z0-9:_.-]+"[[:space:]]*:' \
+    | sed -E 's/^"([^"]+)".*/\1/' \
+    | grep -vx 'scripts'
+}
+
+detect_npm_framework() { # $1 = package.json; prints Next.js|Vite|"" (best effort
+  # from deps + script bodies) to LABEL the suggestion.
+  [[ -f "$1" ]] || return 0
+  if python3 - "$1" 2>/dev/null <<'PY'
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except Exception:
+    raise SystemExit(1)
+deps = {}
+for k in ("dependencies", "devDependencies"):
+    deps.update(d.get(k) or {})
+scripts = " ".join((d.get("scripts") or {}).values())
+if "next" in deps or "next" in scripts:
+    print("Next.js")
+elif "vite" in deps or "vite" in scripts:
+    print("Vite")
+PY
+  then
+    return 0
+  fi
+  grep -q '"next"[[:space:]]*:' "$1" 2>/dev/null && { echo "Next.js"; return 0; }
+  grep -q '"vite"[[:space:]]*:' "$1" 2>/dev/null && { echo "Vite"; return 0; }
+  return 0
+}
+
+npm_ship_lines() { # $1 = target repo; prints "key<TAB>ship-config-line" for
+  # lint/typecheck/build/test derived from the REAL package.json scripts.
+  # Field case (walter-client): the static npm template suggested `npm run lint`
+  # / `npm test` that did not exist there. Now: suggest the scripts actually
+  # present, name absent ones explicitly, keep the project-references tsconfig
+  # fix for typecheck, and label the stack Next/Vite. No scripts at all -> the
+  # generic TODOs (each line says the script is absent).
+  local target="$1" pkg="$1/package.json" fw fwc="" scripts s ts_script="" test_script="" tsref="" f
+  fw="$(detect_npm_framework "$pkg")"
+  [[ -n "$fw" ]] && fwc=" [$fw]"
+  scripts="$(pkg_scripts "$pkg")"
+
+  if grep -qx 'lint' <<<"$scripts"; then
+    printf 'lint\tlint: npm run lint%s   # from package.json scripts\n' "$fwc"
+  else
+    printf 'lint\tlint:            # TODO no "lint" script in package.json%s -- add one or omit\n' "$fwc"
+  fi
+
+  for s in typecheck type-check tsc; do
+    grep -qx "$s" <<<"$scripts" && { ts_script="$s"; break; }
+  done
+  if [[ -n "$ts_script" ]]; then
+    printf 'typecheck\ttypecheck: npm run %s   # from package.json scripts\n' "$ts_script"
+  elif [[ -f "$target/tsconfig.json" ]] \
+       && grep -q '"references"' "$target/tsconfig.json" 2>/dev/null; then
+    # a root tsconfig that is a project-references stub ("files": [] +
+    # "references": [...]) makes `tsc --noEmit` a NO-OP that passes green while
+    # checking nothing -- point at the real project tsconfig instead.
+    for f in "$target"/tsconfig.*.json; do
+      [[ -f "$f" ]] || continue
+      case "$f" in *node*) continue ;; esac
+      tsref="${f##*/}"; break
+    done
+    printf 'typecheck\ttypecheck:       # TODO root tsconfig is a references stub -- use: npx tsc --noEmit -p %s (plain tsc --noEmit checks NOTHING here)\n' "${tsref:-tsconfig.app.json}"
+  else
+    printf 'typecheck\ttypecheck:       # TODO e.g. npx tsc --noEmit (no typecheck script in package.json)\n'
+  fi
+
+  if grep -qx 'build' <<<"$scripts"; then
+    printf 'build\tbuild: npm run build   # from package.json scripts\n'
+  else
+    printf 'build\tbuild:           # TODO no "build" script in package.json -- add one or omit\n'
+  fi
+
+  for s in test test:run test:ci; do
+    grep -qx "$s" <<<"$scripts" && { test_script="$s"; break; }
+  done
+  if [[ "$test_script" == "test" ]]; then
+    printf 'test\ttest: npm test   # from package.json scripts\n'
+  elif [[ -n "$test_script" ]]; then
+    printf 'test\ttest: npm run %s   # from package.json scripts\n' "$test_script"
+  else
+    printf 'test\ttest:            # TODO no "test" script in package.json -- add one or omit\n'
+  fi
+}
+
 ci_grep_cmd() { # $1 = target, $2 = ERE; prints "cmd<TAB>workflow" of the first
   # single-line `run:` command in .github/workflows/ matching the pattern.
   local f cmd
@@ -261,25 +364,17 @@ ensure_ship_config_template() { # $1 = target repo: stamp the block if missing.
       test_line='test:            # TODO e.g. cargo test'
       ;;
     npm)
-      lint_line='lint:            # TODO e.g. npm run lint'
-      # A root tsconfig that is a project-references stub ("files": [] +
-      # "references": [...]) makes `tsc --noEmit` a NO-OP that passes green
-      # while checking nothing -- a false green, worse than no check. Point at
-      # the real project tsconfig instead.
-      if [[ -f "$target/tsconfig.json" ]] \
-         && grep -q '"references"' "$target/tsconfig.json" 2>/dev/null; then
-        _tsref=""
-        for _f in "$target"/tsconfig.*.json; do
-          [[ -f "$_f" ]] || continue
-          case "$_f" in *node*) continue ;; esac
-          _tsref="${_f##*/}"; break
-        done
-        type_line="typecheck:       # TODO root tsconfig is a references stub -- use: npx tsc --noEmit -p ${_tsref:-tsconfig.app.json} (plain tsc --noEmit checks NOTHING here)"
-      else
-        type_line='typecheck:       # TODO e.g. npx tsc --noEmit'
-      fi
-      build_line='build:           # TODO e.g. npm run build'
-      test_line='test:            # TODO e.g. npm test (omit if none)'
+      # read the ACTUAL package.json scripts (Next/Vite label, absent-script
+      # notes, project-references tsconfig fix) instead of static guesses
+      local _k _v
+      while IFS=$'\t' read -r _k _v; do
+        case "$_k" in
+          lint)      lint_line="$_v" ;;
+          typecheck) type_line="$_v" ;;
+          build)     build_line="$_v" ;;
+          test)      test_line="$_v" ;;
+        esac
+      done < <(npm_ship_lines "$target")
       ;;
     python)
       lint_line='lint:            # TODO e.g. ruff check .'
