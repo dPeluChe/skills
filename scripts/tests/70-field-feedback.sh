@@ -159,6 +159,31 @@ EOF
     nope "CI extraction: fixture install exited non-zero"
   fi
 
+  # ── (4c) 0.1.15 npm stack: read the REAL package.json scripts (no CI). Field
+  # case (walter-client): the static template suggested npm run lint / npm test
+  # that did not exist. Fixture has {lint, build} + a vite dep but NO test.
+  FFNPM="$TMP/ff-npm-scripts"
+  make_repo "$FFNPM"
+  cat > "$FFNPM/package.json" <<'EOF'
+{
+  "name": "walter-client-fixture",
+  "scripts": { "lint": "eslint .", "build": "vite build" },
+  "devDependencies": { "vite": "^5.0.0" }
+}
+EOF
+  if run_ff --repo "$FFNPM"; then
+    if grep -q 'lint: npm run lint \[Vite\]   # from package.json scripts' "$FFNPM/CLAUDE.md" \
+       && grep -q 'build: npm run build   # from package.json scripts' "$FFNPM/CLAUDE.md" \
+       && grep -q 'test:.*no "test" script in package.json -- add one or omit' "$FFNPM/CLAUDE.md" \
+       && ! grep -q '^test: npm test' "$FFNPM/CLAUDE.md"; then
+      ok "npm scripts: present scripts (lint/build) suggested + Vite label; absent test named, never a phantom 'npm test'"
+    else
+      nope "npm scripts: template did not reflect the real package.json scripts (see $FFNPM/CLAUDE.md)"
+    fi
+  else
+    nope "npm scripts: fixture install exited non-zero"
+  fi
+
   # ── (5+6) baseline context: fixture-file findings tagged + REAL line shown,
   # ordinary findings stay redacted; agent block carries file:line detail
   FFBASE="$TMP/ff-baseline"

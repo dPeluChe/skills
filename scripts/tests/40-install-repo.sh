@@ -96,10 +96,12 @@ EOF
     fi
     if grep -q -- "---- copy below to your agent ----" "$TMP/out.log" \
        && grep -q "Run /doctos on this repo: 2 embedded code blocks" "$TMP/out.log" \
-       && grep -q "For context on this tooling, run: flowkit about" "$TMP/out.log"; then
-      ok "agent block: actionable findings collected into the copy-paste section"
+       && grep -q "For context on this tooling run .flowkit about." "$TMP/out.log" \
+       && grep -q "if flowkit is not on PATH, read" "$TMP/out.log" \
+       && grep -q "hooks/lefthook-base.yml in the skills repo" "$TMP/out.log"; then
+      ok "agent block: actionable findings + copy-block flowkit-not-on-PATH fallback collected"
     else
-      nope "agent block: delimited section or its action lines missing (see $TMP/out.log)"
+      nope "agent block: delimited section, action lines or PATH fallback missing (see $TMP/out.log)"
     fi
   else
     nope "agent-docs fences: detection must never block the install"
@@ -108,8 +110,29 @@ EOF
   CLEANDOC="$TMP/cleandoc"
   make_repo "$CLEANDOC"
   # a repo-local .gitleaks.toml so the project-formats nudge (0.1.4) does not
-  # fire either -- this fixture asserts the NOTHING-actionable case
-  printf '[extend]\nuseDefault = true\n' > "$CLEANDOC/.gitleaks.toml"
+  # fire either -- this fixture asserts the NOTHING-actionable case. It must
+  # keep [extend] useDefault = true AND re-declare the central custom rules,
+  # otherwise the 0.1.15 canary panel (correctly) flags the dropped shapes.
+  cat > "$CLEANDOC/.gitleaks.toml" <<'EOF'
+[extend]
+useDefault = true
+[[rules]]
+id = "dpeluche-dpat"
+regex = '''dpat_[a-f0-9]{64}'''
+keywords = ["dpat_"]
+[[rules]]
+id = "dpeluche-sentry-dsn"
+regex = '''https://[a-f0-9]{8,64}@[A-Za-z0-9.-]*sentry\.io/[0-9]+'''
+keywords = ["sentry.io"]
+[[rules]]
+id = "dpeluche-postgres-uri"
+regex = '''postgres(?:ql)?://[A-Za-z0-9_.-]+:[^@/\s'"]+@[A-Za-z0-9.-]+'''
+keywords = ["postgres"]
+[[rules]]
+id = "dpeluche-iteris-sync-token"
+regex = '''ITERIS_SYNC_TOKEN\s*[=:]\s*['"]?[A-Za-z0-9_\-]{8,}'''
+keywords = ["ITERIS_SYNC_TOKEN"]
+EOF
   cat > "$CLEANDOC/CLAUDE.md" <<'EOF'
 # Test repo
 

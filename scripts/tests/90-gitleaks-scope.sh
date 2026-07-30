@@ -118,18 +118,56 @@ EOF
   fi
 
   # ── (4) canary catches an INEFFECTIVE config: rules dropped (no extend,
-  # no rules) -> the synthetic secret passes unseen -> verify FAIL
+  # no rules) -> EVERY panel shape passes unseen -> verify FAIL, all named
   GSBROKE="$TMP/gs-broken-cfg"
   make_repo "$GSBROKE"
   printf 'title = "empty config -- no extend, no rules"\n' > "$GSBROKE/.gitleaks.toml"
   run_gs --repo "$GSBROKE" || true   # wiring finishes; the verify inside already flags it
   if run_gs --repo "$GSBROKE" --verify; then
     nope "canary: an empty repo-local config must FAIL --verify"
-  elif grep -q "x canary: a synthetic AWS-style key passed the effective pre-commit hook UNSEEN" "$TMP/out.log" \
+  elif grep -q "x canary: shape(s) passed the effective pre-commit hook UNSEEN" "$TMP/out.log" \
+       && grep -q "postgres-uri: UNSEEN" "$TMP/out.log" \
+       && grep -q "dpat: UNSEEN" "$TMP/out.log" \
        && grep -q -- "-- verify: FAIL" "$TMP/out.log"; then
-    ok "canary: empty repo-local .gitleaks.toml -> synthetic secret unseen by the real hook, verify exit 1"
+    ok "canary: empty repo-local .gitleaks.toml -> whole panel unseen by the real hook, verify exit 1"
   else
-    nope "canary: exit 1 but the canary diagnosis is missing (see $TMP/out.log)"
+    nope "canary: exit 1 but the canary panel diagnosis is missing (see $TMP/out.log)"
+  fi
+
+  # ── (4b) THE crown-jewel case: a repo-local config that KEEPS [extend]
+  # useDefault = true (so AWS/generic still caught by defaults) but DROPS one
+  # central custom rule (postgres). An AWS-only canary would stay GREEN here;
+  # the panel must FAIL naming exactly the dropped shape (TASK-108 class).
+  GSDROP="$TMP/gs-drop-postgres"
+  make_repo "$GSDROP"
+  cat > "$GSDROP/.gitleaks.toml" <<'EOF'
+title = "useDefault kept, postgres rule dropped"
+[extend]
+useDefault = true
+[[rules]]
+id = "dpeluche-dpat"
+regex = '''dpat_[a-f0-9]{64}'''
+keywords = ["dpat_"]
+[[rules]]
+id = "dpeluche-sentry-dsn"
+regex = '''https://[a-f0-9]{8,64}@[A-Za-z0-9.-]*sentry\.io/[0-9]+'''
+keywords = ["sentry.io"]
+[[rules]]
+id = "dpeluche-iteris-sync-token"
+regex = '''ITERIS_SYNC_TOKEN\s*[=:]\s*['"]?[A-Za-z0-9_\-]{8,}'''
+keywords = ["ITERIS_SYNC_TOKEN"]
+EOF
+  run_gs --repo "$GSDROP" || true
+  if run_gs --repo "$GSDROP" --verify; then
+    nope "canary drop-rule: a config that dropped the postgres rule must FAIL --verify"
+  elif grep -q "x canary: shape(s) passed the effective pre-commit hook UNSEEN: postgres-uri" "$TMP/out.log" \
+       && grep -q "postgres-uri: UNSEEN" "$TMP/out.log" \
+       && grep -q "dpat: caught" "$TMP/out.log" \
+       && grep -q "sentry-dsn: caught" "$TMP/out.log" \
+       && grep -q -- "-- verify: FAIL" "$TMP/out.log"; then
+    ok "canary drop-rule: useDefault kept but postgres rule dropped -> canary names postgres-uri UNSEEN, verify exit 1"
+  else
+    nope "canary drop-rule: postgres not isolated as the dropped shape (see $TMP/out.log)"
   fi
 
   # ── (5) 0-jobs inert gate (field state): ONLY lefthook-local.yml present --
@@ -159,7 +197,7 @@ EOF
   # the placebo state must ALSO fail by canary: the effective hook runs, merges
   # 0 jobs, exits 0 -> the canary sails through the very hook git would run.
   # (0.1.4 canary called gitleaks directly and stayed GREEN here.)
-  if grep -q "x canary: a synthetic AWS-style key passed the effective pre-commit hook UNSEEN" "$TMP/out.log"; then
+  if grep -q "x canary: shape(s) passed the effective pre-commit hook UNSEEN" "$TMP/out.log"; then
     ok "0-jobs: canary fails through the EFFECTIVE hook too (verdict, not just the jobs diagnostic)"
   else
     nope "0-jobs: canary stayed green on a placebo gate (see $TMP/out.log)"
@@ -252,15 +290,20 @@ EOF
     nope "hooks_skip unparseable: exit 1 but WARN or pre-push failure missing (see $TMP/out.log)"
   fi
 
-  # ── (7) verify breakdown on a healthy repo: commit-msg + merged jobs +
-  # canary all reported; canary leaves no trace in the repo
+  # ── (7) verify breakdown on a healthy repo (central config): commit-msg +
+  # merged jobs + the WHOLE panel caught; canary leaves no trace in the repo
   if run_gs --repo "$GSCENT" --verify \
      && grep -q "ok commit-msg: effective hooksPath invokes lefthook" "$TMP/out.log" \
      && grep -q "ok jobs: pre-commit resolves" "$TMP/out.log" \
-     && grep -q "ok canary: synthetic secret staged in an isolated index IS blocked by the effective pre-commit hook" "$TMP/out.log"; then
-    ok "verify breakdown: commit-msg + merged jobs + canary reported on a healthy repo"
+     && grep -q "ok canary: panel of synthetic secrets (one per central rule) ALL blocked by the effective pre-commit hook" "$TMP/out.log" \
+     && grep -q "postgres-uri: caught" "$TMP/out.log" \
+     && grep -q "sentry-dsn: caught" "$TMP/out.log" \
+     && grep -q "iteris-token: caught" "$TMP/out.log" \
+     && grep -q "generic-high-entropy: caught" "$TMP/out.log" \
+     && ! grep -q "UNSEEN" "$TMP/out.log"; then
+    ok "verify breakdown: central config -> commit-msg + jobs + FULL canary panel caught (no UNSEEN)"
   else
-    nope "verify breakdown: commit-msg/jobs/canary lines missing (see $TMP/out.log)"
+    nope "verify breakdown: commit-msg/jobs/panel lines missing or a shape UNSEEN (see $TMP/out.log)"
   fi
   gs_leftover=("$GSCENT"/.git/*canary*)
   if [[ -z "$(git -C "$GSCENT" diff --cached --name-only)" ]] \

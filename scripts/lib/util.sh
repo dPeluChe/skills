@@ -28,7 +28,7 @@ print_agent_actions() {
   echo ""
   echo "---- copy below to your agent ----"
   printf '%s' "$AGENT_ACTIONS"
-  echo "For context on this tooling, run: flowkit about"
+  echo "For context on this tooling run \`flowkit about\` -- if flowkit is not on PATH, read \`lefthook.yml\` + the \`## ship config\` block in CLAUDE.md + hooks/lefthook-base.yml in the skills repo."
   echo "---- end ----"
 }
 
