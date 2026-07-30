@@ -77,9 +77,13 @@ Key semantics, with defaults only where safe:
   the user's running dev server). **A gate that passes without validating anything is a FALSE
   GREEN — worse than no gate.** The classic trap: `npx tsc --noEmit` against a root `tsconfig.json`
   that is a project-references stub (`"files": []` + `"references"`) checks NOTHING and exits 0;
-  the real command is `tsc --noEmit -p tsconfig.app.json`. When first wiring a repo's `typecheck:`
-  (or any gate), confirm it FAILS on a real error before trusting its green — a check you have
-  never seen go red has not been verified.
+  the real command is `tsc --noEmit -p tsconfig.app.json`. Worse, `tsc -b` and the framework
+  build only cover *referenced* projects — a sibling dir with its own tsconfig that the root
+  doesn't reference (`convex/`, `functions/`, `workers/`) is checked by none of them, so the
+  repo ships green with that code broken (it surfaces only at deploy). Chain a `-p` per
+  unreferenced sibling: `tsc -b --noEmit && tsc --noEmit -p convex/tsconfig.json`. When first
+  wiring a repo's `typecheck:` (or any gate), confirm it FAILS on a real error in EACH area
+  before trusting its green — a check you have never seen go red has not been verified.
 - `merge_policy: auto | ask` — default **ask**. `auto` = merge immediately once ALL gates and
   required proofs pass (the user's standing instruction in some solo repos: "no dejes los prs
   abiertos"). `ask` = draft → show exactly what will run → explicit OK → execute. Team repos and

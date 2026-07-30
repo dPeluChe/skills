@@ -91,6 +91,8 @@ if [[ -x "$GG80" ]]; then
   GG80_BLOCK=(
     "LEFTHOOK=0 git push"
     "env LEFTHOOK=0 git push"
+    $'true\nLEFTHOOK=0 git push'
+    $'set -e\ngit fetch\nLEFTHOOK=0 git push --force'
     "export LEFTHOOK=0 && git push"
     "cd repo; LEFTHOOK=0 git push"
   )
