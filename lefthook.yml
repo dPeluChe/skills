@@ -1,0 +1,10 @@
+# Managed by dPeluChe/skills scripts/install.sh --repo.
+# The flowkit repo self-hooks: central hooks live here
+# (hooks/lefthook-base.yml); committed so every clone is protected
+# reproducibly (solo public repo, normal mode). lefthook refetches daily.
+remotes:
+  - git_url: https://github.com/dPeluChe/skills
+    ref: main
+    refetch_frequency: 24h
+    configs:
+      - hooks/lefthook-base.yml
