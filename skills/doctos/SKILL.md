@@ -19,6 +19,16 @@ allowed-tools: Read, Glob, Grep, Bash, Edit, Write
 
 Enforces a clean, consistent documentation structure across any project. Moves stray files into `docs/`, renames to standard conventions, archives obsolete content, and delegates task-related work to pm-tasks.
 
+## The value-to-reread bar (what deserves to exist)
+
+Structure is not enough — a tidy folder full of docs nobody rereads still costs tokens to scan and confuses readers. **A doc earns its place only if someone will reopen it AND it says something the code/tooling doesn't already show.** Apply this bar in every audit, alongside the structure and freshness checks:
+
+- **Keep**: decisions and their *why* (ADRs), hard-won fixes / past errors that were painful to solve (the historical record that stops the team re-suffering them), setup that is genuinely non-obvious, and anything a README should link as context.
+- **Cut (flag for ARCHIVED/ or deletion)**: generic how-tos that restate what running the obvious command already teaches. The litmus test the user gave: *"how to register a user" is not worth documenting; a deployment guide is worth it ONLY if the deploy differs from just running the commands.* If a guide would be replaced by one line ("run `X`"), it is that one line — put it in the README, not a GUIDE.
+- **The cost is real**: every doc that survives gets reread by humans and re-scanned by agents. Verbose, generic, or never-reopened docs are not neutral — they dilute the signal and cost tokens. Concise and functional beats complete.
+
+This is a judgement call, so doctos **flags** low-value docs as findings ("low reread value — generic how-to, consider README one-liner or delete") and lets the user decide; it never deletes prose on its own.
+
 ## The standard structure
 
 Every project should converge to this layout:
@@ -115,9 +125,9 @@ Active feature specs for current or upcoming work. These describe *how something
 **Examples:** `26_APRIL_AGENTS.md`, `VOICE_INTEGRATION_SPEC.md`, `PRD_PHASE_2.md`
 
 ### GUIDES/
-How-to documentation for humans. Setup, deployment, onboarding, coding conventions, testing strategies, development workflows.
+How-to documentation for humans — but only the NON-OBVIOUS kind (see the value-to-reread bar). Setup/deployment/onboarding/conventions that differ from just running the standard commands. A deployment guide earns its place when the deploy has real steps beyond `npm run deploy`; a "how to register a user" guide does not — that is a README line at most. Cut the generic, keep the surprising.
 
-**Examples:** `SETUP.md`, `DEPLOYMENT_GUIDE.md`, `CODING_RULES.md`, `TESTING.md`, `DEV_ONBOARDING.md`, `CSS_CONVENTIONS.md`
+**Examples:** `DEPLOYMENT_GUIDE.md` (when non-trivial), `CODING_RULES.md`, `TESTING.md`, `CSS_CONVENTIONS.md` — each only if it says something the code/commands don't already show.
 
 ### RESEARCH/
 Investigation, analysis, benchmarks, competitor research, technology evaluations. Content that informed decisions but isn't prescriptive.
@@ -177,8 +187,9 @@ Full scan of the project's documentation health.
 1a. **Published-site guard** — if `docs/` contains `CNAME`, `index.html`, or `_config.yml`, or `.github/workflows/` has a Pages deploy workflow (`configure-pages`, `deploy-pages`, `jekyll`, `github-pages`, `mkdocs gh-deploy`), then `docs/` is a **published site**: the whole run degrades to **findings only — do NOT reorganize; fix in place**. Report every issue as usual, but never move, rename, or restructure anything under `docs/` (moves break live URLs). Mark the audit header with "docs/ is a published site — findings only" so CLEAN mode inherits the restriction. **Report this ONLY when the guard fires** — when `docs/` is a normal documentation folder, say nothing about it: a "docs/ is not a published site" line is noise, it states the default and confuses the reader into thinking it means something. This guard applies to full AUDIT too, not just scoped runs.
 2. **Scan docs/ folder** — check subfolder names, file names, structure
 3. **Check naming conventions** — find lowercase folders, inconsistent file names, .txt docs
-4. **Detect obsolete documents** — two signals:
+4. **Detect obsolete documents** — signals:
    - **Age**: files not modified in 90+ days (`git log -1 --format=%as -- <file>`). Exclude `docs/JOURNAL/` — dated logbook entries are meant to age
+   - **Low reread value** (the value-to-reread bar above): a guide that restates what the obvious command already teaches (generic login/CRUD/register how-tos), a walkthrough that would collapse to a one-line README pointer, or a doc nobody would reopen. Flag as "low reread value — [generic how-to / restates the command / never reopened], consider README one-liner or ARCHIVED/". Keep decision records, hard-won fixes, and non-obvious setup regardless of length — those are exactly what justifies a doc.
    - **Stale claims**: content that contradicts the project's reality — tech mentioned that is absent from package.json/Cargo.toml/deps, referenced files or routes that no longer exist, counts that no longer match ("22 prototypes" when 3 remain). Spot-check each doc's boldest claims against the codebase; a doc describing the wrong stack misleads every future reader (human or agent) and is worse than no doc
    - **Coverage gaps** (the inverse check): recent shipped work — new modules, features, commands visible in the last ~20 commits — that no doc mentions. Missing docs are findings too, not just misplaced ones. Report as "undocumented: X" with a suggested destination
    - **Prioritize via the journal**: if `docs/JOURNAL/` has recent `KICKOFF_*`/`STANDUP_*` entries, read the latest ones first and start the stale-claims and coverage checks on the files/features they mention — recently-moved areas are where docs lie first. The journal doesn't change what you detect, it changes where you look first
