@@ -262,7 +262,22 @@ ensure_ship_config_template() { # $1 = target repo: stamp the block if missing.
       ;;
     npm)
       lint_line='lint:            # TODO e.g. npm run lint'
-      type_line='typecheck:       # TODO e.g. npx tsc --noEmit'
+      # A root tsconfig that is a project-references stub ("files": [] +
+      # "references": [...]) makes `tsc --noEmit` a NO-OP that passes green
+      # while checking nothing -- a false green, worse than no check. Point at
+      # the real project tsconfig instead.
+      if [[ -f "$target/tsconfig.json" ]] \
+         && grep -q '"references"' "$target/tsconfig.json" 2>/dev/null; then
+        _tsref=""
+        for _f in "$target"/tsconfig.*.json; do
+          [[ -f "$_f" ]] || continue
+          case "$_f" in *node*) continue ;; esac
+          _tsref="${_f##*/}"; break
+        done
+        type_line="typecheck:       # TODO root tsconfig is a references stub -- use: npx tsc --noEmit -p ${_tsref:-tsconfig.app.json} (plain tsc --noEmit checks NOTHING here)"
+      else
+        type_line='typecheck:       # TODO e.g. npx tsc --noEmit'
+      fi
       build_line='build:           # TODO e.g. npm run build'
       test_line='test:            # TODO e.g. npm test (omit if none)'
       ;;

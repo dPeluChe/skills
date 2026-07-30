@@ -71,10 +71,15 @@ hooks_skip:                                     # conscious git-hook gaps (flowk
 
 Key semantics, with defaults only where safe:
 
-- `lint` / `build` / `test` commands — **no safe default**: if absent, detect from manifest
-  scripts and CONFIRM with the user once; never guess silently. Respect overrides like isolated
-  build dirs (e.g. `NEXT_BUILD_DIR=.next-ci npm run build` — a normal build there kills the
-  user's running dev server).
+- `lint` / `build` / `test` / `typecheck` commands — **no safe default**: if absent, detect from
+  manifest scripts and CONFIRM with the user once; never guess silently. Respect overrides like
+  isolated build dirs (e.g. `NEXT_BUILD_DIR=.next-ci npm run build` — a normal build there kills
+  the user's running dev server). **A gate that passes without validating anything is a FALSE
+  GREEN — worse than no gate.** The classic trap: `npx tsc --noEmit` against a root `tsconfig.json`
+  that is a project-references stub (`"files": []` + `"references"`) checks NOTHING and exits 0;
+  the real command is `tsc --noEmit -p tsconfig.app.json`. When first wiring a repo's `typecheck:`
+  (or any gate), confirm it FAILS on a real error before trusting its green — a check you have
+  never seen go red has not been verified.
 - `merge_policy: auto | ask` — default **ask**. `auto` = merge immediately once ALL gates and
   required proofs pass (the user's standing instruction in some solo repos: "no dejes los prs
   abiertos"). `ask` = draft → show exactly what will run → explicit OK → execute. Team repos and
