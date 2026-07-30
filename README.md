@@ -155,6 +155,19 @@ detector/fixture]` and shows its REAL line in the report — everything else sta
 The closing agent copy-block carries full detail per item: fence counts per file, baseline
 `file:line` + label, and the stack's suggested ship-config commands ready to paste.
 
+**What a baseline cannot see (field lesson).** A clean baseline means "no secret in THIS
+repo's history" — not "no secret to rotate". A real leak that lived in a *base* repo you
+forked or split from never appears here, so scanning this repo forever marks it resolved. If
+a credential was ever exposed anywhere, rotating it at the provider console stays a human
+action; gitleaks green is not a rotation receipt.
+
+**Verify a repo-local `.gitleaks.toml` actually loads.** A malformed local config (e.g. an
+`AllowList` as a list where gitleaks expects a map) makes gitleaks fail to load and the scan
+pass **green without checking anything** — a false green worse than no rule. After adding or
+editing a repo-local config, run `flowkit hooks --verify`: the canary stages a synthetic
+secret and confirms the effective hook actually blocks it. A rule you have not watched go red
+is not verified.
+
 ### Repo-local gitleaks rules (`.gitleaks.toml`)
 
 The central `hooks/.gitleaks.toml` covers the token shapes that circulate across these repos

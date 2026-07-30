@@ -106,7 +106,7 @@ Only these files are allowed at the project root:
 Allowed at root, but with their own hygiene rules — these files load into EVERY agent session, so every extra line is a recurring token cost, and agents trust them blindly:
 
 - **Lean**: instructions only. Long walkthroughs and background belong in `docs/GUIDES/` or `docs/ARCHITECTURE/` with a one-line pointer.
-- **No embedded code blocks**: reference scripts by path (`scripts/deploy.sh`) instead of pasting their content — pasted copies go stale silently and nobody notices until an agent follows the wrong version.
+- **No embedded code blocks**: reference scripts by path (`scripts/deploy.sh`) instead of pasting their content — pasted copies go stale silently and nobody notices until an agent follows the wrong version. **Exception: the `## ship config` yaml fence is REQUIRED by flowkit** (the git hooks and `/ship` parse it from CLAUDE.md) — never flag it as embedded code; it is structured config, not a pasted walkthrough.
 - **No stale claims**: the stack, commands and structure they describe must match reality. Audit them with the same stale-claims check as any doc — a CLAUDE.md that names the wrong auth library actively sabotages every session.
 - **No task tracking**: pending/completed lists belong in `docs/TASK_TODO.md` (pm-tasks' protected-zone rule covers these files too).
 
@@ -445,6 +445,8 @@ Doctos and pm-tasks are complementary but have clear boundaries:
 - **Classify thoughtfully.** When moving a file to docs/, read it first if the destination isn't obvious from the filename. A file called `IMPLEMENTATION.md` could be ARCHITECTURE/ (design doc), GUIDES/ (how-to), or ARCHIVED/ (past implementation). The content decides.
 
 - **Respect sub-projects.** In workspaces with multiple projects, each sub-project owns its own docs/. Don't centralize sub-project docs at the workspace level.
+
+- **Respect documented conventions — they outrank the default layout.** Before flagging a structural deviation (flat `docs/` with no subfolders, `CHANGELOG.md` living in `docs/`, a specific file location), check whether the repo DOCUMENTS it on purpose — a numbered rule in CLAUDE.md, a note in `docs/README.md`, a CONTRIBUTING convention. If it does, that is an intentional choice, not debt: do NOT flag it, or at most note it once as "intentional per <ref>, respected". doctos standardizes repos that have no opinion; it does not override repos that have one. A skill that fights a documented convention makes the maintainer decline its findings by hand every run — exactly the friction it exists to remove. The structure rules in this skill are the DEFAULT for the undecided, never a mandate over the decided.
 
 - **Language matching.** If the project's docs are in Spanish, keep Spanish. Don't translate filenames or content. But do standardize the casing: `arquitectura-tecnica.md` → `ARQUITECTURA_TECNICA.md`.
 
