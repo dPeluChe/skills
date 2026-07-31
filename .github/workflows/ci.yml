@@ -35,10 +35,11 @@ jobs:
       - name: Run hook suite
         run: bash scripts/test-hooks.sh
 
-  # ── diagnose: run the suite keeping every fixture, then upload the per-fixture
-  # logs (install.sh's stderr goes there, the console never shows it) so a failing
-  # install/verify on the runner is finally readable. Manual only. Also does one
-  # inline install.sh repro that mirrors the suite's local-remote wiring.
+  # ── diagnose (manual): run the suite keeping every fixture, then upload the
+  # per-fixture logs as an artifact. install.sh/verify write their stderr to
+  # per-fixture logs the console never shows, so a runner-only failure is
+  # otherwise undiagnosable. This is how the bash-3.2 empty-array crashes were
+  # found. Reusable debug affordance; runs only on workflow_dispatch.
   diagnose:
     if: github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
@@ -56,38 +57,6 @@ jobs:
           grep '\[keep-tmp\] TMP=' "$RUNNER_TEMP/suite.out" | sed 's/.*TMP=//' \
             | head -1 > "$RUNNER_TEMP/keeptmp.path"
           echo "suite TMP = $(cat "$RUNNER_TEMP/keeptmp.path")"
-
-      - name: Inline install.sh repro (full output, no -e abort)
-        run: |
-          set +e
-          work="$(mktemp -d)"
-          ff="$work/ff-remote"; mkdir -p "$ff/hooks"
-          cp hooks/lefthook-base.yml hooks/.gitleaks.toml "$ff/hooks/"
-          git -C "$ff" init -q -b main
-          git -C "$ff" -c user.email=t@t.t -c user.name=t add -A
-          git -C "$ff" -c user.email=t@t.t -c user.name=t commit -q -m hooks
-          repo="$work/repo"; mkdir -p "$repo"; git -C "$repo" init -q
-          git -C "$repo" -c user.email=t@t.t -c user.name=t commit -q --allow-empty -m init
-          echo "=== install.sh --repo (REMOTE_URL=local) — FULL output ==="
-          REMOTE_URL="$ff" bash scripts/install.sh --repo "$repo"
-          echo "== install exit: $? =="
-
-      - name: Direct canary probe — does gitleaks see a staged secret via temp index?
-        run: |
-          set +e
-          echo "git: $(git --version) | gitleaks: $(gitleaks version)"
-          r="$(mktemp -d)"; git -C "$r" init -q
-          git -C "$r" -c user.email=t@t.t -c user.name=t commit -q --allow-empty -m init
-          gitdir="$(git -C "$r" rev-parse --absolute-git-dir)"
-          idx="$gitdir/probe-index"
-          # exact canary technique: isolated temp index + cacheinfo blob
-          blob="$(printf 'aws_key = "AKIAIOSFODNN7EXAMPLE"\n' | git -C "$r" hash-object -w --stdin)"
-          ( cd "$r" && GIT_INDEX_FILE="$idx" git read-tree HEAD \
-              && GIT_INDEX_FILE="$idx" git update-index --add --cacheinfo "100644,$blob,secret.txt" )
-          echo "--- staged in temp index: ---"
-          ( cd "$r" && GIT_INDEX_FILE="$idx" git diff --cached --name-only )
-          echo "--- gitleaks git --staged (what the hook runs): ---"
-          ( cd "$r" && GIT_INDEX_FILE="$idx" gitleaks git --staged --redact -v ); echo "gitleaks exit: $?"
 
       - name: Collect fixture logs
         if: always()
