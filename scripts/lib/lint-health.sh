@@ -122,7 +122,7 @@ run_lint_health() {
     while IFS= read -r entry; do
       [[ -n "$entry" ]] || continue
       _lh_is_usual "$entry" || ignored+="$(basename "$cfg"): $entry"$'\n'
-    done < <(grep -hE 'globalIgnores|ignorePatterns' "$cfg" 2>/dev/null \
+    done < <(grep -hE 'globalIgnores[[:space:]]*\(|ignorePatterns[[:space:]]*[:=]' "$cfg" 2>/dev/null \
       | grep -oE "['\"][^'\"]+['\"]" | tr -d "\"'" || true)
   done
   local ign_n
