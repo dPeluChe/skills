@@ -86,13 +86,45 @@ export default [
 ]
 EOF
 if "$FLOWKIT" lint-health "$LH_CFG" > "$TMP/lh-cfg.log" 2>&1 \
-   && grep -q "turned OFF repo-wide in config" "$TMP/lh-cfg.log" \
+   && grep -q "OFF in the config TEXT" "$TMP/lh-cfg.log" \
+   && grep -q "eslint --print-config" "$TMP/lh-cfg.log" \
    && grep -q "@typescript-eslint/no-explicit-any (in eslint.config.js)" "$TMP/lh-cfg.log" \
    && grep -q "no-console (in eslint.config.js)" "$TMP/lh-cfg.log" \
    && grep -q "^ALERT:" "$TMP/lh-cfg.log"; then
-  ok "config-off: no-explicit-any + no-console:0 reported as off, ALERT (text-based read)"
+  ok "config-off (no eslint): off-rules named as TEXT candidates + print-config caveat, ALERT"
 else
-  nope "config-off: off-rules not named (see $TMP/lh-cfg.log)"
+  nope "config-off: off-rules not named or missing the text-read caveat (see $TMP/lh-cfg.log)"
+fi
+
+# ── (3b) authoritative scope: a rule that the config text shows "off" but is
+# actually ON for source (a scoped `files:` override) must NOT be reported as
+# repo-wide off. Field bug (tennispro): text read can't see flat-config scope;
+# `eslint --print-config` can. Stub eslint reports the candidate as severity 2.
+LH_SCOPED="$TMP/lh-scoped"
+mkdir -p "$LH_SCOPED/src" "$LH_SCOPED/node_modules/.bin"
+cat > "$LH_SCOPED/eslint.config.js" <<'EOF'
+export default [
+  { rules: { "no-console": "off" } },
+  { files: ["migrations/**"], rules: { "@typescript-eslint/no-explicit-any": "off" } },
+]
+EOF
+printf 'export const a = 1\n' > "$LH_SCOPED/src/a.ts"
+cat > "$LH_SCOPED/node_modules/.bin/eslint" <<'STUB'
+#!/bin/sh
+# --print-config: no-explicit-any is ON (2) for source, no-console genuinely off (0)
+case "$*" in
+  *--print-config*) printf '%s\n' '{"rules":{"@typescript-eslint/no-explicit-any":[2],"no-console":[0]}}' ;;
+esac
+STUB
+chmod +x "$LH_SCOPED/node_modules/.bin/eslint"
+if "$FLOWKIT" lint-health "$LH_SCOPED" > "$TMP/lh-scoped.log" 2>&1 \
+   && grep -q "1 rule(s) OFF repo-wide (verified via eslint --print-config)" "$TMP/lh-scoped.log" \
+   && grep -q "no-console (in eslint.config.js)" "$TMP/lh-scoped.log" \
+   && grep -q "scoped override(s).*@typescript-eslint/no-explicit-any" "$TMP/lh-scoped.log" \
+   && ! grep -q "no-explicit-any (in eslint.config.js)" "$TMP/lh-scoped.log"; then
+  ok "scope: print-config keeps genuinely-off (no-console), demotes scoped override (no-explicit-any)"
+else
+  nope "scope: authoritative print-config filter did not separate repo-wide from scoped (see $TMP/lh-scoped.log)"
 fi
 
 # ── (4) no eslint config -> N/A, exit 0 ──────────────────────────────────────

@@ -17,6 +17,21 @@ _lh_src_dirs() { # $1 = target
   [[ "$found" -eq 1 ]] || printf '%s\n' "$target"
 }
 
+# One representative SOURCE file for `eslint --print-config` (authoritative rule
+# severity). Skip test/spec/migration files -- those are exactly where a scoped
+# `files:` override may legitimately turn a rule off, so they misrepresent the
+# repo-wide severity.
+_lh_sample_src() { # $1 = target; prints one source file, or nothing
+  local target="$1" d f
+  while IFS= read -r d; do
+    f="$(find "$d" -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' \
+      -o -name '*.jsx' \) 2>/dev/null \
+      | grep -viE 'test|spec|\.d\.ts|migrat|/__|/dist/|/node_modules/' | head -1 || true)"
+    [[ -n "$f" ]] && { printf '%s\n' "$f"; return 0; }
+  done < <(_lh_src_dirs "$target")
+  return 0
+}
+
 _LH_GREP_OPTS=(-rnE --include='*.js' --include='*.jsx' --include='*.ts'
   --include='*.tsx' --include='*.mjs' --include='*.cjs'
   --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build
@@ -82,7 +97,12 @@ run_lint_health() {
     echo "  ok no blanket disables (every eslint-disable names a rule)"
   fi
 
-  # ── rules turned off in config (best-effort; text-based for flat JS) ───────
+  # ── rules turned off in config. Text grep = CANDIDATES; eslint --print-config
+  # = authoritative. The text read finds a `"rule": "off"` anywhere, but CANNOT
+  # tell a repo-wide off from a scoped `files:` override (field bug, tennispro:
+  # no-explicit-any is error repo-wide, off only in 3 migration scripts + reason).
+  # So when eslint runs, we keep only rules ACTUALLY off for a representative
+  # source file, and surface the scoped ones separately as fine.
   local off_rules="" cfg rule
   for cfg in ${cfg_paths[@]+"${cfg_paths[@]}"}; do
     while IFS= read -r rule; do
@@ -92,16 +112,53 @@ run_lint_health() {
       "['\"][@A-Za-z0-9_/.-]+['\"][[:space:]]*:[[:space:]]*(['\"]off['\"]|\[[[:space:]]*['\"]off['\"]|0\b)" \
       "$cfg" 2>/dev/null | grep -oE "^['\"][^'\"]+['\"]" | tr -d "\"'" || true)
   done
+
+  local verified=0 scoped=""
+  if [[ -n "$off_rules" && -x "$target/node_modules/.bin/eslint" ]]; then
+    local sample printcfg
+    sample="$(_lh_sample_src "$target")"
+    if [[ -n "$sample" ]]; then
+      printcfg="$( cd "$target" && "$target/node_modules/.bin/eslint" \
+        --print-config "$sample" 2>/dev/null )" || true
+      if [[ "${printcfg:0:1}" == "{" ]]; then
+        verified=1
+        local kept="" r c sev
+        while IFS='|' read -r r c; do
+          [[ -n "$r" ]] || continue
+          sev="$(printf '%s' "$printcfg" | python3 -c '
+import json, sys
+try: cfg = json.load(sys.stdin)
+except Exception: print("?"); raise SystemExit
+v = cfg.get("rules", {}).get(sys.argv[1])
+s = v[0] if isinstance(v, list) else v
+print(1 if s in (1, 2, "warn", "error") else 0)
+' "$r" 2>/dev/null || echo 0)"
+          if [[ "$sev" == "1" ]]; then scoped+="$r "   # ON for source => scoped override
+          else kept+="$r|$c"$'\n'; fi
+        done < <(printf '%s' "$off_rules" | sort -u)
+        off_rules="$kept"
+      fi
+    fi
+  fi
+
   local off_n
   off_n="$(printf '%s' "$off_rules" | grep -c . || true)"
   if [[ "$off_n" -gt 0 ]]; then
     alert=1
-    echo "  ! $off_n rule(s) turned OFF repo-wide in config (text-based read):"
+    if [[ "$verified" -eq 1 ]]; then
+      echo "  ! $off_n rule(s) OFF repo-wide (verified via eslint --print-config):"
+    else
+      echo "  ! $off_n rule(s) OFF in the config TEXT -- a text read cannot tell repo-wide"
+      echo "    from a scoped 'files:' override; verify with: eslint --print-config <src file>"
+    fi
     printf '%s' "$off_rules" | sort -u | while IFS='|' read -r rule cfg; do
       [[ -n "$rule" ]] && echo "      $rule (in $cfg)"
     done
   else
-    echo "  ok no rules disabled in eslint config"
+    echo "  ok no rules disabled repo-wide in eslint config"
+  fi
+  if [[ -n "$scoped" ]]; then
+    echo "  - scoped override(s), OFF only for some files but ON for source (fine): ${scoped% }"
   fi
 
   # ── unreasoned disables (info; reasoned scoped ones are fine) ──────────────
