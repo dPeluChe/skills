@@ -145,6 +145,31 @@ else
   nope "measure: missing eslint should report not-runnable + exit 0 (see $TMP/lh-meas.log)"
 fi
 
+# ── (6b) STUB eslint present -> --measure counts + labels honestly, and the
+# pipefail-safe JSON check survives. Regression guard: the old `printf|head -c1
+# |grep` report-detection returned non-zero under `set -o pipefail` (head closes
+# the pipe -> printf SIGPIPE) and mislabeled a REAL report as inconclusive. Stub
+# prints fixed JSON + exit 1 (like eslint-with-findings); flat config => extended.
+LH_MEAS="$TMP/lh-measure"
+mkdir -p "$LH_MEAS/src" "$LH_MEAS/node_modules/.bin"
+printf 'export default []\n' > "$LH_MEAS/eslint.config.js"
+printf 'export const a = 1\n' > "$LH_MEAS/src/a.ts"
+cat > "$LH_MEAS/node_modules/.bin/eslint" <<'STUB'
+#!/bin/sh
+cat <<'JSON'
+[{"filePath":"a.ts","messages":[{"ruleId":"no-console"},{"ruleId":"no-console"}]},{"filePath":"b.ts","messages":[{"ruleId":"no-console"}]}]
+JSON
+exit 1
+STUB
+chmod +x "$LH_MEAS/node_modules/.bin/eslint"
+if "$FLOWKIT" lint-health --measure 'no-console' "$LH_MEAS" > "$TMP/lh-meas2.log" 2>&1 \
+   && grep -q "no-console forced on: 3 findings across 2 files" "$TMP/lh-meas2.log" \
+   && grep -q "via extended config" "$TMP/lh-meas2.log"; then
+  ok "measure: stub eslint -> 3 findings/2 files + extended-config label, pipefail-safe JSON check"
+else
+  nope "measure: stub count/label wrong or the pipefail-safe report check regressed (see $TMP/lh-meas2.log)"
+fi
+
 # ── (7) dispatch parity: flowkit lint-health == install.sh --lint-health ─────
 "$FLOWKIT" lint-health "$LH_CFG" > "$TMP/lh-fk.log" 2>&1; fk_rc=$?
 bash "$INSTALL" --lint-health "$LH_CFG" > "$TMP/lh-direct.log" 2>&1; dir_rc=$?
