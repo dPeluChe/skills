@@ -335,9 +335,12 @@ What it flags:
   no rule after it: these turn off **all** lint for a file/scope. Reported with `file:line`. A
   scoped `/* eslint-disable @typescript-eslint/no-explicit-any -- vendor types */` is NOT
   flagged — that is the correct shape.
-- **Rules off in config** — `"<rule>": "off"` / `: 0` in the eslint config, disabled repo-wide
-  (field case: `@typescript-eslint/no-explicit-any: "off"`). Best-effort text grep, so it also
-  reads flat JS configs it cannot import.
+- **Rules off in config** — `"<rule>": "off"` / `: 0` in the eslint config. A text grep finds
+  the candidates; when eslint is installed, **`eslint --print-config` on a representative source
+  file is the authoritative check** — it distinguishes a genuinely repo-wide `off` from a scoped
+  `files:` override (which is fine, and reported separately). The text read alone CANNOT see
+  flat-config scope, so without eslint the finding is flagged as a text candidate to verify
+  (field bug: a rule `error` repo-wide but `off` in 3 migration scripts read as repo-wide off).
 - **Unreasoned disables** (info) — directives with no `-- reason`; reasoned ones are fine.
 - **Ignored source paths** — `.eslintignore` / `globalIgnores([...])` / `ignorePatterns`
   entries that cover something other than the usual `dist`/`build`/`node_modules`/`_generated`/
