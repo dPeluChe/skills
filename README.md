@@ -344,9 +344,13 @@ What it flags:
   `coverage` (source hidden from the linter).
 
 `--measure '<rule>'` forces one rule to `error` using the repo's OWN eslint + config (so
-plugins load) **without touching any config**, and counts what turning it on would surface
-(`no-unused-vars forced on: 47 findings across 12 files`). If eslint isn't installed it says so
-and exits 0.
+plugins load), **mutates nothing**, and counts what turning it on would surface
+(`no-unused-vars forced on: 47 findings across 12 files (via extended config)`). Under **flat
+config** the CLI `--rule` flag silently fails to enforce *plugin* rules — reporting `0` for a
+rule it never ran, a false green — so `--measure` instead writes a temp config in `/tmp` that
+imports the repo's config by absolute path and overrides only that rule (legacy `.eslintrc`
+uses `--rule`, which works there). If eslint isn't installed, the rule is unknown to the config,
+or the report can't be produced, it says **inconclusive** and exits 0 — never a bare `0`.
 
 **Where it fires.** Three surfaces, same doctrine, widening scope:
 

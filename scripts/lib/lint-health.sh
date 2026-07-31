@@ -146,8 +146,12 @@ run_lint_health() {
 }
 
 # ── --measure '<rule>': how much would turning <rule> on reveal? ─────────────
-# Force the rule to error via the repo's OWN eslint + config (so plugins load),
-# WITHOUT editing any config, and count findings. Never mutates the repo.
+# Force <rule> to error using the repo's OWN eslint + config (plugins load), count
+# findings, mutate NOTHING. Flat config: a temp config in /tmp that EXTENDS the
+# repo's config (imported by abs path) and overrides only <rule> -- the CLI --rule
+# flag silently FAILS to enforce PLUGIN rules under flat config (reports 0 for a
+# rule it never ran = false green), so extending is the only honest method there.
+# Legacy .eslintrc: --rule works, use it. Any failure -> "inconclusive", never 0.
 run_lint_measure() {
   local rule="$1" target="${2:-.}" bin=""
   target="$(cd "$target" 2>/dev/null && pwd)" || die "lint-health: not a directory: ${2:-.}"
@@ -163,11 +167,41 @@ run_lint_measure() {
   local -a paths=(); local d
   while IFS= read -r d; do paths+=("$d"); done < <(_lh_src_dirs "$target")
 
-  local out
-  out="$( cd "$target" && "$bin" "${paths[@]}" \
-    --rule "{\"$rule\":\"error\"}" --format json 2>/dev/null )" || true
-  if [[ -z "$out" ]] || ! printf '%s' "$out" | head -c1 | grep -q '\['; then
-    echo "eslint could not produce a report for '$rule' (config error, or the rule/plugin is unknown to this config). measure inconclusive."
+  # importable flat config (.js/.mjs/.cjs) -> extend it; else fall back to --rule
+  # (legacy .eslintrc, a .ts flat config we cannot import, or package.json)
+  local flat="" f
+  for f in eslint.config.js eslint.config.mjs eslint.config.cjs; do
+    [[ -f "$target/$f" ]] && { flat="$target/$f"; break; }
+  done
+
+  local out="" err="" method="rule"
+  if [[ -n "$flat" ]]; then
+    method="extended"
+    local tmpdir tmpcfg
+    tmpdir="$(mktemp -d)"; tmpcfg="$tmpdir/measure.mjs"
+    # abs-path import: base config's own plugin specifiers resolve from the repo
+    # (correct); we append one rule override. Temp lives in /tmp -- no mutation.
+    {
+      printf "import base from %s\n" "'$flat'"
+      printf "export default [...(Array.isArray(base)?base:[base]), { rules: { %s: 'error' } }]\n" "'$rule'"
+    } > "$tmpcfg"
+    out="$( cd "$target" && "$bin" "${paths[@]}" --config "$tmpcfg" --format json 2>"$tmpdir/err" )" || true
+    err="$(cat "$tmpdir/err" 2>/dev/null || true)"
+    rm -rf "$tmpdir"
+  else
+    out="$( cd "$target" && "$bin" "${paths[@]}" \
+      --rule "{\"$rule\":\"error\"}" --format json 2>/dev/null )" || true
+  fi
+
+  # ${out:0:1} not `printf|head -c1|grep`: under `set -o pipefail` head closes the
+  # pipe after 1 byte -> printf takes SIGPIPE (141) -> the pipeline reports failure
+  # even when grep matched (the measuring instrument lies). Pure-bash slice is safe.
+  if [[ -z "$out" || "${out:0:1}" != "[" ]]; then
+    if printf '%s' "$err" | grep -qiE 'definition for rule|could not find|not found'; then
+      echo "'$rule' is unknown to this config (rule/plugin not registered here). measure inconclusive."
+    else
+      echo "eslint could not produce a report for '$rule' (config error). measure inconclusive."
+    fi
     exit 0
   fi
 
@@ -191,6 +225,6 @@ print(f"{findings} {files}")
     echo "could not parse eslint output for '$rule'. measure inconclusive."
     exit 0
   fi
-  echo "$rule forced on: ${counts% *} findings across ${counts#* } files"
+  echo "$rule forced on: ${counts% *} findings across ${counts#* } files (via ${method} config)"
   exit 0
 }
