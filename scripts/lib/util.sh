@@ -13,7 +13,7 @@ flowkit_version() { # prints "flowkit <VERSION> (<short sha>)"
   printf 'flowkit %s (%s)\n' "$v" "$sha"
 }
 
-REMOTE_URL="https://github.com/dPeluChe/skills"
+REMOTE_URL="${REMOTE_URL:-https://github.com/dPeluChe/skills}"
 MIN_LEFTHOOK="1.10"
 MIN_GITLEAKS="8.19"   # 'gitleaks git' needs it
 

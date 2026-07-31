@@ -295,11 +295,9 @@ EOF
   # ── (9) upgrade inside a wired repo refreshes its lefthook remotes cache
   FFUPG="$TMP/ff-upgrade"
   make_repo "$FFUPG"
-  cat > "$FFUPG/lefthook.yml" <<'EOF'
-# wired to https://github.com/dPeluChe/skills (remotes cache fixture)
-pre-commit:
-  jobs: []
-EOF
+  # comment must reference $REMOTE_URL so lefthook_cfg_file matches the wiring
+  printf '# wired to %s (remotes cache fixture)\npre-commit:\n  jobs: []\n' \
+    "$REMOTE_URL" > "$FFUPG/lefthook.yml"
   ( cd "$FFUPG" && bash "$INSTALL" --upgrade ) > "$TMP/out.log" 2> "$TMP/err.log" < /dev/null
   ff_rc=$?
   if [[ "$ff_rc" -le 1 ]] && grep -q "remotes refreshed" "$TMP/out.log"; then
