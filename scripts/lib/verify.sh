@@ -105,7 +105,10 @@ canary_secret_scan() { # $1 = target repo. EFFICACY probe of the EFFECTIVE gate,
   done < <(canary_panel)
   rm -f "$tmpidx"
 
-  CANARY_UNSEEN="${unseen[*]}"
+  # ${arr[*]:-} not ${arr[*]}: an EMPTY array (all shapes caught -> success) under
+  # `set -u` is an "unbound variable" fatal in bash 3.2 (macOS system bash), the
+  # very case that means the gate WORKS. Caught by CI (runner bash 3.2 vs dev 5.x).
+  CANARY_UNSEEN="${unseen[*]:-}"
   [[ "${#unseen[@]}" -eq 0 ]] || return 1
   return 0
 }
