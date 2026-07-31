@@ -428,6 +428,24 @@ ensure_ship_config_template() { # $1 = target repo: stamp the block if missing.
     from="${hit#*$'\t'}"; test_line="test: ${hit%%$'\t'*}   # from $from -- verify"; ci_used=1
   fi
 
+  # If CLAUDE.md already documents a max-lines-per-file convention, honor IT
+  # instead of the 500 default -- else the stamp overrides a rule the repo
+  # already wrote and every repo corrects it by hand (field: two repos said
+  # 400, stamp put 500). Take the largest 3-4 digit number on a line that
+  # mentions both a limit word and "line/línea" (the max, not the warn-at).
+  local loc_limit="500" loc_note=""
+  if [[ -f "$cmd" ]]; then
+    local found
+    found="$( { grep -iE '(m[aá]x|limit|l[ií]mite|per file|por archivo)' "$cmd" 2>/dev/null \
+      | grep -iE 'l[ií]nea|line' \
+      | grep -oE '[0-9]{3,4}' | sort -rn | head -1; } || true)"
+    if [[ -n "$found" ]]; then
+      loc_limit="$found"
+      loc_note="   # from CLAUDE.md's documented convention"
+      note "-> ship config loc_limit=$found taken from CLAUDE.md convention (not the 500 default)"
+    fi
+  fi
+
   cat >> "$cmd" <<EOF
 
 ## ship config
@@ -438,7 +456,7 @@ $type_line
 $build_line
 $test_line
 merge_policy: ask   # auto | ask
-loc_limit: 500
+loc_limit: $loc_limit$loc_note
 simplify: 500       # run /simplify only if changed LOC > N (off = only on request)
 \`\`\`
 EOF

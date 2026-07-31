@@ -174,14 +174,8 @@ EOF
   # wiring checks all pass (stubs + config), the MERGED config resolves nothing
   GSINERT="$TMP/gs-inert"
   make_repo "$GSINERT"
-  cat > "$GSINERT/lefthook-local.yml" <<'EOF'
-remotes:
-  - git_url: https://github.com/dPeluChe/skills
-    ref: main
-    refetch_frequency: 24h
-    configs:
-      - hooks/lefthook-base.yml
-EOF
+  printf 'remotes:\n  - git_url: %s\n    ref: main\n    refetch_frequency: 24h\n    configs:\n      - hooks/lefthook-base.yml\n' \
+    "$REMOTE_URL" > "$GSINERT/lefthook-local.yml"
   for h in pre-commit pre-push commit-msg; do
     printf '#!/bin/sh\nlefthook run %s "$@"\n' "$h" > "$GSINERT/.git/hooks/$h"
     chmod +x "$GSINERT/.git/hooks/$h"
