@@ -129,6 +129,22 @@ if command -v lefthook >/dev/null 2>&1 && command -v gitleaks >/dev/null 2>&1; t
   fi
 
   # ── (4) CI extraction: real commands from .github/workflows pre-filled and marked
+  # ── (loc) ship config honors a documented loc limit in CLAUDE.md, not 500
+  FFLOC="$TMP/ff-loc"
+  make_repo "$FFLOC"
+  printf '[package]\nname = "fixture"\n' > "$FFLOC/Cargo.toml"
+  printf '# CLAUDE.md\n\n13. Máx 400 líneas por archivo (aviso a 350).\n' > "$FFLOC/CLAUDE.md"
+  if run_ff --repo "$FFLOC"; then
+    if grep -q "loc_limit: 400" "$FFLOC/CLAUDE.md" \
+       && ! grep -q "loc_limit: 500" "$FFLOC/CLAUDE.md"; then
+      ok "ship config: loc_limit taken from CLAUDE.md convention (400, not the 500 default)"
+    else
+      nope "ship config: documented loc_limit not honored (see $FFLOC/CLAUDE.md)"
+    fi
+  else
+    nope "ship config: loc fixture install exited non-zero"
+  fi
+
   FFCI="$TMP/ff-ci"
   make_repo "$FFCI"
   printf '{ "name": "fixture" }\n' > "$FFCI/package.json"
