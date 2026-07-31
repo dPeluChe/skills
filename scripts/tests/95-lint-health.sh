@@ -1,0 +1,155 @@
+# shellcheck shell=bash
+# shellcheck disable=SC2154  # TMP/REPO_DIR/INSTALL/FLOWKIT come from 00-helpers.sh via the runner
+# ── lint-health: alert on false-green lint gates in JS/TS/React repos ──
+# Doctrine mirror of gitleaks:allow: a scoped REASONED eslint-disable is fine; a
+# BLANKET or config-wide OFF rule is a false green. The check ALERTS (exit 0),
+# never auto-fixes, never blocks. Field cases baked in: tennispro (no-explicit-any
+# off in flat config) + ligamx (blanket /* eslint-disable */ vs one good scoped one).
+# All code-with-disable fixtures are assembled AT RUNTIME (source stays clean).
+
+# README: the doctrine + the --measure use must be documented
+if grep -q "Lint health" "$REPO_DIR/README.md" \
+   && grep -q "false green" "$REPO_DIR/README.md" \
+   && grep -q "lint-health --measure" "$REPO_DIR/README.md"; then
+  ok "README: lint-health doctrine (scoped-vs-blanket) + --measure documented"
+else
+  nope "README: lint-health section missing (doctrine or --measure)"
+fi
+
+# ship SKILL.md: quality pass runs lint-health on the DIFF
+if grep -q "Lint health on the diff" "$REPO_DIR/skills/ship/SKILL.md" \
+   && grep -q "flowkit lint-health" "$REPO_DIR/skills/ship/SKILL.md"; then
+  ok "ship SKILL.md: Step 2 runs lint-health on the diff (new blanket/off = finding)"
+else
+  nope "ship SKILL.md: lint-health-on-diff step missing"
+fi
+
+# flowkit help lists the subcommand
+if "$FLOWKIT" help 2>&1 | grep -q "lint-health"; then
+  ok "flowkit help: lint-health subcommand listed"
+else
+  nope "flowkit help: lint-health not listed"
+fi
+
+# ── (1) blanket /* eslint-disable */ -> flagged, ALERT, exit 0 (ligamx case) ─
+LH_BLANK="$TMP/lh-blanket"
+mkdir -p "$LH_BLANK/src"
+printf 'export default []\n' > "$LH_BLANK/eslint.config.js"
+cat > "$LH_BLANK/src/legacy.ts" <<'EOF'
+/* eslint-disable */
+export const x: any = 1
+EOF
+# a GOOD scoped reasoned disable in the same repo must NOT inflate the count
+cat > "$LH_BLANK/src/typed.ts" <<'EOF'
+/* eslint-disable @typescript-eslint/no-explicit-any -- upstream types are wrong */
+export const y: any = 2
+EOF
+if "$FLOWKIT" lint-health "$LH_BLANK" > "$TMP/lh-blank.log" 2>&1; then
+  if grep -q "1 blanket disable" "$TMP/lh-blank.log" \
+     && grep -q "src/legacy.ts:1" "$TMP/lh-blank.log" \
+     && grep -q "^ALERT:" "$TMP/lh-blank.log" \
+     && ! grep -q "src/typed.ts" "$TMP/lh-blank.log"; then
+    ok "blanket: /* eslint-disable */ flagged with file:line, scoped one ignored, ALERT + exit 0"
+  else
+    nope "blanket: expected 1 blanket + ALERT, scoped ignored (see $TMP/lh-blank.log)"
+  fi
+else
+  nope "blanket: lint-health must exit 0 (advisory, never blocks)"
+fi
+
+# ── (2) ONLY a reasoned scoped disable -> clean, no ALERT ────────────────────
+LH_CLEAN="$TMP/lh-clean"
+mkdir -p "$LH_CLEAN/src"
+printf 'export default []\n' > "$LH_CLEAN/eslint.config.js"
+cat > "$LH_CLEAN/src/ok.ts" <<'EOF'
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- json blob from a vendor
+export const z: any = 3
+EOF
+if "$FLOWKIT" lint-health "$LH_CLEAN" > "$TMP/lh-clean.log" 2>&1 \
+   && grep -q "no blanket disables" "$TMP/lh-clean.log" \
+   && grep -q "lint gate looks honest" "$TMP/lh-clean.log" \
+   && ! grep -q "ALERT" "$TMP/lh-clean.log"; then
+  ok "scoped-reasoned: repo with only a reasoned scoped disable is clean (no ALERT)"
+else
+  nope "scoped-reasoned: reasoned scoped disable should NOT be flagged (see $TMP/lh-clean.log)"
+fi
+
+# ── (3) config with no-explicit-any off -> rule reported (tennispro case) ────
+LH_CFG="$TMP/lh-cfg-off"
+mkdir -p "$LH_CFG"
+cat > "$LH_CFG/eslint.config.js" <<'EOF'
+export default [
+  { rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "no-console": 0,
+  } },
+]
+EOF
+if "$FLOWKIT" lint-health "$LH_CFG" > "$TMP/lh-cfg.log" 2>&1 \
+   && grep -q "turned OFF repo-wide in config" "$TMP/lh-cfg.log" \
+   && grep -q "@typescript-eslint/no-explicit-any (in eslint.config.js)" "$TMP/lh-cfg.log" \
+   && grep -q "no-console (in eslint.config.js)" "$TMP/lh-cfg.log" \
+   && grep -q "^ALERT:" "$TMP/lh-cfg.log"; then
+  ok "config-off: no-explicit-any + no-console:0 reported as off, ALERT (text-based read)"
+else
+  nope "config-off: off-rules not named (see $TMP/lh-cfg.log)"
+fi
+
+# ── (4) no eslint config -> N/A, exit 0 ──────────────────────────────────────
+LH_NONE="$TMP/lh-none"
+mkdir -p "$LH_NONE/src"
+printf 'const q = 1\n' > "$LH_NONE/src/x.ts"
+if "$FLOWKIT" lint-health "$LH_NONE" > "$TMP/lh-none.log" 2>&1 \
+   && grep -q "no eslint config -- lint-health N/A" "$TMP/lh-none.log"; then
+  ok "guard: no eslint config -> 'lint-health N/A', exit 0"
+else
+  nope "guard: repo without eslint config should be N/A exit 0 (see $TMP/lh-none.log)"
+fi
+
+# ── (4b) a package.json "lint" script alone satisfies the guard (runs) ──────
+LH_SCRIPT="$TMP/lh-lintscript"
+mkdir -p "$LH_SCRIPT/src"
+printf '{ "scripts": { "lint": "eslint ." } }\n' > "$LH_SCRIPT/package.json"
+cat > "$LH_SCRIPT/src/a.ts" <<'EOF'
+/* eslint-disable */
+export const w = 1
+EOF
+if "$FLOWKIT" lint-health "$LH_SCRIPT" > "$TMP/lh-script.log" 2>&1 \
+   && ! grep -q "N/A" "$TMP/lh-script.log" \
+   && grep -q "1 blanket disable" "$TMP/lh-script.log"; then
+  ok "guard: a package.json lint script alone makes lint-health run (not N/A)"
+else
+  nope "guard: lint script should satisfy the guard and run (see $TMP/lh-script.log)"
+fi
+
+# ── (5) ignored source path -> flagged; usual build output -> not ───────────
+LH_IGN="$TMP/lh-ignore"
+mkdir -p "$LH_IGN"
+printf 'export default []\n' > "$LH_IGN/eslint.config.js"
+printf 'dist\nnode_modules\nsrc/legacy/\n' > "$LH_IGN/.eslintignore"
+if "$FLOWKIT" lint-health "$LH_IGN" > "$TMP/lh-ign.log" 2>&1 \
+   && grep -q "may cover SOURCE" "$TMP/lh-ign.log" \
+   && grep -q "src/legacy/" "$TMP/lh-ign.log" \
+   && ! grep -qE "\.eslintignore: (dist|node_modules)" "$TMP/lh-ign.log"; then
+  ok "ignored-source: .eslintignore src/legacy flagged, dist/node_modules not"
+else
+  nope "ignored-source: non-standard ignore entry not isolated (see $TMP/lh-ign.log)"
+fi
+
+# ── (6) --measure without node_modules -> not runnable, exit 0 ──────────────
+if "$FLOWKIT" lint-health --measure 'no-unused-vars' "$LH_BLANK" > "$TMP/lh-meas.log" 2>&1 \
+   && grep -q "eslint not runnable" "$TMP/lh-meas.log" \
+   && grep -q "measure skipped" "$TMP/lh-meas.log"; then
+  ok "measure: no node_modules -> 'eslint not runnable', exit 0 (never blocks)"
+else
+  nope "measure: missing eslint should report not-runnable + exit 0 (see $TMP/lh-meas.log)"
+fi
+
+# ── (7) dispatch parity: flowkit lint-health == install.sh --lint-health ─────
+"$FLOWKIT" lint-health "$LH_CFG" > "$TMP/lh-fk.log" 2>&1; fk_rc=$?
+bash "$INSTALL" --lint-health "$LH_CFG" > "$TMP/lh-direct.log" 2>&1; dir_rc=$?
+if [[ "$fk_rc" -eq "$dir_rc" ]] && cmp -s "$TMP/lh-fk.log" "$TMP/lh-direct.log"; then
+  ok "dispatch: flowkit lint-health byte-identical to install.sh --lint-health (rc $fk_rc)"
+else
+  nope "dispatch: flowkit lint-health diverges from install.sh --lint-health (rc $fk_rc vs $dir_rc)"
+fi

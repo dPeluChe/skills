@@ -46,6 +46,9 @@ Usage: flowkit <subcommand>
   unhook     clean removal from $PWD: lefthook stubs, OUR config files, OUR exclude entries
   upgrade    report lefthook/gitleaks versions + clone freshness (exit 1 if pending);
              inside a wired repo it also refreshes that repo's lefthook remotes cache
+  lint-health [path]  audit a JS/TS/React repo's lint gate for false greens: blanket
+             eslint-disable, rules turned off in config, unreasoned/ignored source (advisory, exit 0)
+             --measure '<rule>': force <rule> on (no config change) + count what it would reveal
   about      what flowkit is + this repo's detected flow status (for agents landing cold)
   version    print flowkit version + repo short sha
   help       show this help
@@ -71,6 +74,7 @@ case "$cmd" in
   hooks)   exec bash "$INSTALL" --repo "$PWD" "$@" ;;
   unhook)  exec bash "$INSTALL" --unhook "$PWD" "$@" ;;
   upgrade) exec bash "$INSTALL" --upgrade "$@" ;;
+  lint-health) exec bash "$INSTALL" --lint-health "$@" ;;
   about)   exec bash "$INSTALL" --about "$@" ;;
   version|--version|-v) fk_version ;;
   help|-h|--help) usage ;;
