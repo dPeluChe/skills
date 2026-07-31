@@ -279,7 +279,7 @@ Four layers, increasing cost:
 | Layer | Budget | What runs |
 |---|---|---|
 | commit-msg | <1s | strips agent attribution trailers (Co-authored-by / Generated with / 🤖 footers) — authorship stays human: the person is the author, agents are tools |
-| pre-commit | <2s | gitleaks on staged (repo-local `.gitleaks.toml` wins over the central config) · hard block on staged `.env*` (except `.env.example`) · LOC warning >500 lines (never blocks) |
+| pre-commit | <2s | gitleaks on staged (repo-local `.gitleaks.toml` wins over the central config) · hard block on staged `.env*` (except `.env.example`) · LOC warning >500 lines (never blocks) · lint-health advisory on the staged diff — a blanket eslint-disable or a newly-off config rule (never blocks) |
 | pre-push | <30s | the repo's own `lint:` / `typecheck:` read from its `## ship config` block — fail-soft warning if absent; docs-only and deletion-only pushes skip · docs nudge when code is pushed with zero `.md` touched (never blocks) |
 | `/ship` | minutes | full gate ritual: lint 0 warnings, build/tests, LOC, secret scan on the diff, quality pass, evidence table |
 | CI | async | whatever the repo's pipeline adds on top — hooks complement CI, never replace it |
@@ -346,8 +346,21 @@ What it flags:
 `--measure '<rule>'` forces one rule to `error` using the repo's OWN eslint + config (so
 plugins load) **without touching any config**, and counts what turning it on would surface
 (`no-unused-vars forced on: 47 findings across 12 files`). If eslint isn't installed it says so
-and exits 0. `ship` runs this same check on the **diff** in its quality pass: a NEW blanket
-disable or a newly-off rule is a finding; a reasoned scoped disable is not.
+and exits 0.
+
+**Where it fires.** Three surfaces, same doctrine, widening scope:
+
+- **pre-commit hook** (job `d`, every wired repo) — scoped to the **staged diff**: alerts the
+  moment a commit *introduces* a blanket disable or turns a config rule off, so you catch the
+  weakening as you write it, not weeks later. Advisory, never blocks. Self-contained POSIX sh
+  (no flowkit dependency), so it works even where the CLI isn't installed.
+- **`ship`** quality pass — runs the check on the **diff** of the whole change being shipped: a
+  NEW blanket disable or newly-off rule is a finding; a reasoned scoped disable is not.
+- **`flowkit lint-health`** — the **full repo audit** on demand (the whole config + tree, not
+  just a diff).
+
+The pre-commit and CLI paths share the two disable/off regexes; the diff-scoped hook version
+lives inline in `hooks/lefthook-base.yml`, the repo-wide audit in `scripts/lib/lint-health.sh`.
 
 ### Harness hooks (Claude Code)
 

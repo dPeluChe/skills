@@ -1,0 +1,77 @@
+name: ci
+
+# Runs the hook suite on Linux/GNU — the second platform after local macOS/BSD.
+# The suite is network-free (00-helpers.sh points lefthook `remotes` at a local
+# git_url), so CI never clones from github and never hits a rate limit.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      flake_runs:
+        description: "flake-hunt: how many parallel full-suite runs"
+        required: false
+        default: "10"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITLEAKS_VERSION: "8.18.4"
+
+jobs:
+  # ── the gate: one authoritative run; this is the check a PR must pass ───────
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Install lefthook
+        run: sudo npm install -g lefthook
+
+      - name: Install gitleaks
+        run: |
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xzf - gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      - name: Tool versions
+        run: |
+          shellcheck --version | head -2
+          lefthook version
+          gitleaks version
+          python3 --version
+          bash --version | head -1
+
+      - name: Run hook suite
+        run: bash scripts/test-hooks.sh
+
+  # ── flake-hunt: N parallel identical runs. A flake shows as some red cells;
+  # a clean matrix means the suite is deterministic on Linux. Diagnostic —
+  # does NOT gate the PR (the `gate` job does). fail-fast off so every cell
+  # reports its own verdict instead of being cancelled by the first failure.
+  flake-hunt:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        run: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Install lefthook
+        run: sudo npm install -g lefthook
+      - name: Install gitleaks
+        run: |
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xzf - gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+      - name: Run hook suite (cell ${{ matrix.run }})
+        run: bash scripts/test-hooks.sh
