@@ -48,19 +48,19 @@ jobs:
       - name: Install tools (shellcheck, gitleaks, lefthook)
         run: brew install shellcheck gitleaks lefthook
 
-      - name: Run suite (keep fixtures)
+      - name: Run suite (keep fixtures), capture TMP path
         env:
           FLOWKIT_KEEP_TMP: "1"
-          TMPDIR: ${{ runner.temp }}/keep/
         run: |
-          mkdir -p "${{ runner.temp }}/keep"
-          bash scripts/test-hooks.sh || true
+          bash scripts/test-hooks.sh 2>&1 | tee "$RUNNER_TEMP/suite.out" || true
+          grep '\[keep-tmp\] TMP=' "$RUNNER_TEMP/suite.out" | sed 's/.*TMP=//' \
+            | head -1 > "$RUNNER_TEMP/keeptmp.path"
+          echo "suite TMP = $(cat "$RUNNER_TEMP/keeptmp.path")"
 
-      - name: Inline install.sh repro (local remote, stderr to console)
+      - name: Inline install.sh repro (full output, no -e abort)
         run: |
-          set -x
+          set +e
           work="$(mktemp -d)"
-          # replicate 00-helpers: a minimal LOCAL lefthook remote, no github
           ff="$work/ff-remote"; mkdir -p "$ff/hooks"
           cp hooks/lefthook-base.yml hooks/.gitleaks.toml "$ff/hooks/"
           git -C "$ff" init -q -b main
@@ -68,22 +68,42 @@ jobs:
           git -C "$ff" -c user.email=t@t.t -c user.name=t commit -q -m hooks
           repo="$work/repo"; mkdir -p "$repo"; git -C "$repo" init -q
           git -C "$repo" -c user.email=t@t.t -c user.name=t commit -q --allow-empty -m init
-          echo "=== install.sh --repo (REMOTE_URL=local) ==="
+          echo "=== install.sh --repo (REMOTE_URL=local) — FULL output ==="
           REMOTE_URL="$ff" bash scripts/install.sh --repo "$repo"
-          echo "install exit: $?"
+          echo "== install exit: $? =="
+
+      - name: Direct canary probe — does gitleaks see a staged secret via temp index?
+        run: |
+          set +e
+          echo "git: $(git --version) | gitleaks: $(gitleaks version)"
+          r="$(mktemp -d)"; git -C "$r" init -q
+          git -C "$r" -c user.email=t@t.t -c user.name=t commit -q --allow-empty -m init
+          gitdir="$(git -C "$r" rev-parse --absolute-git-dir)"
+          idx="$gitdir/probe-index"
+          # exact canary technique: isolated temp index + cacheinfo blob
+          blob="$(printf 'aws_key = "AKIAIOSFODNN7EXAMPLE"\n' | git -C "$r" hash-object -w --stdin)"
+          ( cd "$r" && GIT_INDEX_FILE="$idx" git read-tree HEAD \
+              && GIT_INDEX_FILE="$idx" git update-index --add --cacheinfo "100644,$blob,secret.txt" )
+          echo "--- staged in temp index: ---"
+          ( cd "$r" && GIT_INDEX_FILE="$idx" git diff --cached --name-only )
+          echo "--- gitleaks git --staged (what the hook runs): ---"
+          ( cd "$r" && GIT_INDEX_FILE="$idx" gitleaks git --staged --redact -v ); echo "gitleaks exit: $?"
 
       - name: Collect fixture logs
         if: always()
         run: |
-          dst="${{ runner.temp }}/diag"; mkdir -p "$dst"
-          find "${{ runner.temp }}/keep" -type f \( -name '*.log' -o -name 'lefthook.yml' \
-            -o -name 'CLAUDE.md' -o -name 'CLAUDE.local.md' \) -print0 2>/dev/null \
-            | while IFS= read -r -d '' f; do
-                rel="${f#"${{ runner.temp }}"/keep/}"
-                mkdir -p "$dst/$(dirname "$rel")"
-                cp "$f" "$dst/$rel" 2>/dev/null || true
-              done
-          echo "collected file count: $(find "$dst" -type f | wc -l)"
+          base="$(cat "$RUNNER_TEMP/keeptmp.path" 2>/dev/null)"
+          dst="$RUNNER_TEMP/diag"; mkdir -p "$dst"
+          if [ -n "$base" ] && [ -d "$base" ]; then
+            find "$base" -type f \( -name '*.log' -o -name 'lefthook.yml' \
+              -o -name 'CLAUDE.md' -o -name 'CLAUDE.local.md' \) -print0 2>/dev/null \
+              | while IFS= read -r -d '' f; do
+                  rel="${f#"$base"/}"
+                  mkdir -p "$dst/$(dirname "$rel")"
+                  cp "$f" "$dst/$rel" 2>/dev/null || true
+                done
+          fi
+          echo "collected file count: $(find "$dst" -type f 2>/dev/null | wc -l)"
 
       - name: Upload fixture logs
         if: always()
