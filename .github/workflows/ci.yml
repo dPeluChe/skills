@@ -35,20 +35,60 @@ jobs:
       - name: Run hook suite
         run: bash scripts/test-hooks.sh
 
-  # ── flake-hunt: N parallel identical runs to characterize an intermittent
-  # failure in the gitleaks verify canary. Manual only (workflow_dispatch) so it
-  # never burns macOS minutes on every push. Trigger: gh workflow run ci.yml.
-  # fail-fast off so every cell reports its own verdict.
-  flake-hunt:
+  # ── diagnose: run the suite keeping every fixture, then upload the per-fixture
+  # logs (install.sh's stderr goes there, the console never shows it) so a failing
+  # install/verify on the runner is finally readable. Manual only. Also does one
+  # inline install.sh repro that mirrors the suite's local-remote wiring.
+  diagnose:
     if: github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        run: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
       - uses: actions/checkout@v4
+
       - name: Install tools (shellcheck, gitleaks, lefthook)
         run: brew install shellcheck gitleaks lefthook
-      - name: Run hook suite (cell ${{ matrix.run }})
-        run: bash scripts/test-hooks.sh
+
+      - name: Run suite (keep fixtures)
+        env:
+          FLOWKIT_KEEP_TMP: "1"
+          TMPDIR: ${{ runner.temp }}/keep/
+        run: |
+          mkdir -p "${{ runner.temp }}/keep"
+          bash scripts/test-hooks.sh || true
+
+      - name: Inline install.sh repro (local remote, stderr to console)
+        run: |
+          set -x
+          work="$(mktemp -d)"
+          # replicate 00-helpers: a minimal LOCAL lefthook remote, no github
+          ff="$work/ff-remote"; mkdir -p "$ff/hooks"
+          cp hooks/lefthook-base.yml hooks/.gitleaks.toml "$ff/hooks/"
+          git -C "$ff" init -q -b main
+          git -C "$ff" -c user.email=t@t.t -c user.name=t add -A
+          git -C "$ff" -c user.email=t@t.t -c user.name=t commit -q -m hooks
+          repo="$work/repo"; mkdir -p "$repo"; git -C "$repo" init -q
+          git -C "$repo" -c user.email=t@t.t -c user.name=t commit -q --allow-empty -m init
+          echo "=== install.sh --repo (REMOTE_URL=local) ==="
+          REMOTE_URL="$ff" bash scripts/install.sh --repo "$repo"
+          echo "install exit: $?"
+
+      - name: Collect fixture logs
+        if: always()
+        run: |
+          dst="${{ runner.temp }}/diag"; mkdir -p "$dst"
+          find "${{ runner.temp }}/keep" -type f \( -name '*.log' -o -name 'lefthook.yml' \
+            -o -name 'CLAUDE.md' -o -name 'CLAUDE.local.md' \) -print0 2>/dev/null \
+            | while IFS= read -r -d '' f; do
+                rel="${f#"${{ runner.temp }}"/keep/}"
+                mkdir -p "$dst/$(dirname "$rel")"
+                cp "$f" "$dst/$rel" 2>/dev/null || true
+              done
+          echo "collected file count: $(find "$dst" -type f | wc -l)"
+
+      - name: Upload fixture logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fixture-diag
+          path: ${{ runner.temp }}/diag
+          if-no-files-found: warn
