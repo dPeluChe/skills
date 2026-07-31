@@ -126,6 +126,15 @@ formalized) only when the diff exceeds the `simplify` threshold (default 500 cha
 it finds or record why not. Future: per-area importance thresholds (e.g. anything touching
 auth) — noted as an evolution, not implemented.
 
+**Lint health on the diff (JS/TS/React repos).** Run `flowkit lint-health` and read it against
+the DIFF, not the whole tree: a NEW blanket `eslint-disable` (no rule named), or a rule newly
+turned `off`/`0` in the eslint config, is a finding — that is a gate the diff just switched off
+(a false green). A **scoped, reasoned** disable the diff adds
+(`/* eslint-disable <rule> -- why */`) is fine and never a finding. Pre-existing holes in
+untouched files are advisory only — do not block the PR on them (note them for a task if worth
+it). When a diff turns a rule off, `flowkit lint-health --measure '<rule>'` quantifies what that
+now hides. The check never auto-fixes and never blocks a commit; it informs the report.
+
 **Comment hygiene (always, regardless of the simplify threshold).** Scan the diff for comment
 blocks longer than ~3 lines that narrate the logic. Reduce each to a terse WHY reference; if
 the explanation is worth keeping, move it to the repo's docs/ and leave a one-line pointer in

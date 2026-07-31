@@ -18,6 +18,8 @@
 #                          over central rules; verify measures EFFICACY (0-jobs
 #                          inert gate, canary probe, hooks_skip, commit-msg,
 #                          flowkit hooks --help)
+#   95-lint-health.sh      lint-health: blanket eslint-disable vs scoped-reasoned,
+#                          config off-rules, ignored source, --measure, dispatch
 #
 # Modules are sourced here in lexical order, in ONE shell, so they share the
 # helpers and accumulate into the same counters. Output contract (consumed by

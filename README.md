@@ -316,6 +316,39 @@ On agent attribution: the first line of defense is `includeCoAuthoredBy: false` 
 Code settings; the commit-msg hook is the net for configs that drift or agents that ignore
 it. If stripping would empty the whole message, the original is kept untouched.
 
+### Lint health (JS/TS/React)
+
+A green lint run proves nothing if the gate was quietly turned off. Same doctrine as
+`gitleaks:allow`: a **scoped, reasoned** suppression is fine — a **blanket or unreasoned** one
+is a false green, a gate that stopped checking. `flowkit lint-health [path]` audits an eslint
+repo (flat `eslint.config.*`, legacy `.eslintrc.*`, or `package.json` `"eslintConfig"`) and
+ALERTS — it never edits and never blocks (advisory, always exit 0):
+
+```bash
+flowkit lint-health                 # audit $PWD (or a path)
+flowkit lint-health --measure 'no-unused-vars'   # how much would that rule reveal?
+```
+
+What it flags:
+
+- **Blanket disables (headline)** — `/* eslint-disable */`, `// eslint-disable-next-line` with
+  no rule after it: these turn off **all** lint for a file/scope. Reported with `file:line`. A
+  scoped `/* eslint-disable @typescript-eslint/no-explicit-any -- vendor types */` is NOT
+  flagged — that is the correct shape.
+- **Rules off in config** — `"<rule>": "off"` / `: 0` in the eslint config, disabled repo-wide
+  (field case: `@typescript-eslint/no-explicit-any: "off"`). Best-effort text grep, so it also
+  reads flat JS configs it cannot import.
+- **Unreasoned disables** (info) — directives with no `-- reason`; reasoned ones are fine.
+- **Ignored source paths** — `.eslintignore` / `globalIgnores([...])` / `ignorePatterns`
+  entries that cover something other than the usual `dist`/`build`/`node_modules`/`_generated`/
+  `coverage` (source hidden from the linter).
+
+`--measure '<rule>'` forces one rule to `error` using the repo's OWN eslint + config (so
+plugins load) **without touching any config**, and counts what turning it on would surface
+(`no-unused-vars forced on: 47 findings across 12 files`). If eslint isn't installed it says so
+and exits 0. `ship` runs this same check on the **diff** in its quality pass: a NEW blanket
+disable or a newly-off rule is a finding; a reasoned scoped disable is not.
+
 ### Harness hooks (Claude Code)
 
 Git hooks catch bad commits; these two PreToolUse guards catch the agent's tool call
