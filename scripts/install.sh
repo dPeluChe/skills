@@ -96,7 +96,7 @@ case "${1:-}" in
     ;;
 esac
 
-for _mod in util chain repo-wire stamp verify lifecycle; do
+for _mod in util chain repo-wire stamp stamp-shipconfig verify lifecycle; do
   # shellcheck disable=SC1090  # module set is fixed; path resolved via resolve_self
   source "$SCRIPT_DIR/lib/$_mod.sh"
 done

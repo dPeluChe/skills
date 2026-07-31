@@ -1,39 +1,30 @@
-# Known issue: canary/verify test flake (~1 in 6)
+# RESOLVED (0.1.17): canary/verify test flake
 
-Status: diagnosed, NOT fixed. Deliberate deferral — the naive fix broke more.
-
-## Symptom
-
-`bash scripts/test-hooks.sh` intermittently fails 1-3 asserts (~1 run in 6),
-always in the verify/canary family, e.g. "install did not close with a real
-verify report". Re-running passes. The tool is correct; the TEST is flaky.
+Was: `bash scripts/test-hooks.sh` intermittently failed (~1 in 6, then
+consistently under github rate-limiting) in the verify/canary family.
 
 ## Root cause
 
-The canary in `--verify` runs the EFFECTIVE pre-commit hook, which makes
-lefthook fetch its `remotes` config. The test fixtures (`scripts/tests/70-*`)
-write a lefthook.yml pointing at the real `https://github.com/dPeluChe/skills`,
-so every canary run does a network fetch. A slow/failed fetch → the hook does
-not complete → no "verify: PASS" → false FAIL. It is a network dependency in
-the test, not a defect in flowkit.
+The fixtures wired lefthook `remotes` at the real `https://github.com/dPeluChe/skills`.
+The canary/verify tests run the EFFECTIVE hook, which made lefthook `git clone`
+that public repo -- ~20 suite runs a day × many fixtures = hundreds of anonymous
+clones → github rate-limited the IP, turning the flake into consistent failure.
 
-Deeper implication worth weighing: in production, `flowkit hooks --verify`
-could likewise report a transient false FAIL if the remote fetch blips during
-its canary run. The real fix should also make the canary WARM the remote before
-taking its verdict.
+## Why the first local-remote attempt broke upgrade/0-jobs
 
-## Why the obvious fix was reverted
+`lefthook_cfg_file` (verify.sh) only treats a config as "wired" if it
+`grep`s `$REMOTE_URL`. Two fixtures (FFUPG, GSINERT) HARDCODED the github URL,
+so pointing `REMOTE_URL` at a local path stopped matching them → those two
+tests failed. That looked like "local remotes don't work" but was just the
+hardcoded refs.
 
-Pointing `REMOTE_URL` at the local checkout (`$REPO_DIR`) removes the network
-but changed clone/refetch behavior enough to break the `upgrade`-refresh and
-`0-jobs` overlay tests (150/2 consistently). A whole-repo local remote is the
-wrong shape.
+## Fix
 
-## Correct fix (for a focused session)
+- `00-helpers.sh` builds a minimal local remote (only `hooks/lefthook-base.yml`
+  + `hooks/.gitleaks.toml`, committed on main) and exports `REMOTE_URL` to it.
+- `util.sh` makes `REMOTE_URL` env-overridable (`${REMOTE_URL:-…}`).
+- FFUPG and GSINERT fixtures now reference `$REMOTE_URL`, not a hardcoded URL.
 
-Build a MINIMAL local bare remote in `$TMP` once (a tiny git repo carrying only
-`hooks/lefthook-base.yml` + `hooks/.gitleaks.toml`, committed on `main`), point
-the fixtures' `REMOTE_URL` there. Network-free and deterministic, without the
-full-repo clone side effects. Make `REMOTE_URL` env-overridable in `util.sh`
-(`${REMOTE_URL:-…}`) and export it from `00-helpers.sh`. Verify the upgrade and
-0-jobs tests still pass against the minimal remote before trusting green.
+Result: the suite never touches github; 153/153 deterministic across runs. The
+one remaining github call is `run_upgrade`'s `git fetch origin` on the real
+skills clone (once per suite run) -- real behavior, not enough to rate-limit.
