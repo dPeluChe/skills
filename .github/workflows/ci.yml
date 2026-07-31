@@ -1,0 +1,83 @@
+name: ci
+
+# Runs the hook suite on macOS — the platform flowkit actually targets (agents
+# and devs are on macOS/BSD; the suite has never been ported to Linux/GNU). The
+# suite is network-free (00-helpers.sh points lefthook `remotes` at a local
+# git_url), so CI never clones from github and never hits a rate limit.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── the gate: one authoritative run; this is the check a PR must pass ───────
+  gate:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools (shellcheck, gitleaks, lefthook)
+        run: brew install shellcheck gitleaks lefthook
+
+      - name: Tool versions
+        run: |
+          shellcheck --version | head -2
+          lefthook version
+          gitleaks version
+          python3 --version
+          bash --version | head -1
+
+      - name: Run hook suite
+        run: bash scripts/test-hooks.sh
+
+  # ── diagnose (manual): run the suite keeping every fixture, then upload the
+  # per-fixture logs as an artifact. install.sh/verify write their stderr to
+  # per-fixture logs the console never shows, so a runner-only failure is
+  # otherwise undiagnosable. This is how the bash-3.2 empty-array crashes were
+  # found. Reusable debug affordance; runs only on workflow_dispatch.
+  diagnose:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools (shellcheck, gitleaks, lefthook)
+        run: brew install shellcheck gitleaks lefthook
+
+      - name: Run suite (keep fixtures), capture TMP path
+        env:
+          FLOWKIT_KEEP_TMP: "1"
+        run: |
+          bash scripts/test-hooks.sh 2>&1 | tee "$RUNNER_TEMP/suite.out" || true
+          grep '\[keep-tmp\] TMP=' "$RUNNER_TEMP/suite.out" | sed 's/.*TMP=//' \
+            | head -1 > "$RUNNER_TEMP/keeptmp.path"
+          echo "suite TMP = $(cat "$RUNNER_TEMP/keeptmp.path")"
+
+      - name: Collect fixture logs
+        if: always()
+        run: |
+          base="$(cat "$RUNNER_TEMP/keeptmp.path" 2>/dev/null)"
+          dst="$RUNNER_TEMP/diag"; mkdir -p "$dst"
+          if [ -n "$base" ] && [ -d "$base" ]; then
+            find "$base" -type f \( -name '*.log' -o -name 'lefthook.yml' \
+              -o -name 'CLAUDE.md' -o -name 'CLAUDE.local.md' \) -print0 2>/dev/null \
+              | while IFS= read -r -d '' f; do
+                  rel="${f#"$base"/}"
+                  mkdir -p "$dst/$(dirname "$rel")"
+                  cp "$f" "$dst/$rel" 2>/dev/null || true
+                done
+          fi
+          echo "collected file count: $(find "$dst" -type f 2>/dev/null | wc -l)"
+
+      - name: Upload fixture logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fixture-diag
+          path: ${{ runner.temp }}/diag
+          if-no-files-found: warn

@@ -85,6 +85,58 @@ pre-commit:
         done
         exit 0
 
+    # (d) lint-health advisory: flag NEW lint-coverage holes THIS commit's staged
+    # diff introduces — a BLANKET eslint-disable (no rule named) or a rule turned
+    # OFF in an eslint config. ADDED lines only; ADVISORY, never blocks. This is
+    # the diff-scoped sibling of `flowkit lint-health` (the full repo audit lives
+    # in scripts/lib/lint-health.sh — keep the two disable/off regexes in sync).
+    # Scoped to the diff so it's SIGNAL (this change weakens lint) not the
+    # repo-wide report replayed on every commit.
+    - name: lint-health-staged
+      run: |
+        set -u
+        nl="$(printf '\nx')"; nl="${nl%x}"
+        files="$(git diff --cached --name-only --diff-filter=ACMR || true)"
+        [ -n "$files" ] || exit 0
+        blanket=""
+        offrules=""
+        for f in $files; do
+          case "$f" in
+            *.js|*.jsx|*.ts|*.tsx|*.mjs|*.cjs) ;;
+            *) continue ;;
+          esac
+          add="$(git diff --cached -U0 -- "$f" | grep '^+' | grep -v '^+++' | cut -c2- || true)"
+          [ -n "$add" ] || continue
+          # blanket disable: eslint-disable(-*) followed only by */ , -- , or EOL
+          b="$(printf '%s\n' "$add" \
+            | grep -E 'eslint-disable(-next-line|-line)?[[:space:]]*(\*/|--|$)' \
+            | sed "s|^[[:space:]]*|  $f: |" || true)"
+          [ -n "$b" ] && blanket="$blanket$b$nl"
+          # rule turned OFF — only meaningful inside an eslint config file
+          case "$f" in
+            *eslint.config.*|*.eslintrc|*.eslintrc.*|*package.json)
+              o="$(printf '%s\n' "$add" \
+                | grep -E "['\"][@A-Za-z0-9_/.-]+['\"][[:space:]]*:[[:space:]]*(['\"]off['\"]|\[[[:space:]]*['\"]off['\"])" \
+                | sed "s|^[[:space:]]*|  $f: |" || true)"
+              [ -n "$o" ] && offrules="$offrules$o$nl"
+              ;;
+          esac
+        done
+        if [ -n "$blanket" ] || [ -n "$offrules" ]; then
+          echo "[hooks] lint-health: this commit changes lint coverage (advisory, does not block):" >&2
+          if [ -n "$blanket" ]; then
+            echo "[hooks]   BLANKET disable(s) added — turn off ALL lint for a file/scope:" >&2
+            printf '%s' "$blanket" | sed 's/^/[hooks] /' >&2
+          fi
+          if [ -n "$offrules" ]; then
+            echo "[hooks]   rule(s) turned OFF in an eslint config:" >&2
+            printf '%s' "$offrules" | sed 's/^/[hooks] /' >&2
+          fi
+          echo "[hooks]   A scoped, reasoned disable is fine; a blanket one is a false green." >&2
+          echo "[hooks]   Full repo audit: flowkit lint-health" >&2
+        fi
+        exit 0
+
 pre-push:
   parallel: false
   jobs:

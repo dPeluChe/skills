@@ -84,7 +84,7 @@ run_lint_health() {
 
   # ── rules turned off in config (best-effort; text-based for flat JS) ───────
   local off_rules="" cfg rule
-  for cfg in "${cfg_paths[@]}"; do
+  for cfg in ${cfg_paths[@]+"${cfg_paths[@]}"}; do
     while IFS= read -r rule; do
       [[ -n "$rule" ]] || continue
       off_rules+="$rule|$(basename "$cfg")"$'\n'
@@ -118,7 +118,7 @@ run_lint_health() {
       _lh_is_usual "$entry" || ignored+=".eslintignore: $entry"$'\n'
     done < "$target/.eslintignore"
   fi
-  for cfg in "${cfg_paths[@]}"; do
+  for cfg in ${cfg_paths[@]+"${cfg_paths[@]}"}; do
     while IFS= read -r entry; do
       [[ -n "$entry" ]] || continue
       _lh_is_usual "$entry" || ignored+="$(basename "$cfg"): $entry"$'\n'
