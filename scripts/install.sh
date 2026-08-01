@@ -68,7 +68,7 @@ BIN_DIR="${FLOWKIT_BIN_DIR:-$HOME/bin}"
 HARNESS_LINK="${AGENTS_HOOKS_DIR:-$HOME/.agents/hooks-harness}"
 CLAUDE_SETTINGS="${CLAUDE_SETTINGS_FILE:-$HOME/.claude/settings.json}"
 MODE="sync"; COPY=0; PROBLEMS=0; TARGET_REPO=""; TEAM=0; INCLUDE_PARENT=0
-VERIFY_ONLY=0; VERIFY_FAILED=0; LAST_VERIFY_RC=0; LINT_MEASURE=""
+VERIFY_ONLY=0; VERIFY_FAILED=0; LAST_VERIFY_RC=0; LINT_MEASURE=""; LINT_CANARY=0
 
 case "${1:-}" in
   --check)   MODE="check"; shift ;;
@@ -82,6 +82,7 @@ case "${1:-}" in
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --measure) LINT_MEASURE="${2:?usage: install.sh --lint-health --measure '<rule>' [path]}"; shift 2 ;;
+        --canary)  LINT_CANARY=1; shift ;;
         *) TARGET_REPO="$1"; shift ;;
       esac
     done
@@ -123,7 +124,8 @@ case "$MODE" in
   harness) install_harness ;;
   upgrade) run_upgrade ;;
   lint-health)
-    if [[ -n "$LINT_MEASURE" ]]; then run_lint_measure "$LINT_MEASURE" "${TARGET_REPO:-.}"
+    if [[ "$LINT_CANARY" -eq 1 ]]; then run_lint_canary "${TARGET_REPO:-.}"
+    elif [[ -n "$LINT_MEASURE" ]]; then run_lint_measure "$LINT_MEASURE" "${TARGET_REPO:-.}"
     else run_lint_health "${TARGET_REPO:-.}"; fi ;;
   loc-health) run_loc_health "${TARGET_REPO:-.}" ;;
   *)       run_sync "$@" ;;
