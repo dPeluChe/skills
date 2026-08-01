@@ -363,8 +363,12 @@ blatant violation per source extension **next to a real file of that extension**
 each: **caught** (that extension is genuinely linted), **BLIND** (a violation went uncaught, so
 those files are not really linted — only asserted when a rule that would trip it is confirmed
 ON, never a false accusation), or **PARSE ERROR** (the linter chokes on that extension — its own
-finding, not a pass). Field bug it was built for: an ESLint `languageOptions` block replaced the
-parser, `.astro` files went unchecked, and `npm run lint` stayed green.
+finding, not a pass). Both failure modes are real. The **noisy** one is the common case — a
+dependency bump unscopes `tseslint.configs.recommended`, clobbers the `.astro` parser, and the
+lint fills with parse errors — which is exactly why the parse-error classification matters: a
+naive canary reads that error output as *"the linter ran"* and passes a broken gate. The
+**silent** one (a violation genuinely uncaught) is rarer but real, and the reason the whole
+check exists: a green lint proves nothing if the linter never reached those files.
 
 ```bash
 flowkit lint-health --canary        # $PWD (or a path); advisory, exit 0, probes cleaned up
