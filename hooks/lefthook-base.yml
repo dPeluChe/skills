@@ -72,15 +72,36 @@ pre-commit:
           exit 1
         fi
 
-    # (c) LOC check: staged files >500 lines get a WARNING. Never blocks.
+    # (c) LOC check: WARN about files THIS commit GROWS past loc_limit (from
+    # CLAUDE.md ship config, default 500). Diff-aware on purpose -- a legacy file
+    # already over the limit that the commit merely touches or SHRINKS is not the
+    # concern; the file the diff is growing is. Never blocks. Repo-wide audit:
+    # flowkit loc-health.
     - name: loc-warning
       run: |
         set -u
-        git diff --cached --name-only --diff-filter=ACMR | while IFS= read -r f; do
+        root="$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
+        limit=500
+        if [ -f "$root/CLAUDE.md" ]; then
+          # shellcheck disable=SC2016
+          v="$(sed -n '/^## ship config$/,/^## /p' "$root/CLAUDE.md" 2>/dev/null \
+            | sed -n '/^```yaml$/,/^```$/p' | sed -n 's/^loc_limit:[[:space:]]*//p' \
+            | sed 's/[[:space:]]*#.*$//' | tr -d '[:space:]' | head -1)"
+          case "$v" in ''|*[!0-9]*) ;; *) limit="$v" ;; esac
+        fi
+        git diff --cached --numstat --diff-filter=ACMR | while read -r add del f; do
+          case "$add" in ''|*[!0-9]*) continue ;; esac   # binary (-) or unparsable
+          case "$del" in ''|*[!0-9]*) del=0 ;; esac
+          # skip non-code-to-split noise (lockfiles/generated/minified/maps/docs)
+          case "$f" in
+            *.min.*|*.map|*.snap|*_generated*|*/generated/*|*.md|*.mdx|*.rst) continue ;;
+            package-lock.json|*/package-lock.json|yarn.lock|*/yarn.lock) continue ;;
+            pnpm-lock.yaml|*/pnpm-lock.yaml|*.lock) continue ;;
+          esac
           [ -f "$f" ] || continue
           n="$(wc -l < "$f" | tr -d ' ')"
-          if [ "$n" -gt 500 ]; then
-            echo "[hooks] WARNING: $f has $n lines (>500) — consider a split. Does not block." >&2
+          if [ "$n" -gt "$limit" ] && [ "$add" -gt "$del" ]; then
+            echo "[hooks] WARNING: $f has $n lines (>$limit) and this commit grew it (+$((add - del))) — consider a split. Does not block." >&2
           fi
         done
         exit 0

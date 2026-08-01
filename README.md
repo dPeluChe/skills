@@ -279,7 +279,7 @@ Four layers, increasing cost:
 | Layer | Budget | What runs |
 |---|---|---|
 | commit-msg | <1s | strips agent attribution trailers (Co-authored-by / Generated with / 🤖 footers) — authorship stays human: the person is the author, agents are tools |
-| pre-commit | <2s | gitleaks on staged (repo-local `.gitleaks.toml` wins over the central config) · hard block on staged `.env*` (except `.env.example`) · LOC warning >500 lines (never blocks) · lint-health advisory on the staged diff — a blanket eslint-disable or a newly-off config rule (never blocks) |
+| pre-commit | <2s | gitleaks on staged (repo-local `.gitleaks.toml` wins over the central config) · hard block on staged `.env*` (except `.env.example`) · loc-warning: files THIS commit grows past `loc_limit` (ship config, default 500; never blocks) · lint-health advisory on the staged diff — a blanket eslint-disable or a newly-off config rule (never blocks) |
 | pre-push | <30s | the repo's own `lint:` / `typecheck:` read from its `## ship config` block — fail-soft warning if absent; docs-only and deletion-only pushes skip · docs nudge when code is pushed with zero `.md` touched (never blocks) |
 | `/ship` | minutes | full gate ritual: lint 0 warnings, build/tests, LOC, secret scan on the diff, quality pass, evidence table |
 | CI | async | whatever the repo's pipeline adds on top — hooks complement CI, never replace it |
@@ -368,6 +368,26 @@ or the report can't be produced, it says **inconclusive** and exits 0 — never 
 
 The pre-commit and CLI paths share the two disable/off regexes; the diff-scoped hook version
 lives inline in `hooks/lefthook-base.yml`, the repo-wide audit in `scripts/lib/lint-health.sh`.
+
+### File size (loc-health)
+
+The team's development rules (reuse-before-write, anti-N+1, materialize-over-recompute) are
+judgment calls that live in a doc. **File size — 400-500 LOC max per file — is the one that's
+mechanical and verifiable, so it's the one worth automating** (a rule that only lives in a doc is
+ignored in three weeks). Language-agnostic; the limit is `loc_limit` in the CLAUDE.md ship config
+block (default 500). Two surfaces, both advisory (never block):
+
+- **pre-commit hook** — warns about files **THIS commit grows past the limit**. Diff-aware on
+  purpose: a legacy file already over the limit that the commit merely touches or *shrinks* is
+  not the concern — the file the diff is *growing* is. So splitting a big file is never nagged;
+  growing one past the line is.
+- **`flowkit loc-health [path]`** — repo-wide audit: every tracked file over the limit, largest
+  first. Skips what isn't code-to-split (lockfiles, generated, minified, maps, docs — long docs
+  are doctos' concern, not a design smell).
+
+```bash
+flowkit loc-health                  # audit $PWD against loc_limit (or a path)
+```
 
 ### Harness hooks (Claude Code)
 

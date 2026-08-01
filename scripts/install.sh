@@ -86,6 +86,10 @@ case "${1:-}" in
       esac
     done
     ;;
+  --loc-health)
+    MODE="loc-health"; shift
+    [[ $# -gt 0 ]] && { TARGET_REPO="$1"; shift; }
+    ;;
   --repo)
     MODE="repo"; shift
     TARGET_REPO="${1:?usage: install.sh --repo <path> [--team] [--children-only|--include-parent]}"; shift
@@ -105,7 +109,7 @@ case "${1:-}" in
     ;;
 esac
 
-for _mod in util chain repo-wire stamp stamp-shipconfig verify lifecycle lint-health; do
+for _mod in util chain repo-wire stamp stamp-shipconfig verify lifecycle lint-health loc-health; do
   # shellcheck disable=SC1090  # module set is fixed; path resolved via resolve_self
   source "$SCRIPT_DIR/lib/$_mod.sh"
 done
@@ -121,5 +125,6 @@ case "$MODE" in
   lint-health)
     if [[ -n "$LINT_MEASURE" ]]; then run_lint_measure "$LINT_MEASURE" "${TARGET_REPO:-.}"
     else run_lint_health "${TARGET_REPO:-.}"; fi ;;
+  loc-health) run_loc_health "${TARGET_REPO:-.}" ;;
   *)       run_sync "$@" ;;
 esac

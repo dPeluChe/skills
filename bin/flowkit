@@ -49,6 +49,8 @@ Usage: flowkit <subcommand>
   lint-health [path]  audit a JS/TS/React repo's lint gate for false greens: blanket
              eslint-disable, rules turned off in config, unreasoned/ignored source (advisory, exit 0)
              --measure '<rule>': force <rule> on (no config change) + count what it would reveal
+  loc-health [path]  audit file sizes repo-wide against the loc_limit rule (ship config,
+             default 500); advisory, exit 0. The pre-commit hook warns per-diff too
   about      what flowkit is + this repo's detected flow status (for agents landing cold)
   version    print flowkit version + repo short sha
   help       show this help
@@ -75,6 +77,7 @@ case "$cmd" in
   unhook)  exec bash "$INSTALL" --unhook "$PWD" "$@" ;;
   upgrade) exec bash "$INSTALL" --upgrade "$@" ;;
   lint-health) exec bash "$INSTALL" --lint-health "$@" ;;
+  loc-health)  exec bash "$INSTALL" --loc-health "$@" ;;
   about)   exec bash "$INSTALL" --about "$@" ;;
   version|--version|-v) fk_version ;;
   help|-h|--help) usage ;;
