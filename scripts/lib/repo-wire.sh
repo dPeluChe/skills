@@ -66,6 +66,26 @@ chain_husky() { # $1 = target repo; append lefthook to husky hooks, never replac
   echo "  NOTE: hooks stay husky-managed; lefthook runs as the last step of each."
 }
 
+warn_displaced_hooks() { # $1 = target. `lefthook install` backs a pre-existing
+  # .git/hooks/<hook> up to <hook>.old and does not run it -- the repo's OWN hook
+  # silently stops firing. We do NOT auto-chain it: appending its run to the stub
+  # makes ITS exit code the hook's final one, which MASKS a lefthook block (an
+  # `exit 0` old hook would let a caught secret through -- verified). So flowkit
+  # SURFACES it (same as the tracked-hooksPath case: warn + migrate, never a silent
+  # or a dangerous auto-fix); verify keeps FAILing until it's resolved.
+  local target="$1" gitdir hk old found=""
+  gitdir="$(git -C "$target" rev-parse --absolute-git-dir 2>/dev/null)" || return 0
+  for hk in pre-commit pre-push commit-msg; do
+    old="$gitdir/hooks/$hk.old"
+    [[ -f "$old" ]] && found="$found $hk"
+  done
+  if [[ -n "$found" ]]; then
+    note "!! pre-existing hook(s) displaced by lefthook:${found} -- backed up to .git/hooks/<hook>.old but NOT run"
+    note "   migrate the logic into lefthook.yml / the '## ship config', or record a conscious skip. Auto-chaining is unsafe (an old hook's exit 0 would mask a blocked secret)."
+    agent_action "Pre-existing git hook(s) displaced by lefthook (${found# }): each is backed up at .git/hooks/<hook>.old but no longer runs. Migrate its logic into lefthook.yml or the '## ship config', then delete the .old. flowkit does NOT auto-chain it -- an old hook exiting 0 would mask a lefthook secret-block. flowkit hooks --verify FAILs until resolved."
+  fi
+}
+
 # Global core.hooksPath is NOT a blocker when it holds CHAIN wrappers — files
 # that delegate to $(git rev-parse --git-dir)/hooks/<hook> when it exists, so
 # locally installed lefthook hooks still run through the chain.
@@ -219,6 +239,7 @@ wire_repo_hooks() { # $1 = target repo (absolute); full wiring of ONE repo, no e
   fi
 
   [[ "$team" == 1 ]] && cleanup_team_autocreated_yml "$target" "$had_lefthook_yml"
+  warn_displaced_hooks "$target"   # never silently drop a repo's own pre-existing hook
 
   run_gitleaks_baseline "$target" "$team"
   # never stamped automatically: a generic fixed-length regex is a false-positive
