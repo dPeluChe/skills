@@ -135,6 +135,13 @@ untouched files are advisory only — do not block the PR on them (note them for
 it). When a diff turns a rule off, `flowkit lint-health --measure '<rule>'` quantifies what that
 now hides. The check never auto-fixes and never blocks a commit; it informs the report.
 
+**Lockfile changed → run `flowkit lint-health --canary`.** If the diff touches a lockfile
+(`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, …), a dependency bump may have silently
+shifted lint/typecheck coverage with no code change — an upgrade can unscope a preset and stop a
+whole extension from being linted. The canary plants a violation per extension and confirms the
+gate still catches it (or surfaces a parse error). A green lint proves nothing if a dep bump
+quietly stopped the linter from reaching those files.
+
 **Comment hygiene (always, regardless of the simplify threshold).** Scan the diff for comment
 blocks longer than ~3 lines that narrate the logic. Reduce each to a terse WHY reference; if
 the explanation is worth keeping, move it to the repo's docs/ and leave a one-line pointer in

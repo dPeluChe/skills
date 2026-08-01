@@ -158,6 +158,24 @@ pre-commit:
         fi
         exit 0
 
+    # (e) lockfile nudge: a dependency bump can silently shift lint/typecheck
+    # coverage with ZERO code or config in the diff -- an unscoped preset clobbers
+    # a parser and a whole extension stops being linted. The file that did it (a
+    # lockfile) is exactly what the code-scoped checks above skip, so this commit
+    # looks innocuous and isn't. When a lockfile is staged, nudge to VERIFY the
+    # gate still catches. Never blocks (field feedback, blueprint-landings).
+    - name: lockfile-canary-nudge
+      run: |
+        set -u
+        locks="$(git diff --cached --name-only --diff-filter=ACMR \
+          | grep -E '(^|/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb|npm-shrinkwrap\.json)$' || true)"
+        if [ -n "$locks" ]; then
+          echo "[hooks] lockfile changed -- a dependency bump can silently shift lint/typecheck coverage" >&2
+          echo "[hooks]   (e.g. an upgrade unscopes a preset and clobbers a parser -- a whole extension stops being linted)." >&2
+          echo "[hooks]   Verify the gate still catches: flowkit lint-health --canary. Does not block." >&2
+        fi
+        exit 0
+
 pre-push:
   parallel: false
   jobs:
