@@ -242,6 +242,23 @@ verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification: config
       rc=1
     fi
   fi
+  # displaced repo hook: wiring backs a pre-existing .git/hooks/<hook> up to
+  # <hook>.old but the installed stub does NOT chain to it -- the repo's OWN hook
+  # was replaced and no longer runs. --verify used to miss this (it checks the
+  # hooks flowkit MANAGES, not the one it displaced) and reported green. It must
+  # SCREAM (field feedback): the declared 'wired ok' diverged from the effective
+  # 'your own hook is dead'. A hooksPath set elsewhere kills .git/hooks/* too.
+  local hk oldf
+  for hk in pre-commit pre-push commit-msg; do
+    oldf="$gitdir/hooks/$hk.old"
+    [[ -f "$oldf" ]] || continue
+    if ! grep -qF "$hk.old" "$gitdir/hooks/$hk" 2>/dev/null; then
+      echo "x displaced hook: a pre-existing $hk was replaced by wiring and no longer runs"
+      echo "  (backed up at .git/hooks/$hk.old, NOT chained). Restore delegation (chain it) or"
+      echo "  migrate its logic into lefthook / the ## ship config -- don't leave it silently dead."
+      rc=1
+    fi
+  done
   if [[ "$rc" -eq 0 ]]; then
     echo "-- verify: PASS (hooks active end-to-end)"
   else

@@ -335,6 +335,26 @@ EOF
   else
     nope "fresh repo: no-commit must defer the canary + PASS, not FAIL (see $TMP/gs-fresh.log)"
   fi
+
+  # ── (10) displaced hook: lefthook replaces a repo's OWN .git/hooks/pre-commit
+  # and backs it up to .old without running it -- the repo's hook silently stops
+  # firing. verify must SCREAM (not report green), install must warn, and the
+  # secret gate must NOT be masked (flowkit does NOT auto-chain: an old hook's
+  # exit 0 would let a caught secret through). Field feedback (regression report).
+  GSDISP="$TMP/gs-displaced"; mkdir -p "$GSDISP"; git -C "$GSDISP" init -q
+  git -C "$GSDISP" -c user.email=t@t.t -c user.name=t commit -q --allow-empty -m init
+  printf '#!/bin/sh\necho custom-hook\n' > "$GSDISP/.git/hooks/pre-commit"
+  chmod +x "$GSDISP/.git/hooks/pre-commit"
+  gsf_run --repo "$GSDISP" > "$TMP/gs-disp-install.log" 2>&1
+  gsf_run --repo "$GSDISP" --verify > "$TMP/gs-disp.log" 2>&1; gs_disp_rc=$?
+  if [[ "$gs_disp_rc" -ne 0 ]] \
+     && grep -q "displaced hook: a pre-existing pre-commit" "$TMP/gs-disp.log" \
+     && grep -q "ALL blocked by the effective pre-commit" "$TMP/gs-disp.log" \
+     && grep -q "displaced by lefthook" "$TMP/gs-disp-install.log"; then
+    ok "displaced hook: verify SCREAMS + install warns + the secret gate still blocks (not masked, not silent)"
+  else
+    nope "displaced hook: must scream + warn + keep the gate intact (see $TMP/gs-disp.log)"
+  fi
 else
   echo "· lefthook/gitleaks not installed — gitleaks-scope fixtures skipped (non-fatal)"
 fi
