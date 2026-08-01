@@ -316,6 +316,38 @@ EOF
   else
     nope "flowkit hooks --help: dispatch broken (see $TMP/gs-help.log)"
   fi
+
+  # ── (9) fresh repo (ZERO commits): the canary needs a HEAD to stage its probe,
+  # so it DEFERS -- a legitimate pre-commit state, NOT a failure. verify must PASS
+  # + exit 0 (field feedback: a no-HEAD repo read as verify FAIL). Own clean git
+  # config so nothing but the no-HEAD state can affect the verdict.
+  GSFRESH="$TMP/gs-fresh"; mkdir -p "$GSFRESH"; git -C "$GSFRESH" init -q
+  GSF_GCFG="$TMP/gs-fresh-gitconfig"; : > "$GSF_GCFG"
+  git config --file "$GSF_GCFG" core.excludesFile "$TMP/gs-fresh-ignore"
+  # < /dev/null: never block on the interactive team prompt (as run_gs does)
+  gsf_run() { AGENTS_SKILLS_DIR="$TMP/gsf-a" CLAUDE_SKILLS_DIR="$TMP/gsf-c" \
+    GIT_CONFIG_GLOBAL="$GSF_GCFG" bash "$INSTALL" "$@" < /dev/null; }
+  gsf_run --repo "$GSFRESH" >/dev/null 2>&1
+  if gsf_run --repo "$GSFRESH" --verify > "$TMP/gs-fresh.log" 2>&1 \
+     && grep -q "canary: DEFERRED" "$TMP/gs-fresh.log" \
+     && grep -q "verify: PASS" "$TMP/gs-fresh.log"; then
+    ok "fresh repo (no HEAD): canary DEFERRED + verify PASS + exit 0 (not a failure)"
+  else
+    nope "fresh repo: no-commit must defer the canary + PASS, not FAIL (see $TMP/gs-fresh.log)"
+  fi
 else
   echo "· lefthook/gitleaks not installed — gitleaks-scope fixtures skipped (non-fatal)"
+fi
+
+# ── problem_summary repeats each problem next to the count -- the problem line
+# otherwise ends ~28 lines above the verdict (field feedback). Pure util unit.
+# shellcheck disable=SC1091,SC2034  # util.sh sourced at runtime; PROBLEMS used by bad()
+( source "$REPO_DIR/scripts/lib/util.sh"; PROBLEMS=0
+  bad "chain wrapper(s) missing for: pre-commit pre-push" >/dev/null
+  problem_summary ) > "$TMP/ps.log" 2>&1
+if grep -q "1 problem(s) found" "$TMP/ps.log" \
+   && grep -q "x chain wrapper(s) missing for: pre-commit pre-push" "$TMP/ps.log"; then
+  ok "problem_summary: repeats the problem line next to 'N problem(s) found'"
+else
+  nope "problem_summary: problem not echoed next to the summary (see $TMP/ps.log)"
 fi

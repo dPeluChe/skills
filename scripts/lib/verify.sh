@@ -56,11 +56,12 @@ canary_secret_scan() { # $1 = target repo. EFFICACY probe of the EFFECTIVE gate,
   # The user's real index is never touched; each temp index is removed.
   # Returns 0 = every shape BLOCKED, 1 = at least one shape passed UNSEEN
   # (dropped rule / hook crash without a leak verdict), 2 = probe could not run,
-  # 3 = no effective pre-commit hook exists.
+  # 3 = no effective pre-commit hook exists, 4 = no HEAD yet (fresh repo -- a
+  # legitimate state, NOT a failure: the canary is deferred until the first commit).
   local target="$1" gitdir tmpidx blob out hookfile label content
   local -a unseen=()
   CANARY_REPORT=""; CANARY_UNSEEN=""
-  git -C "$target" rev-parse HEAD >/dev/null 2>&1 || return 2
+  git -C "$target" rev-parse HEAD >/dev/null 2>&1 || return 4
   gitdir="$(git -C "$target" rev-parse --absolute-git-dir)" || return 2
   hookfile="$(effective_hooks_dir "$target")/pre-commit"
   [[ -x "$hookfile" ]] || return 3
@@ -218,7 +219,8 @@ verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification: config
            rc=1 ;;
         3) echo "x canary: no effective pre-commit hook -- git would run NOTHING at commit time (expected at $ehp/pre-commit)"
            rc=1 ;;
-        *) echo "- canary: probe could not run (no HEAD yet?) -- efficacy unproven, wiring checks above still hold" ;;
+        4) echo "- canary: DEFERRED -- no commit yet (fresh repo); efficacy is probed from the first commit on. Wiring above is active (not a failure)." ;;
+        *) echo "- canary: probe could not run -- efficacy unproven, wiring checks above still hold" ;;
       esac
     fi
   else
