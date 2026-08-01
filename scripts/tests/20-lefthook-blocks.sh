@@ -35,7 +35,10 @@ else
   nope "expected >= 6 run blocks, got ${#BLOCKS[@]}"
 fi
 
-WRAPPER="$(grep -l 'ship config' "$TMP"/block*.sh | head -1 || true)"
+# locate the pre-push ship-config-gate block by a marker UNIQUE to it: `lint_cmd`
+# (the loc-warning block now also reads the "## ship config" heading for loc_limit,
+# so 'ship config' matches both -- lint_cmd does not).
+WRAPPER="$(grep -l 'lint_cmd' "$TMP"/block*.sh | head -1 || true)"
 if [[ -n "$WRAPPER" ]]; then
   ok "pre-push ship-config wrapper located ($(basename "$WRAPPER"))"
 else
