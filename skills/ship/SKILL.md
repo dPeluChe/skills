@@ -140,6 +140,13 @@ blocks longer than ~3 lines that narrate the logic. Reduce each to a terse WHY r
 the explanation is worth keeping, move it to the repo's docs/ and leave a one-line pointer in
 the code (route to `/doctos` when the content is large enough to need placement).
 
+**Language: code in English (always).** English is the codebase's base language. Read the diff
+for **file names, identifiers (functions, variables) and comments** the change introduces in
+another language (`calcularFactura` → `computeInvoice`, a Spanish comment → English + terse).
+This is a **judgment call, not a grep** — domain terms, proper nouns and established names in the
+repo are fine; the target is NEW code drifting off English. Flag it in the report; never rewrite
+someone's code silently.
+
 ## Step 3: Bookkeeping
 
 - Docs whose claims the diff invalidates → fix if trivial, otherwise route to `/doctos`.
