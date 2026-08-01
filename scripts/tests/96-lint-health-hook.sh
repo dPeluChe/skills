@@ -95,3 +95,31 @@ if [[ "$lhh5_rc" -eq 0 && ! -s "$TMP/lhh5.log" ]]; then
 else
   nope "hook non-js: non-JS change should be silent (see $TMP/lhh5.log)"
 fi
+
+# ── lockfile nudge: a dep bump (lockfile-only diff) can silently shift lint
+# coverage -- the file the code-scoped checks skip. Staging a lockfile nudges to
+# run --canary; a non-lockfile change stays silent. Field feedback.
+LOCK_HOOK="$(grep -l 'lockfile changed' "$TMP"/block*.sh 2>/dev/null | head -1)"
+if [[ -n "$LOCK_HOOK" ]]; then
+  ok "hook: lockfile-canary-nudge block present in lefthook-base.yml pre-commit"
+else
+  nope "hook: lockfile-canary-nudge block missing"
+  return 0
+fi
+LHLOCK="$TMP/lh-lockfile"
+make_repo "$LHLOCK"
+git -C "$LHLOCK" -c user.email=t@t.t -c user.name=t commit -q --allow-empty -m base
+printf '{}\n' > "$LHLOCK/package-lock.json"; git -C "$LHLOCK" add package-lock.json
+( cd "$LHLOCK" && sh "$LOCK_HOOK" ) > "$TMP/lhlock-a.log" 2>&1; a_rc=$?
+printf 'body{}\n' > "$LHLOCK/x.css"; git -C "$LHLOCK" add x.css
+git -C "$LHLOCK" -c user.email=t@t.t -c user.name=t commit -q -m lock 2>/dev/null
+printf 'p{}\n' > "$LHLOCK/y.css"; git -C "$LHLOCK" add y.css
+( cd "$LHLOCK" && sh "$LOCK_HOOK" ) > "$TMP/lhlock-b.log" 2>&1
+if [[ "$a_rc" -eq 0 ]] \
+   && grep -q "lockfile changed" "$TMP/lhlock-a.log" \
+   && grep -q "flowkit lint-health --canary" "$TMP/lhlock-a.log" \
+   && [[ ! -s "$TMP/lhlock-b.log" ]]; then
+  ok "hook lockfile: staged lockfile nudges --canary (exit 0); non-lockfile change silent"
+else
+  nope "hook lockfile: nudge on lockfile / silence otherwise wrong (see $TMP/lhlock-a.log / b)"
+fi
