@@ -89,10 +89,10 @@ G='(^|[;&|[:space:]()])git([[:space:]]+(-[cC][[:space:]]+[^[:space:]]+|--[^[:spa
 
 # ── our hook bypasses first: they defeat every other guard ─────────────────
 [[ "$CMD_NOQ" =~ $re_lefthook0 ]] && block "LEFTHOOK= assignment (hook bypass)" \
-  "Do not disable lefthook; let the hooks run and fix what they flag."
+  "Do not disable lefthook; let the hooks run and fix what they flag. A legitimate exception is made by the HOOK deciding on a condition it reads (a declared env flag it honors), never by bypassing it -- a skipped hook protects nothing."
 re_no_verify=${G}'[^;&|]*--no-verify'
 [[ "$CMD" =~ $re_no_verify ]] && block "--no-verify (hook bypass)" \
-  "Do not skip commit/push hooks; let them run and fix what they flag."
+  "Do not skip commit/push hooks; let them run and fix what they flag. If you genuinely need to proceed (e.g. legitimate index maintenance), make the hook DECIDE via a condition it reads -- an env flag it honors, or the '## ship config' hooks_skip -- don't bypass it. A bypassed hook protects nothing."
 
 # ── destructive git ────────────────────────────────────────────────────────
 # --force-with-lease is the sanctioned alternative: strip it before probing
