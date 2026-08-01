@@ -136,7 +136,7 @@ run_sync() { # $@ = specific skill names (default: all repo skills)
   [[ "$BRANCH" != "main" ]] && bad "repo is on branch '$BRANCH' -- symlinks serve it to ALL agents (checkout main)"
 
   if [[ "$PROBLEMS" -gt 0 ]]; then
-    echo "-- $PROBLEMS problem(s) found"
+    problem_summary
     exit 1
   fi
   if [[ "$MODE" == "check" ]]; then echo "-- chain healthy"; else echo "-- in sync. Skills pick up on next session."; fi

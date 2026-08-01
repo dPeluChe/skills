@@ -222,8 +222,10 @@ wire_repo_hooks() { # $1 = target repo (absolute); full wiring of ONE repo, no e
 
   run_gitleaks_baseline "$target" "$team"
   # never stamped automatically: a generic fixed-length regex is a false-positive
-  # decision only the project can make -- the agent block carries the nudge
-  if [[ ! -f "$target/.gitleaks.toml" ]]; then
+  # decision only the project can make -- the agent block carries the nudge.
+  # Only on the FIRST wiring (no pre-existing lefthook.yml): it's a once-per-repo
+  # decision, so re-runs shouldn't reprint the paragraph (field feedback).
+  if [[ "$had_lefthook_yml" == 0 && ! -f "$target/.gitleaks.toml" ]]; then
     agent_action "Secret scanning uses the central rules (dpat_/GitHub-PAT/AWS/Sentry/Postgres/ITERIS + docs allowlist). ONLY if this repo mints its OWN token format that none of those cover, add a repo-local .gitleaks.toml -- but note it REPLACES the central config, so it MUST start with '[extend] useDefault = true' AND re-declare the central rules you still need, or you downgrade coverage. If the repo only consumes standard tokens (JWT, BYO keys), do NOT add one -- central already covers it."
   fi
   ensure_flow_import "$target" "$team"
@@ -271,7 +273,7 @@ install_repo() {
   if [[ "${#children[@]}" -eq 0 ]]; then
     wire_repo_hooks "$target"
     if [[ "$PROBLEMS" -gt 0 ]]; then
-      echo "-- $PROBLEMS problem(s) found"
+      problem_summary
       exit 1
     fi
     if [[ "$VERIFY_FAILED" -gt 0 ]]; then
@@ -318,7 +320,7 @@ install_repo() {
     printf '  %-32s %s\n' "${child%%|*}" "${child##*|}"
   done
   if [[ "$PROBLEMS" -gt 0 ]]; then
-    echo "-- $PROBLEMS problem(s) found"
+    problem_summary
     exit 1
   fi
   if [[ "$VERIFY_FAILED" -gt 0 ]]; then

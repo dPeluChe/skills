@@ -4,7 +4,16 @@
 # Sourced by scripts/install.sh (the entrypoint); never executed directly.
 
 note() { echo "$@"; }
-bad()  { echo "x $*"; PROBLEMS=$((PROBLEMS + 1)); }
+# bad() also ACCUMULATES the problem line so the summary can repeat it: a verify
+# run prints "x <problem>" up top, then ~28 lines of checks, then the count -- the
+# one line that matters ends far from the verdict (field feedback). PROBLEM_LINES
+# lets the summary echo the problems right next to "N problem(s) found".
+PROBLEM_LINES=""
+bad()  { echo "x $*"; PROBLEMS=$((PROBLEMS + 1)); PROBLEM_LINES+="    x $*"$'\n'; }
+problem_summary() { # "N problem(s) found" + each problem repeated next to it
+  echo "-- $PROBLEMS problem(s) found"
+  [[ -n "${PROBLEM_LINES:-}" ]] && printf '%s' "$PROBLEM_LINES"
+}
 
 flowkit_version() { # prints "flowkit <VERSION> (<short sha>)"
   local v sha

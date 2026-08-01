@@ -229,7 +229,7 @@ install_harness() {
     done <<<"$out"
   fi
   if [[ "$PROBLEMS" -gt 0 ]]; then
-    echo "-- $PROBLEMS problem(s) found"
+    problem_summary
     exit 1
   fi
   echo "-- harness hooks wired ($CLAUDE_SETTINGS). New Claude Code sessions pick them up."
