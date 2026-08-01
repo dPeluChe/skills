@@ -128,6 +128,31 @@ PY
   return 0
 }
 
+detect_typecheck_cmd() { # $1 = package.json; prints the framework-CORRECT typecheck
+  # command. `tsc --noEmit` does NOT understand .astro/.vue/.svelte component files
+  # -- suggesting it for those stacks is the exact false green /ship warns about
+  # (field feedback: an Astro repo got `tsc --noEmit`, which checks none of it).
+  [[ -f "$1" ]] || { echo "npx tsc --noEmit"; return 0; }
+  python3 - "$1" 2>/dev/null <<'PY' || echo "npx tsc --noEmit"
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except Exception:
+    print("npx tsc --noEmit"); raise SystemExit
+deps = {}
+for k in ("dependencies", "devDependencies"):
+    deps.update(d.get(k) or {})
+if "astro" in deps:
+    print("astro check")
+elif "svelte" in deps or "svelte-check" in deps:
+    print("svelte-check")
+elif "vue-tsc" in deps or "@vue/language-tools" in deps or "vue" in deps:
+    print("vue-tsc --noEmit")
+else:
+    print("npx tsc --noEmit")
+PY
+}
+
 npm_ship_lines() { # $1 = target repo; prints "key<TAB>ship-config-line" for
   # lint/typecheck/build/test derived from the REAL package.json scripts.
   # Field case (walter-client): the static npm template suggested `npm run lint`
@@ -135,7 +160,7 @@ npm_ship_lines() { # $1 = target repo; prints "key<TAB>ship-config-line" for
   # present, name absent ones explicitly, keep the project-references tsconfig
   # fix for typecheck, and label the stack Next/Vite. No scripts at all -> the
   # generic TODOs (each line says the script is absent).
-  local target="$1" pkg="$1/package.json" fw fwc="" scripts s ts_script="" test_script=""
+  local target="$1" pkg="$1/package.json" fw fwc="" scripts s ts_script="" test_script="" tc_cmd=""
   fw="$(detect_npm_framework "$pkg")"
   [[ -n "$fw" ]] && fwc=" [$fw]"
   scripts="$(pkg_scripts "$pkg")"
@@ -169,7 +194,12 @@ npm_ship_lines() { # $1 = target repo; prints "key<TAB>ship-config-line" for
     done
     printf 'typecheck\ttypecheck:       # TODO root tsconfig is a references stub -- use: npx tsc -b --noEmit%s (plain tsc --noEmit checks NOTHING; -b alone skips unreferenced siblings like convex/)\n' "$sib"
   else
-    printf 'typecheck\ttypecheck:       # TODO e.g. npx tsc --noEmit (no typecheck script in package.json)\n'
+    tc_cmd="$(detect_typecheck_cmd "$pkg")"
+    if [[ "$tc_cmd" == "npx tsc --noEmit" ]]; then
+      printf 'typecheck\ttypecheck:       # TODO e.g. npx tsc --noEmit (no typecheck script in package.json)\n'
+    else
+      printf 'typecheck\ttypecheck:       # TODO e.g. %s -- this stack needs its OWN typechecker; tsc --noEmit does not understand its component files (no typecheck script in package.json)\n' "$tc_cmd"
+    fi
   fi
 
   if grep -qx 'build' <<<"$scripts"; then

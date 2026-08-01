@@ -200,6 +200,30 @@ EOF
     nope "npm scripts: fixture install exited non-zero"
   fi
 
+  # ── (4d) framework-aware typecheck: an Astro repo must NOT be told to run
+  # `tsc --noEmit` (which understands none of its .astro files -- the exact false
+  # green /ship warns about). Field feedback (blueprint-landings): suggest the
+  # stack's OWN checker (astro check).
+  FFASTRO="$TMP/ff-astro"
+  make_repo "$FFASTRO"
+  cat > "$FFASTRO/package.json" <<'EOF'
+{
+  "name": "astro-fixture",
+  "scripts": { "lint": "eslint ." },
+  "dependencies": { "astro": "^4.0.0" }
+}
+EOF
+  if run_ff --repo "$FFASTRO"; then
+    if grep -q 'typecheck:.*astro check' "$FFASTRO/CLAUDE.md" \
+       && grep -q 'tsc --noEmit does not understand its component files' "$FFASTRO/CLAUDE.md"; then
+      ok "framework typecheck: Astro repo suggested 'astro check', not the tsc --noEmit false green"
+    else
+      nope "framework typecheck: Astro should suggest astro check, not tsc --noEmit (see $FFASTRO/CLAUDE.md)"
+    fi
+  else
+    nope "framework typecheck: Astro fixture install exited non-zero"
+  fi
+
   # ── (5+6) baseline context: fixture-file findings tagged + REAL line shown,
   # ordinary findings stay redacted; agent block carries file:line detail
   FFBASE="$TMP/ff-baseline"
