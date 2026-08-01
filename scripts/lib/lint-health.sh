@@ -289,13 +289,17 @@ print(f"{findings} {files}")
 # ── --canary: does the linter actually REACH the files it claims to cover? ────
 # lint-health asks "is a rule off?"; the canary asks "does the repo's lint CATCH
 # a real violation in each extension present?" -- the read-vs-verify gap the
-# gitleaks canary closes for secrets. Field bug (blueprint-landings): a
-# languageOptions block replaced the parser, .astro files went unchecked, lint
-# stayed green. The dev's 4 traps drive the design:
+# gitleaks canary closes for secrets. Two failure modes, both real (the tests hit
+# each): SILENT (a violation goes uncaught -> those files aren't linted) and NOISY
+# (the linter can't parse the extension -> parse errors). The NOISY mode is the
+# common one -- e.g. a dep bump unscopes tseslint.configs.recommended and clobbers
+# the .astro parser into dozens of parse errors -- which is exactly why trap 4 is
+# the crux: a naive canary reads that parse-error OUTPUT as "the linter ran" and
+# passes a broken gate. The dev's 4 traps (blueprint-landings) drive the design:
 #   1) run the repo's OWN lint command, never a synthetic eslint call
 #   2) plant one violation per extension PRESENT, next to a real file of that ext
 #   3) only call it BLIND when a rule that WOULD catch it is actually ON (print-config)
-#   4) a PARSE ERROR is its own finding, not proof the canary worked
+#   4) a PARSE ERROR is its own finding, NOT proof the canary worked (the crux)
 _lh_pkg_script() { # $1 = target, $2 = script name; prints scripts.<name> or empty
   python3 -c '
 import json, sys
