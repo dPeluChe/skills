@@ -8,3 +8,6 @@
 - This repo's commands (lint/typecheck/build/test) live in its own
   `## ship config` block in CLAUDE.md — hooks and `/ship` read them from there.
 - Code comments: WHY only, max ~3 lines; logic explanations go to docs/ with a one-line pointer.
+- Code is written in English — file names, identifiers (functions, variables) and comments.
+  English is the codebase's base language; flag non-English in review, never switch mid-file.
+  (Judgment, not a linter: domain terms and established names are fine.)
