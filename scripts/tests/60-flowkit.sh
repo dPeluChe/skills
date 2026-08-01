@@ -74,8 +74,11 @@ EOF
      && grep -q "baseline:        present, 0 findings grandfathered" "$TMP/fk-about-dyn.log" \
      && grep -q "ship config:     present (TODOs pending)" "$TMP/fk-about-dyn.log" \
      && grep -q "FLOW import:     yes" "$TMP/fk-about-dyn.log" \
-     && grep -q "harness guards:  not installed" "$TMP/fk-about-dyn.log"; then
-    ok "flowkit about (inside a repo): dynamic status coherent with the fixture"
+     && grep -q "harness guards:  not installed" "$TMP/fk-about-dyn.log" \
+     && grep -q "Suggested next (read-only" "$TMP/fk-about-dyn.log" \
+     && grep -q "fill the '## ship config' TODOs" "$TMP/fk-about-dyn.log" \
+     && [[ -z "$(git -C "$FK_ABOUT" status --porcelain --untracked-files=no)" ]]; then
+    ok "flowkit about (inside a repo): dynamic status + read-only 'Suggested next' advice, writes nothing"
   else
     nope "flowkit about (inside a repo): dynamic lines wrong (see $TMP/fk-about-dyn.log)"
   fi
