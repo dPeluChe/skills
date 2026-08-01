@@ -210,3 +210,51 @@ if [[ "$fk_rc" -eq "$dir_rc" ]] && cmp -s "$TMP/lh-fk.log" "$TMP/lh-direct.log";
 else
   nope "dispatch: flowkit lint-health diverges from install.sh --lint-health (rc $fk_rc vs $dir_rc)"
 fi
+
+# ── (8) --canary: run the repo's OWN lint, plant a violation per extension, and
+# classify caught / BLIND / parse-error. Field bug (blueprint-landings): .astro
+# silently unlinted while lint stayed green. Stub eslint: --print-config says
+# no-debugger is ON (so BLIND is never a false accusation); the lint run catches
+# the .ts probe, is SILENT on .astro (blind), and parse-errors on .vue.
+LH_CAN="$TMP/lh-canary"
+mkdir -p "$LH_CAN/src" "$LH_CAN/node_modules/.bin"
+printf '{ "scripts": { "lint": "eslint ." } }\n' > "$LH_CAN/package.json"
+printf 'export const a = 1\n' > "$LH_CAN/src/a.ts"
+printf -- '---\nexport const b = 2\n---\n<div></div>\n' > "$LH_CAN/src/a.astro"
+printf '<script>export const c = 3</script>\n' > "$LH_CAN/src/a.vue"
+cat > "$LH_CAN/node_modules/.bin/eslint" <<'STUB'
+#!/bin/sh
+case "$*" in
+  *--print-config*) printf '%s\n' '{"rules":{"no-debugger":[2]}}' ;;
+  *)
+    printf '%s\n' 'src/__flowkit_canary__.ts'
+    printf '  1:1  error  Unexpected debugger  no-debugger\n'
+    printf '%s\n' 'src/__flowkit_canary__.vue'
+    printf '  1:1  error  Parsing error: unexpected token\n'
+    exit 1 ;;
+esac
+STUB
+chmod +x "$LH_CAN/node_modules/.bin/eslint"
+if "$FLOWKIT" lint-health --canary "$LH_CAN" > "$TMP/lh-can.log" 2>&1 \
+   && grep -q "ok ts: a planted violation was caught" "$TMP/lh-can.log" \
+   && grep -q "! astro: BLIND" "$TMP/lh-can.log" \
+   && grep -q "! vue: PARSE ERROR" "$TMP/lh-can.log" \
+   && grep -q "^ALERT:" "$TMP/lh-can.log" \
+   && [[ -z "$(find "$LH_CAN" -name '__flowkit_canary__*' 2>/dev/null)" ]]; then
+  ok "canary: ts caught, astro BLIND, vue PARSE ERROR, ALERT, probes cleaned up"
+else
+  nope "canary: classification wrong or probes left behind (see $TMP/lh-can.log)"
+fi
+
+# ── (8b) no lint script -> N/A (the canary probes the repo's own gate) ────────
+LH_CANNA="$TMP/lh-canary-na"
+mkdir -p "$LH_CANNA/src"
+printf 'export default []\n' > "$LH_CANNA/eslint.config.js"
+printf 'const x = 1\n' > "$LH_CANNA/src/a.ts"
+if "$FLOWKIT" lint-health --canary "$LH_CANNA" > "$TMP/lh-canna.log" 2>&1 \
+   && grep -q "no \"lint\" script" "$TMP/lh-canna.log" \
+   && grep -q "N/A" "$TMP/lh-canna.log"; then
+  ok "canary: no lint script -> N/A (nothing to probe), exit 0"
+else
+  nope "canary: missing lint script should be N/A (see $TMP/lh-canna.log)"
+fi
