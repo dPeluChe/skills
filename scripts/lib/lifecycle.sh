@@ -137,6 +137,20 @@ EOF
   if [[ "$orphan" == 1 ]]; then
     echo "  orphan stubs:    lefthook stubs with NO config -- pushes will fail; run: flowkit unhook"
   fi
+  # Read-only advice: what to do next, derived from the state above -- so an agent
+  # can READ the guidance here (about NEVER writes) instead of running `flowkit
+  # hooks` just to see the "copy below" block, which wires + builds a baseline.
+  local -a nxt=(); local item
+  [[ "$hooks_mode" == "none" && "$orphan" != 1 ]] && nxt+=("hooks not wired -- run: flowkit hooks")
+  [[ "$ship" == "absent" ]] && nxt+=("no '## ship config' in CLAUDE.md -- flowkit hooks stamps a lint/typecheck/build/test template to fill")
+  [[ "$ship" == "present (TODOs pending)" ]] && nxt+=("fill the '## ship config' TODOs in CLAUDE.md (lint/typecheck/build/test)")
+  [[ "$flow" == "no" ]] && nxt+=("FLOW import missing -- flowkit hooks adds '@~/.agents/skills/FLOW_CLAUDE.md'")
+  [[ "$guards" == "not installed" ]] && nxt+=("harness guards off -- run: flowkit --harness")
+  if [[ "${#nxt[@]}" -gt 0 ]]; then
+    echo ""
+    echo "Suggested next (read-only -- this command never writes):"
+    for item in ${nxt[@]+"${nxt[@]}"}; do echo "  - $item"; done
+  fi
   exit 0
 }
 
