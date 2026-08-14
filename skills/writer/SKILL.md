@@ -58,6 +58,7 @@ Detect the draft's language; apply the universal patterns plus that language's b
 
 - **Preserve the author's real voice.** Note the draft's vocabulary, cadence, bluntness, humor, uncertainty, digressions. Keep what feels personal. Don't make every paragraph equally tidy.
 - **Minimum effective edit.** Fix slop, errors, repetition, unclear passages. Leave strong human sentences alone. The author must recognize the edited draft as their own.
+- **Learn the voice, fix the surface.** Real author samples are often imperfect — missing accents, comma splices, typos. Copy the CONCEPT, the framing, and *how they explain a thing*; never reproduce the surface errors. A sample teaches register and reasoning-shape, not spelling. The goal is more human, not sloppier — correctness still applies on top of the voice.
 - **Keep the user's meaning.** Never invent claims, examples, stats, or opinions. If something is unclear, ask.
 - **Concrete beats abstract.** "Cut review time from 30 min to 8" beats "significantly improves productivity." **Protect the specific fact** — never smooth a useful detail into generic importance.
 - **Active voice, human subjects.** "The team shipped it Tuesday", not "the decision emerged."
@@ -122,6 +123,18 @@ Both lists rot: AI vocabulary rotates quarterly. The strongest signal is **co-oc
 CV slop is its own dialect — add these to the ban list when editing CVs, resumes, or application answers: results-oriented professional, proven track record, spearheaded, facilitated cross-functional synergies, demonstrated ability to drive, dynamic self-starter, detail-oriented team player, "passionate about [field]" as a qualification.
 
 CVs bound for ATS parsers also need ASCII-safe text: em/en dashes → plain hyphens, curly quotes → straight, no zero-width or non-breaking spaces, no tables, reverse-chronological `Company — Title` + date lines, standard section headers (Summary, Experience, Skills, Education). If the project has a normalize-on-export pipeline the source may keep typography; with no pipeline, normalize the source.
+
+## Business / client comms register (email, proposals, prospect updates)
+
+Agent drafts default to a **"sales email" dialect** — the business-register equivalent of AI slop. It reads as a vendor template, not as the author. Cut it:
+
+- **No manufactured warmth / ingratiation.** Kill openers like "nos da gusto que...", "great news", "excited to share" — a warm compliment the author didn't feel reads as a template.
+- **No urgency / deadline CTA.** Kill "¿avanzan antes del [fecha]?", "act now so we can…", any pressure-to-decide close. State the relevant fact plainly ("the charge recurs each month") and let the reader decide — don't push.
+- **Flip the next step toward help.** The next step is what the SENDER will do to help ("we'll analyze the charges and share the amount"), NOT what the receiver must decide. Help flows outward; pressure never flows inward.
+- **Show the real artifact.** Link to what was actually built ("the proposal: <url>"), don't just describe it. Builder shows work, doesn't narrate it.
+- **Plain prose, no section bold.** Client emails are read as prose, not scanned as a deck. Reserve emphasis; and explain a choice when you make one ("we thought email, but put it on a page so it reads without clutter").
+
+This is the portfolio voice ("honest, not aspirational") extended to business: an honest peer sharing findings and offering help, never a vendor closing a deal.
 
 ## STE register (opt-in, never default)
 
