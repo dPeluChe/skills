@@ -277,7 +277,9 @@ EOF
   git -C "$LEAKY" add historic.txt
   git -C "$LEAKY" -c user.email=t@t.t -c user.name=t commit -q -m "historic leak"
   if run_install "$GCFG_NONE" --repo "$LEAKY"; then
-    if grep -q "baseline: 1 findings -- review them once" "$TMP/out.log" \
+    if grep -q "baseline: 1 HISTORICAL finding(s) from the full-history scan" "$TMP/out.log" \
+       && grep -q "RECORD each verdict IN .gitleaks-baseline.json" "$TMP/out.log" \
+       && python3 -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if (len(d)==1 and 'classification' in d[0] and 'note' in d[0]) else 1)" "$LEAKY/.gitleaks-baseline.json" 2>/dev/null \
        && grep -q "Baseline grandfathered 1 historical finding(s) in historic.txt" "$TMP/out.log" \
        && grep -q "CLASSIFY each" "$TMP/out.log" \
        && grep -q "Fill the TODOs in the '## ship config' block" "$TMP/out.log"; then
