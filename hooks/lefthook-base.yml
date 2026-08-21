@@ -176,6 +176,35 @@ pre-commit:
         fi
         exit 0
 
+    # (f) default-branch nudge: committing straight to the default branch (main/
+    # master) is usually not intended for agentic work -- most repos here use
+    # feature branches + PRs. WARN, never block (some repos legitimately work on
+    # main). Field feedback: an agent committed to main twice despite the repo's
+    # instructions and no hook chirped. Opt out per repo with a '## ship config'
+    # line `default_branch_ok: true`.
+    - name: default-branch-nudge
+      run: |
+        set -u
+        branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo)"
+        # the repo's default branch: origin/HEAD if known, else main/master by name
+        def="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')"
+        if [ -z "$def" ]; then
+          for b in main master; do
+            git show-ref --verify --quiet "refs/heads/$b" && { def="$b"; break; }
+          done
+        fi
+        root="$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
+        # shellcheck disable=SC2016
+        ok="$(sed -n '/^## ship config$/,/^## /p' "$root/CLAUDE.md" 2>/dev/null \
+          | sed -n '/^```yaml$/,/^```$/p' | sed -n 's/^default_branch_ok:[[:space:]]*//p' \
+          | tr -d '[:space:]' | head -1)"
+        if [ "$ok" != "true" ] && [ -n "$branch" ] && [ "$branch" = "$def" ]; then
+          echo "[hooks] committing directly to '$branch' (the default branch) -- most repos here use a feature branch + PR." >&2
+          echo "[hooks]   If that's wrong: git branch <name> && git reset --soft origin/$branch. Does not block." >&2
+          echo "[hooks]   (opt out: add 'default_branch_ok: true' to the '## ship config' block.)" >&2
+        fi
+        exit 0
+
 pre-push:
   parallel: false
   jobs:
