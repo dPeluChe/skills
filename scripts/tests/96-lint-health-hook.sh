@@ -123,3 +123,31 @@ if [[ "$a_rc" -eq 0 ]] \
 else
   nope "hook lockfile: nudge on lockfile / silence otherwise wrong (see $TMP/lhlock-a.log / b)"
 fi
+
+# ── default-branch nudge: committing to the default branch warns (never blocks);
+# a feature branch is silent; `default_branch_ok: true` opts out. Field feedback:
+# an agent committed to main twice and no hook chirped.
+DB_HOOK="$(grep -l 'the default branch' "$TMP"/block*.sh 2>/dev/null | head -1)"
+if [[ -n "$DB_HOOK" ]]; then
+  ok "hook: default-branch-nudge block present in lefthook-base.yml pre-commit"
+else
+  nope "hook: default-branch-nudge block missing"
+  return 0
+fi
+DBREPO="$TMP/db-nudge"
+mkdir -p "$DBREPO"; git -C "$DBREPO" init -q -b main
+git -C "$DBREPO" -c user.email=t@t.t -c user.name=t commit -q --allow-empty -m init
+( cd "$DBREPO" && sh "$DB_HOOK" ) > "$TMP/db-main.log" 2>&1
+git -C "$DBREPO" checkout -q -b feature
+( cd "$DBREPO" && sh "$DB_HOOK" ) > "$TMP/db-feat.log" 2>&1
+git -C "$DBREPO" checkout -q main
+# shellcheck disable=SC2016  # backtick yaml fence is literal, not a subshell
+printf '# t\n\n## ship config\n\n```yaml\ndefault_branch_ok: true\n```\n' > "$DBREPO/CLAUDE.md"
+( cd "$DBREPO" && sh "$DB_HOOK" ) > "$TMP/db-optout.log" 2>&1
+if grep -q "committing directly to 'main' (the default branch)" "$TMP/db-main.log" \
+   && [[ ! -s "$TMP/db-feat.log" ]] \
+   && [[ ! -s "$TMP/db-optout.log" ]]; then
+  ok "hook default-branch: warns on main, silent on a feature branch + with default_branch_ok"
+else
+  nope "hook default-branch: warn/silence/opt-out wrong (see $TMP/db-main.log / feat / optout)"
+fi
