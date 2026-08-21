@@ -31,15 +31,46 @@ run_gitleaks_baseline() { # $1 = target repo, $2 = team (0/1)
     bad "gitleaks baseline scan produced no report -- run it manually"
     return 0
   fi
-  # dedup by (File, StartLine, RuleID): a git-history scan reports the same
-  # leak once per commit that carried it -- the count and list must not
-  # double-report (field case: one Sentry DSN shown twice, "3" when it was 2)
-  n="$(python3 -c 'import json,sys
-f=json.load(open(sys.argv[1]))
-u={(x.get("File"),x.get("StartLine"),x.get("RuleID")) for x in f}
-print(len(u))' "$report" 2>/dev/null \
-    || grep -c '"RuleID"' "$report" || echo "?")"
-  echo "  baseline: $n findings -- review them once"
+  # REWRITE the baseline file, don't just count: (a) dedup by (File,StartLine,
+  # RuleID) -- a history scan reports the same leak once per commit that carried
+  # it, so the FILE itself carried duplicates (field: one DSN twice); (b) add
+  # empty classification/note fields so the review PERSISTS in the baseline
+  # instead of evaporating each session (field: the classify demand was one-shot).
+  n="$(python3 - "$report" <<'PY' 2>/dev/null || grep -c '"RuleID"' "$report" || echo "?"
+import json, sys
+p = sys.argv[1]
+try:
+    data = json.load(open(p))
+except Exception:
+    raise SystemExit(1)
+seen, out = set(), []
+for x in data:
+    k = (x.get("File"), x.get("StartLine"), x.get("RuleID"))
+    if k in seen:
+        continue
+    seen.add(k)
+    x.setdefault("classification", "")   # real-rotate | public-by-design | false-positive
+    x.setdefault("note", "")
+    out.append(x)
+json.dump(out, open(p, "w"), indent=2)
+print(len(out))
+PY
+)"
+  # these are HISTORICAL (full-history scan). Check whether the CURRENT working
+  # tree is clean, so nobody "re-fixes" already-fixed/annotated code (field: 4
+  # calls lost realising gitleaks detect --no-git finds nothing in the tree).
+  local wt_clean=0
+  ( cd "$target" && gitleaks detect --no-git --config "$cfg" --redact --exit-code 1 >/dev/null 2>&1 ) && wt_clean=1
+  if [[ "$n" == "0" || "$n" == "?" ]]; then
+    echo "  baseline: $n findings"
+  else
+    echo "  baseline: $n HISTORICAL finding(s) from the full-history scan -- grandfathered; NEW leaks still block."
+    if [[ "$wt_clean" -eq 1 ]]; then
+      echo "  the current working tree is CLEAN (already fixed/annotated) -- do NOT re-fix these; they are history."
+    else
+      echo "  NOTE: the current working tree ALSO has findings -- those are NOT grandfathered; fix or annotate them."
+    fi
+  fi
   if [[ "$n" != "0" && "$n" != "?" ]]; then
     echo "  +- file:line - rule ------------------------"
     python3 - "$report" "$target" 2>/dev/null <<'PY' || true
@@ -107,9 +138,17 @@ extra = f" and {len(items) - 6} more" if len(items) > 6 else ""
 print("; ".join(items[:6]) + extra)
 PY
 )"
-    agent_action "Baseline grandfathered $n historical finding(s) in $files -- CLASSIFY each (do not assume dead): real secret to ROTATE at its provider / public-by-design (e.g. a Sentry DSN that ships in the bundle) / false positive (a var or key name that only looks secret-shaped). A clean baseline is not a rotation receipt."
+    agent_action "Baseline grandfathered $n historical finding(s) in $files -- CLASSIFY each (do not assume dead): real secret to ROTATE at its provider / public-by-design (e.g. a Sentry DSN that ships in the bundle) / false positive (a var or key name that only looks secret-shaped). A clean baseline is not a rotation receipt. RECORD each verdict IN .gitleaks-baseline.json: set the entry's 'classification' (real-rotate | public-by-design | false-positive) and 'note' fields, so the next session inherits the review instead of re-doing it."
   else
     echo "  (0 findings -- clean history, baseline kept as an empty ledger)"
+  fi
+  # #6: if the repo already annotates with inline gitleaks:allow, the baseline is
+  # for HISTORY (which cannot be annotated backward), NOT a decision to hide
+  # current findings -- say so, so flowkit does not look like it overrode a choice.
+  local n_allow
+  n_allow="$(grep -rIl 'gitleaks:allow' "$target" 2>/dev/null | grep -vcE '/\.git/|/node_modules/' || echo 0)"
+  if [[ "${n_allow:-0}" -gt 0 && "$n" != "0" && "$n" != "?" ]]; then
+    echo "  this repo already uses inline 'gitleaks:allow' ($n_allow file(s)) -- the baseline covers HISTORY (can't be annotated backward), it does NOT override those inline decisions."
   fi
   if [[ "$team" == 1 ]]; then
     # team repos choose: share the ledger (commit) or keep it personal
@@ -126,6 +165,11 @@ PY
       exclude_add "$target" ".gitleaks-baseline.json"
       note "-> baseline personal: .gitleaks-baseline.json added to .git/info/exclude (default; re-run with 's' to share)"
     fi
+  elif [[ "$n" != "0" && "$n" != "?" ]]; then
+    # #5 solo: the baseline is UNTRACKED. The pre-commit hook reads it locally,
+    # but CI and teammates won't grandfather the same findings unless it's
+    # committed -- silent divergence. Flag it (only when it carries findings).
+    note "-> .gitleaks-baseline.json is UNTRACKED -- it grandfathers findings only on THIS machine. Commit it so CI + teammates inherit the same ledger (or add it to .git/info/exclude to keep it deliberately personal)."
   fi
 }
 

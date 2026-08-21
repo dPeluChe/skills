@@ -102,7 +102,7 @@ EOF
   git -C "$GSLOCAL" -c user.email=t@t.t -c user.name=t commit -q -m "historic token"
   if run_gs --repo "$GSLOCAL"; then
     if grep -q "config: repo-local .gitleaks.toml" "$TMP/out.log" \
-       && grep -q "baseline: 1 findings" "$TMP/out.log" \
+       && grep -q "baseline: 1 HISTORICAL finding(s)" "$TMP/out.log" \
        && grep -q "ok gitleaks config: repo-local .gitleaks.toml" "$TMP/out.log"; then
       ok "repo-local path: baseline caught the project token (1 finding) + verify labels the config"
     else
