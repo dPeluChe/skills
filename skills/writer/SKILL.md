@@ -19,9 +19,19 @@ allowed-tools: Read, Glob, Grep, Edit, Write
 
 Edits drafts to remove AI patterns without flattening distinctive writing into generic polished prose. Works in English and Spanish.
 
-> Derived from [petergyang/no-ai-slop](https://github.com/petergyang/no-ai-slop) (MIT). Extended with: Spanish rule set, author voice packs, structural patterns, claims/evidence rules for fund applications, and a per-language detect fixture in `examples.md`.
+> Derived from [petergyang/no-ai-slop](https://github.com/petergyang/no-ai-slop) (MIT). Extended with: Spanish rule set, author voice packs, structural patterns, tiered ban-lists, detect-precision layer, claims/evidence rules for fund applications, and per-language detect fixtures.
 
-**Token discipline**: this file is the complete working rule set. Load `examples.md` only when a pattern's fix is unclear or the user asks to see examples; load `eval.md` at the self-check step (workflow step 5), not before.
+## Reference routing (load on demand — this file is the always-loaded core)
+
+Keep this file in context for every job. Load a reference only when its trigger hits:
+
+| Load | When |
+|---|---|
+| `references/precision.md` | Any **detect** job, or whenever you're unsure whether to cut — clusters rule, what-NOT-to-flag, density tests, extra structural tells, forensic residue |
+| `references/vocabulary.md` | When checking words — the full tiered EN/ES ban-lists |
+| `references/registers.md` | When the channel is a CV/application, client/business email, STE report, or a claims-heavy doc |
+| `examples.md` | When a pattern's fix is unclear, or the user asks to see before/after |
+| `eval.md` | At the self-check step (workflow step 6), not before |
 
 ## Why this exists
 
@@ -31,12 +41,17 @@ Everything we publish — docs, product copy, applications — is co-written wit
 
 **Edit (default).** The user shares a draft to fix. Make the minimum effective edit with the rules below and return the edited draft plus a **What changed** section.
 
-**Detect.** The user asks whether a piece reads as AI, or wants an audit without rewriting. Name each pattern found, quote the line, give the fix in a few words. Do not rewrite, score the draft, or guess authorship — AI detectors guess; named patterns are evidence the user can check. Offer to edit after.
+**Detect.** The user asks whether a piece reads as AI, or wants an audit without rewriting. Load `references/precision.md` first. Name each pattern found, quote the line, give the fix in a few words. Do not rewrite, score the draft, or guess authorship — AI detectors guess; named patterns are evidence the user can check. Offer to edit after.
 
 **Repo-wide detect adds two steps** (learned in the field — both found real bugs on day one):
 
 - **Prose surface mapping first.** Before auditing, locate ALL surfaces with user-facing text — i18n files, data catalogs, canned bot responses, special pages, meta descriptions — not just the obvious ones. Grep for user-facing strings; auditing 3 files when prose lives in 5 produces a false "clean".
-- **Claims consistency sweep.** The same fact must carry the same value on every surface: metrics ("60% here, 60-90% there"), product names, package names, dates. Cross-check each hard claim across all surfaces found in the mapping; a claim that disagrees with itself is a finding even when no sentence is slop. (Reference implementation of the scripted version: a sync-check that greps hardcoded metrics outside the single source of truth.)
+- **Claims consistency sweep.** The same fact must carry the same value on every surface: metrics ("60% here, 60-90% there"), product names, package names, dates. Cross-check each hard claim across all surfaces found in the mapping; a claim that disagrees with itself is a finding even when no sentence is slop.
+
+## Invocation modes
+
+- **Standalone (default).** A person invoked the skill directly. Return the edited draft + a **What changed** section (edit), or the findings report (detect), then the exit status.
+- **Embedded (another skill/task called writer).** When social-posts, standup, kickoff, or any task hands prose to writer as a final tone pass, return **only the finished prose** — no What-changed, no findings list, no exit status, no meta commentary. The caller wants clean text to drop in, not a report about it. The rules still apply in full; only the ceremony is suppressed. If you must surface a blocking problem (invented claim you can't verify, missing evidence), return the prose plus a single trailing line prefixed `⚠ writer:`.
 
 ## Author voice pack
 
@@ -59,26 +74,22 @@ Detect the draft's language; apply the universal patterns plus that language's b
 - **Preserve the author's real voice.** Note the draft's vocabulary, cadence, bluntness, humor, uncertainty, digressions. Keep what feels personal. Don't make every paragraph equally tidy.
 - **Minimum effective edit.** Fix slop, errors, repetition, unclear passages. Leave strong human sentences alone. The author must recognize the edited draft as their own.
 - **Learn the voice, fix the surface.** Real author samples are often imperfect — missing accents, comma splices, typos. Copy the CONCEPT, the framing, and *how they explain a thing*; never reproduce the surface errors. A sample teaches register and reasoning-shape, not spelling. The goal is more human, not sloppier — correctness still applies on top of the voice.
+- **Instructions about the writing are not the writing.** A brief often arrives mixed into the draft ("keep this raw", "don't turn this into a lesson", "make it punchy"). Those are directions to you — never reprint them into the output. Copying the brief into the prose is the same failure as inventing content.
 - **Keep the user's meaning.** Never invent claims, examples, stats, or opinions. If something is unclear, ask.
 - **Concrete beats abstract.** "Cut review time from 30 min to 8" beats "significantly improves productivity." **Protect the specific fact** — never smooth a useful detail into generic importance.
 - **Active voice, human subjects.** "The team shipped it Tuesday", not "the decision emerged."
 - **Direct verbs.** "Decided", not "made a decision". Prefer "is"/"has" over "serves as"/"boasts".
 - **Keep useful edge.** Strong opinions, blunt language, humor, self-interruptions, honest admissions stay when they belong to the author.
 - **Keep "just / maybe / creo que / la verdad"** when they carry real uncertainty or spoken rhythm; cut them when they're filler.
-- **Sterile is also a tell.** Voiceless, uniformly tidy writing reads as AI just as loudly as slop. Where the genre calls for it — posts, essays, opinion, personal writing — let opinions, uncertainty, humor, and uneven rhythm live; stance is voice, never new facts. In technical, reference, or legal text, plain and neutral IS the correct human voice: don't inject personality there.
+- **Sterile is also a tell.** Voiceless, uniformly tidy writing reads as AI just as loudly as slop. Where the genre calls for it — posts, essays, opinion, personal writing — let opinions, uncertainty, humor, and uneven rhythm live; stance is voice, never new facts. In technical, reference, or legal text, plain and neutral IS the correct human voice: don't inject personality there. (Genre gate detail in `references/precision.md`.)
+
+## Precision: clusters, not isolated tells
+
+One tell is noise; a cluster is a confession. Before flagging a passage — in detect OR edit — require **≥2 distinct tells**, or one Tier-1 word co-occurring with one structural pattern. A lone Tier-3 word, a single em dash, or perfect grammar is **not** a finding. The full what-NOT-to-flag catalog, the density tests (summary-loss, topic-swap, sentence-load), and forensic residue (always a finding) live in `references/precision.md` — load it for any detect job. Two standing exceptions that flag alone: forensic copy-paste residue, and the author's declared #1 marker (for Antonio, em dashes in short copy).
 
 ## Words to cut
 
-**English — banned:** delve, foster, leverage, utilize, facilitate, empower, streamline, robust, cutting-edge, paradigm shift, game changer, tapestry, realm, beacon, multifaceted, meticulous, intricate, paramount, transformative, elevate, embark, supercharge, harness, ever-evolving, pivotal, testament, vibrant, landscape (figurative), underscore, boasts, crucial, showcasing,
-this is huge, this changes everything.
-
-**English — often-empty:** it's worth noting, it's important to note, at the end of the day, at its core, in today's world, in the age of, when it comes to, in terms of, with regard to, the reality is, the truth is, in order to, going forward, let's dive in.
-
-**Español — prohibidas:** sumergirse en, fomentar, aprovechar el potencial, robusto, vanguardista, un antes y un después, tapiz, panorama en constante evolución, juega un papel crucial, es un testimonio de, pone de relieve, vibrante, sin precedentes, revolucionar, potenciar, impulsar (figurative default), clave (as universal adjective), integral (as filler).
-
-**Español — a menudo vacías:** cabe destacar, es importante mencionar, hoy en día, en el mundo de, la realidad es que, a fin de cuentas, en definitiva, no es casualidad que, dicho esto.
-
-Both lists rot: AI vocabulary rotates quarterly. The strongest signal is **co-occurrence** — several of these together — not any single word. Review against the current [Wikipedia:Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing) quarterly.
+Tiered ban-lists (EN + ES) live in `references/vocabulary.md`. The rule: **Tier 1 flags alone; Tier 2 only at ≥2 per paragraph; Tier 3 never alone.** The strongest signal is co-occurrence, not any single word. Load the reference when checking words; the lists rot quarterly.
 
 ## Patterns to cut
 
@@ -90,24 +101,31 @@ Both lists rot: AI vocabulary rotates quarterly. The strongest signal is **co-oc
 | Throat-clearing | "Here's the thing..." / "Seamos honestos..." | Cut, state the point |
 | Faux-insight setup | "What nobody tells you..." / "Lo que nadie te dice..." | The claim stands alone |
 | Superficial analysis | trailing "-ing": "...highlighting their commitment" / "...reflejando su compromiso" | Explain the real mechanism or cut |
+| False agency | "the data tells us", "the market rewards" / "los datos nos dicen" | Name the human actor: who decided, who found |
 | Importance puffery | "marks a pivotal moment" / "marca un hito" | State the fact; reader judges |
 | Weasel attribution | "experts agree" / "estudios demuestran" | Name the source or cut |
-| Fake-strong verbs | "serves as a centralized hub" | "is"/"has" or the concrete verb |
+| Fake-strong verbs / copula avoidance | "serves as a centralized hub", "stands as", "boasts" | "is"/"has" or the concrete verb |
 | Synonym cycling | the agent → the assistant → the tool | Repeat the clear word |
 | Rule of three | "fast, secure, and scalable" (always 3) | Keep only what earns its place |
+| False ranges | "from startups to enterprises" with no real scale | State the actual span or drop it |
+| Abstract-metaphor nouns | substrate, wedge, flywheel, north star, "API surface" | The concrete noun for what it is |
+| Diff-anchored writing | "was added to replace", "now uses" (docs narrating the change) | Describe the current state |
 | Dramatic fragmentation | "That's it. That's the tweet." / "Eso es todo. Así de simple." | Complete sentences |
-| Rhetorical setup | "What if I told you..." / "¿Qué pasaría si te dijera...?" | Cut |
+| Rhetorical / Wh-opener setup | "What if I told you...", "What makes this hard is..." / "¿Qué pasaría si...?" | Start on the claim |
 | Fake-profound kicker | closing metaphor / mic-drop line | DELETE (don't rewrite into a better metaphor); end on the last concrete point |
 | Summary-recap ending | "In conclusion..." / "En conclusión..." | End on takeaway or next action |
-| Robotic rhythm | repeated sentence shapes, stacked punchy fragments | Vary only when it helps the point |
-| Anaphora / mirrored pairs | "Every X. Every Y." / "The first... The second..." / "El primero... El segundo..." | Vary the shape or merge |
-| Transformation pivot | "X becomes Y", "X isn't X anymore" / "X se convierte en Y" (also in headings) | State what actually happened |
+| Robotic rhythm / no parataxis | repeated sentence shapes, staccato punchy fragments | Vary shape; weave with a subordinate clause where the thought is one thought |
+| Anaphora / mirrored pairs | "Every X. Every Y." / "El primero... El segundo..." | Vary the shape or merge |
+| Transformation pivot | "X becomes Y", "X isn't X anymore" / "X se convierte en Y" | State what actually happened |
 | Forced-optimism ending | "The future looks bright" / "El futuro es prometedor" | End on a fact or next action |
 | Automatic moral lesson | life-lesson closer on a technical story / "si algo aprendimos es que..." | Delete; the story carries it |
+| Stacked historical analogies | "Apple didn't build Uber. Facebook didn't build Spotify..." | Argue on its own merits |
 | Sycophancy / acknowledgment loop | "Great question!", "You're absolutely right" / "¡Excelente pregunta!" | Cut; answer directly |
-| Engagement-bait closer | "What do you think? Drop a comment!" / "¿Tú qué opinas? Cuéntame en comentarios" | Delete unless the author truly wants the CTA |
+| Engagement-bait closer | "What do you think? Drop a comment!" / "¿Tú qué opinas?" | Delete unless the author truly wants the CTA |
 | Hedge stack | "could potentially perhaps" / "podría llegar a considerarse" | One hedge max — or commit |
-| Chatbot / reasoning artifact | "As an AI...", "Let me think...", leftover "In this article we will..." / "En este artículo veremos..." | Delete |
+| Chatbot / reasoning artifact | "As an AI...", "Let me think...", "In this article we will..." / "En este artículo veremos..." | Delete |
+
+More structural tells with fixes (aphorism formulas, and the above with regex-level detail) live in `references/precision.md`.
 
 ## Formatting slop
 
@@ -116,51 +134,23 @@ Both lists rot: AI vocabulary rotates quarterly. The strongest signal is **co-oc
 - Bullets only where prose reads worse — two sentences often beat a three-item list.
 - No Title Case headings (Spanish: never Capitalizar Cada Palabra).
 - No decorative horizontal rules; no inline-bold-header lists ("**Route details**: starts at...") where prose works.
-- Plain ASCII punctuation unless the glyph is intentional: no curly quotes/apostrophes pasted from chat UIs, no Unicode bullets (•) in markdown, no leftover citation artifacts — these are tool tells, not style. (Exception: the sample-outranks rule above — an author who writes with em dashes or emoji keeps them.)
+- Plain ASCII punctuation unless the glyph is intentional: no curly quotes/apostrophes pasted from chat UIs, no Unicode bullets (•) in markdown, no leftover citation artifacts — these are tool tells, not style. (Full forensic-residue list in `references/precision.md`. Exception: the sample-outranks rule above.)
 
-## CV / application register
+## Channel registers
 
-CV slop is its own dialect — add these to the ban list when editing CVs, resumes, or application answers: results-oriented professional, proven track record, spearheaded, facilitated cross-functional synergies, demonstrated ability to drive, dynamic self-starter, detail-oriented team player, "passionate about [field]" as a qualification.
-
-CVs bound for ATS parsers also need ASCII-safe text: em/en dashes → plain hyphens, curly quotes → straight, no zero-width or non-breaking spaces, no tables, reverse-chronological `Company — Title` + date lines, standard section headers (Summary, Experience, Skills, Education). If the project has a normalize-on-export pipeline the source may keep typography; with no pipeline, normalize the source.
-
-## Business / client comms register (email, proposals, prospect updates)
-
-Agent drafts default to a **"sales email" dialect** — the business-register equivalent of AI slop. It reads as a vendor template, not as the author. Cut it:
-
-- **No manufactured warmth / ingratiation.** Kill openers like "nos da gusto que...", "great news", "excited to share" — a warm compliment the author didn't feel reads as a template.
-- **No urgency / deadline CTA.** Kill "¿avanzan antes del [fecha]?", "act now so we can…", any pressure-to-decide close. State the relevant fact plainly ("the charge recurs each month") and let the reader decide — don't push.
-- **Flip the next step toward help.** The next step is what the SENDER will do to help ("we'll analyze the charges and share the amount"), NOT what the receiver must decide. Help flows outward; pressure never flows inward.
-- **Show the real artifact.** Link to what was actually built ("the proposal: <url>"), don't just describe it. Builder shows work, doesn't narrate it.
-- **Plain prose, no section bold.** Client emails are read as prose, not scanned as a deck. Reserve emphasis; and explain a choice when you make one ("we thought email, but put it on a page so it reads without clutter").
-
-This is the portfolio voice ("honest, not aspirational") extended to business: an honest peer sharing findings and offering help, never a vendor closing a deal.
-
-## STE register (opt-in, never default)
-
-Only when the user asks for it ("reporta en STE", "in STE", "Simplified Technical English"), apply
-ASD-STE100-style rules for technical reports/procedures: sentences of 20 words or less (25 for
-description), one instruction per sentence, active voice, simple tenses, one meaning per word,
-plain everyday vocabulary. Voice-pack rules do not apply in this register — STE is deliberately
-voiceless. Never use it for social posts, essays, or anything where voice matters.
-
-## Claims and evidence (docs, product copy, applications)
-
-- Every strong claim answers: what actually happened · how do I say it without inflating · what evidence backs it. If the author has no source, ask — never invent one.
-- Metrics stay concrete and live where they belong; a piece shouldn't need many metrics to be credible.
-- No formulaic "Despite challenges... Future outlook..." sections. No "committed to excellence" filler.
-- LLM failure mode to reverse: regression to the mean makes text **less specific and more exaggerated at once**. The fix is always the specific fact.
+When the target channel is a **CV/application**, a **client/business email**, an **STE report**, or a **claims-heavy doc/product copy**, load `references/registers.md` and apply that section — each overrides the generic rules for its channel only. Business drafts default to a "sales email" dialect (manufactured warmth, urgency CTAs); claims-heavy drafts need evidence-bound editing (never launder vague copy into cleaner vague copy).
 
 ## Workflow
 
 1. Read the full draft. Identify the core point; if you can't, ask.
 2. Load the author voice pack (see above). Note 3–5 voice signals to preserve — keep this note internal.
-3. Detect request → return the findings report (pattern + quoted line + short fix) and stop.
-4. Edit request → make the minimum effective changes.
-5. Self-check the edited draft against `eval.md`. Any check fails → fix and re-check.
-6. Output the full edited draft + a short **What changed** section.
+3. Detect the channel; if it's CV/business/STE/claims-heavy, load `references/registers.md`.
+4. Detect request → load `references/precision.md`, return the findings report (pattern + quoted line + short fix), stop.
+5. Edit request → make the minimum effective changes. Apply the clusters rule before cutting.
+6. Self-check the edited draft against `eval.md`. Any check fails → fix and re-check.
+7. Output per invocation mode: standalone → full edited draft + **What changed**; embedded → finished prose only.
 
-End with the standard exit status: **DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT** (+ one line when not DONE).
+End with the standard exit status: **DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT** (+ one line when not DONE). In embedded mode, suppress the status line unless BLOCKED.
 
 ## Boundaries
 

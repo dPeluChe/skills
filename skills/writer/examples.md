@@ -68,3 +68,36 @@ Expected findings: throat-clearing opener ("Here's the thing") · binary contras
 > Seamos honestos: este lanzamiento no es una actualización más. Es un antes y un después. La plataforma funge como un eje central que pone de relieve nuestro compromiso con la innovación, impulsando la eficiencia y fomentando una cultura de datos. Los estudios demuestran que la visibilidad es clave. ¿Lo mejor de todo? Se configura sola. Rápida. Simple. Potente. Eso es todo.
 
 Hallazgos esperados: throat-clearing ("Seamos honestos") · contraste binario ("no es una actualización más. Es...") · vocabulario prohibido + verbo falso-fuerte ("un antes y un después", "funge como", "pone de relieve", "impulsando", "fomentando", "clave") · análisis superficial (gerundios de compromiso) · atribución weasel ("Los estudios demuestran") · rhetorical setup + fragmentación dramática ("¿Lo mejor de todo?...", "Rápida. Simple. Potente. Eso es todo.").
+
+## False-positive fixtures — must come back CLEAN
+
+Paste into detect mode; the correct output is **"reads clean"** (or only the single true tell
+noted), NOT a list of findings. These guard the clusters rule against an over-eager detector.
+
+**Plain technical prose (0 findings)**
+> The parser reads the lockfile, resolves each dependency to a single version, and writes the
+> result to `node_modules`; if two packages need incompatible versions, it nests the second copy.
+- Correct verdict: clean. In-domain verbs and a semicolon are not slop. No cluster.
+
+**Blunt human post (0 findings — the em dash matches the author's samples)**
+> I shipped it Friday and it broke by Monday — turns out nobody tested the offline path. My fault.
+> Fixed now, and I added the test I should have written first.
+- Correct verdict: clean. One em dash + strong admission + uneven rhythm are signs of a human, not tells.
+
+**Spanglish standup (0 findings)**
+> Terminé el refactor del hook, pero el CI todavía falla en el gitleaks step. Mañana lo debuggeo
+> con calma; creo que es el baseline viejo.
+- Correct verdict: clean. Mixed language IS the voice; "creo que" carries real uncertainty.
+
+**Terse changelog (0 findings)**
+> Fixed the crash on empty input. Bumped the timeout to 30s. Removed the dead retry loop.
+- Correct verdict: clean. Short and factual is not "dramatic fragmentation" — there is no punchy climax.
+
+**Deliberately neutral reference (0 findings)**
+> This function returns `null` when the key is absent. Callers must check the return value before use.
+- Correct verdict: clean. Sterile is the correct human voice in reference text; the genre gate blocks a flatness flag.
+
+**One true tell in an otherwise clean piece (exactly 1 finding)**
+> The migration script backfills the new column in batches of 500, citeturn0search1 so it never
+> locks the table for long.
+- Correct verdict: 1 finding — forensic residue (`citeturn0search1`). Report it on sight even though the prose is otherwise clean; do not manufacture extra findings to pad the list.
