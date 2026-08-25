@@ -49,6 +49,7 @@ Everything we publish (docs, product copy, applications) is co-written with agen
 
 - **Prose surface mapping first.** Before auditing, locate ALL surfaces with user-facing text: i18n files, data catalogs, canned bot responses, special pages, meta descriptions, not just the obvious ones. Grep for user-facing strings; auditing 3 files when prose lives in 5 produces a false "clean". **Site metadata is a bio, not a footnote:** the browser `<title>`, the OG title, and the Twitter title (usually in `layout`/`head`) are the highest-leverage prose in the repo. They show in Google and in every share preview, so a slop tell or an em dash there ("Name — CEO & Builder") outranks anything in a buried doc. Map them first, not as an afterthought under "meta descriptions".
 - **Source before derived.** Order the surface map by the source-to-derived relationship, and fix the source first. `docs/profile/` (or wherever CV, LinkedIn, bios, and landing copy are generated from) is the source; a README, a landing page, or a bio that quotes it is derived. Cleaning the derived surface while leaving the source dirty just makes the tell regenerate on the next pass. Fix the source, then let the derived surfaces re-derive (or fix them in the same sweep).
+- **Count in the emitted output, not the source.** To audit a tell, grep the artifact a reader actually gets (the rendered page, the generated report, the installed prompt), not the source files. Source over-counts (tells in comments, dead code, or examples that never render) and under-counts (tells that enter by interpolation, e.g. a `package.json`/`Cargo.toml` `description` spliced into a header). Details in `references/em-dash.md`.
 - **Claims consistency sweep.** The same fact must carry the same value on every surface: metrics ("60% here, 60-90% there"), product names, package names, dates. Cross-check each hard claim across all surfaces found in the mapping; a claim that disagrees with itself is a finding even when no sentence is slop.
 
 ## Invocation modes
@@ -93,6 +94,12 @@ One tell is noise; a cluster is a confession. Before flagging a passage, in dete
 ## Words to cut
 
 Tiered ban-lists live in `references/vocabulary.md` (English) and `references/spanish.md` (Spanish). The rule: **Tier 1 flags alone; Tier 2 only at 2 or more per paragraph; Tier 3 never alone.** The strongest signal is co-occurrence, not any single word. Load the matching reference when checking words; the lists rot quarterly.
+
+The word lists are the **secondary, rotating** layer. The **patterns table below is the primary, durable signal**: vocabulary follows whatever model is in fashion, but the structures come from how models are trained and do not expire. When in doubt, weigh a structural tell over a word. (Spanish leans on structure even harder, since its slop reuses ordinary words: see `references/spanish.md`.)
+
+Cutting a banned word is only half the fix. Like the em-dash rule, name what goes in its place: the **concrete fact**. The destination, not just the deletion, is what makes the rule land.
+- BAD: "esta herramienta robusta potencia flujos de trabajo sin fricción"
+- GOOD: "comprime la salida de git status de 40 líneas a 2"
 
 ## Patterns to cut
 

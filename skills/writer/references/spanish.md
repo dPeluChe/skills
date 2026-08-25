@@ -11,21 +11,31 @@ is the voice, not a tell.
 
 ## Ban-list por tiers
 
+**Why Spanish tiers differ from English.** English slop has its own detectable vocabulary
+(delve, tapestry) that a human rarely types unprompted. Spanish slop reuses words that already
+existed in ordinary prose (impulsar, abordar, integral), so a single Spanish word is a weaker
+signal than its English counterpart. Two consequences: (1) the word list is secondary here, the
+**structural patterns below carry more weight** (they do not depend on vocabulary); (2) the
+co-occurrence threshold is **higher** than in English. Read "Tier 2" as **3 or more per
+paragraph** in Spanish, not 2, and lean on structure before reaching for the list.
+
 **Tier 1, marcar con una sola aparición:**
 sumergirse en, adentrarse en, fomentar, aprovechar el potencial, un antes y un después, tapiz,
 panorama en constante evolución, es un testimonio de, pone de relieve, sin precedentes,
-revolucionar, potenciar, allanar el camino, de vital importancia, abrir un abanico de posibilidades,
+revolucionar, allanar el camino, de vital importancia, abrir un abanico de posibilidades,
 llevar al siguiente nivel, en la era de.
 
-**Tier 2, marcar solo con 2 o más por párrafo:**
-robusto, sólido (figurative), vanguardista, de vanguardia, vibrante, impulsar (figurative default),
-integral (as filler), juega un papel crucial, multifacético, meticuloso, desbloquear, abordar
-(as filler: "abordar el desafío"), de la mano de, fluido (=seamless), holístico, dinámico,
+**Tier 2, marcar solo con 3 o más por párrafo:**
+robusto, sólido (figurative), vanguardista, de vanguardia, vibrante, juega un papel crucial,
+multifacético, meticuloso, desbloquear, de la mano de, fluido (=seamless), holístico, dinámico,
 innovador (as filler), sinergia.
 
 **Tier 3, nunca solo, cuenta solo dentro de un cluster:**
-clave (as universal adjective), esencial, poderoso, integral (literal), garantizar, mejorar,
-fundamental, significativamente, eficiente.
+clave (as universal adjective), esencial, poderoso, garantizar, mejorar, fundamental,
+significativamente, eficiente, potenciar, impulsar, abordar, integral. The last four are
+**ordinary Spanish** ("impulsar un proceso", "abordar un tema", "una parte integral"): they are
+a tell only inside a real cluster, never on their own. `integral` in particular is usage-bound,
+figurative filler versus literal, which a by-word list cannot tell apart, so it never flags alone.
 
 **A menudo vacías** (Tier 1 cuando abren o rellenan):
 cabe destacar, es importante mencionar, hoy en día, en la actualidad, en el mundo de,

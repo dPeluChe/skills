@@ -11,6 +11,21 @@ Both language lists rot. AI vocabulary rotates roughly quarterly. Review against
 [Wikipedia:Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing)
 each quarter and move words between tiers as their signal changes.
 
+**Words are the rotating layer; structure is the durable one.** The word lists expire because
+vocabulary follows whatever model is in fashion. The structural patterns (binary contrast,
+additive escalation, rule of three, false agency, fake-profound kicker) do NOT expire, because
+they come from how models are trained, not from trendy words. Treat the patterns table in
+`SKILL.md` as the primary signal and these lists as the secondary layer. If you ever build a
+linter, invest in the structures first; a single structural rule ("no rule-of-three") does more
+work than any ten words.
+
+**Prompt surfaces vs linter surfaces (where the long list belongs).** A long list of banned words
+belongs in a LINTER or a reference like this one, never inline in a prompt. On a prompt surface,
+a long negative list is a list of pink elephants: enumerating twenty forbidden words puts twenty
+words into the model's attention. On a prompt, keep a few Tier-1 words plus a POSITIVE instruction
+("concrete over abstract"); the cut is by mechanism, not by token budget. On a linter or reference
+there is no attention to spend, so the full list is fine.
+
 **Tier 1, flag on a single occurrence** (rarely written by a human unprompted):
 delve, foster, leverage, utilize, facilitate, empower, tapestry, realm, beacon,
 paradigm shift, game changer, ever-evolving, multifaceted, supercharge, underscore (figurative),
