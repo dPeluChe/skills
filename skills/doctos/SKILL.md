@@ -8,26 +8,26 @@ description: >
   Use this skill when the user mentions cleaning up docs, organizing markdown files, project structure,
   "too many files at root", "docs are a mess", "organize the project", "limpia los docs", "estructura",
   "revisa los md", "actualiza los docs", "ordena los docs", "los docs estan desactualizados" (the
-  user almost never types the slash — trigger from informal prose and typos),
+  user almost never types the slash: trigger from informal prose and typos),
   or wants to standardize documentation across projects. Also trigger on "doctos".
   Disambiguation: use pm-tasks instead when the request is about task content (backlogs, TODOs,
   archiving completed work); use kickoff instead when the user wants project state analysis, not reorganization.
 allowed-tools: Read, Glob, Grep, Bash, Edit, Write
 ---
 
-# Doctos — Documentation Hygiene & Organization
+# Doctos: Documentation Hygiene & Organization
 
 Enforces a clean, consistent documentation structure across any project. Moves stray files into `docs/`, renames to standard conventions, archives obsolete content, and delegates task-related work to pm-tasks.
 
 ## The value-to-reread bar (what deserves to exist)
 
-Structure is not enough — a tidy folder full of docs nobody rereads still costs tokens to scan and confuses readers. **A doc earns its place only if someone will reopen it AND it says something the code/tooling doesn't already show.** Apply this bar in every audit, alongside the structure and freshness checks:
+Structure is not enough: a tidy folder full of docs nobody rereads still costs tokens to scan and confuses readers. **A doc earns its place only if someone will reopen it AND it says something the code/tooling doesn't already show.** Apply this bar in every audit, alongside the structure and freshness checks:
 
 - **Keep**: decisions and their *why* (ADRs), hard-won fixes / past errors that were painful to solve (the historical record that stops the team re-suffering them), setup that is genuinely non-obvious, and anything a README should link as context.
-- **Cut (flag for ARCHIVED/ or deletion)**: generic how-tos that restate what running the obvious command already teaches. The litmus test the user gave: *"how to register a user" is not worth documenting; a deployment guide is worth it ONLY if the deploy differs from just running the commands.* If a guide would be replaced by one line ("run `X`"), it is that one line — put it in the README, not a GUIDE.
-- **The cost is real**: every doc that survives gets reread by humans and re-scanned by agents. Verbose, generic, or never-reopened docs are not neutral — they dilute the signal and cost tokens. Concise and functional beats complete.
+- **Cut (flag for ARCHIVED/ or deletion)**: generic how-tos that restate what running the obvious command already teaches. The litmus test the user gave: *"how to register a user" is not worth documenting; a deployment guide is worth it ONLY if the deploy differs from just running the commands.* If a guide would be replaced by one line ("run `X`"), it is that one line: put it in the README, not a GUIDE.
+- **The cost is real**: every doc that survives gets reread by humans and re-scanned by agents. Verbose, generic, or never-reopened docs are not neutral: they dilute the signal and cost tokens. Concise and functional beats complete.
 
-This is a judgement call, so doctos **flags** low-value docs as findings ("low reread value — generic how-to, consider README one-liner or delete") and lets the user decide; it never deletes prose on its own.
+This is a judgement call, so doctos **flags** low-value docs as findings ("low reread value: generic how-to, consider README one-liner or delete") and lets the user decide; it never deletes prose on its own.
 
 ## The standard structure
 
@@ -44,9 +44,9 @@ proyecto/
 │
 └── docs/
     ├── README.md                ← documentation index + writing rules
-    ├── TASK_TODO.md             ← (pm-tasks territory — don't touch content)
+    ├── TASK_TODO.md             ← (pm-tasks territory, don't touch content)
     │
-    ├── TASK_COMPLETED/          ← (pm-tasks territory — don't touch content)
+    ├── TASK_COMPLETED/          ← (pm-tasks territory, don't touch content)
     │   ├── README.md
     │   └── YYMM.md
     │
@@ -99,15 +99,15 @@ Only these files are allowed at the project root:
 | `CODE_OF_CONDUCT.md` | Optional | Community standards |
 | `SECURITY.md` | Optional | Security policy |
 
-**Everything else at root that is .md must move to docs/.** No exceptions. Files like `REFACTOR_PLAN.md`, `DATABASE_LOCK_FIX.md`, `UI_UX_ANALYSIS.md`, `PROJECT-SUMMARY.md` at root are violations — they belong in the appropriate docs/ subfolder.
+**Everything else at root that is .md must move to docs/.** No exceptions. Files like `REFACTOR_PLAN.md`, `DATABASE_LOCK_FIX.md`, `UI_UX_ANALYSIS.md`, `PROJECT-SUMMARY.md` at root are violations: they belong in the appropriate docs/ subfolder.
 
 ## Agent instruction files (CLAUDE.md, AGENTS.md)
 
-Allowed at root, but with their own hygiene rules — these files load into EVERY agent session, so every extra line is a recurring token cost, and agents trust them blindly:
+Allowed at root, but with their own hygiene rules: these files load into EVERY agent session, so every extra line is a recurring token cost, and agents trust them blindly:
 
 - **Lean**: instructions only. Long walkthroughs and background belong in `docs/GUIDES/` or `docs/ARCHITECTURE/` with a one-line pointer.
-- **No embedded code blocks**: reference scripts by path (`scripts/deploy.sh`) instead of pasting their content — pasted copies go stale silently and nobody notices until an agent follows the wrong version. **Exception: the `## ship config` yaml fence is REQUIRED by flowkit** (the git hooks and `/ship` parse it from CLAUDE.md) — never flag it as embedded code; it is structured config, not a pasted walkthrough.
-- **No stale claims**: the stack, commands and structure they describe must match reality. Audit them with the same stale-claims check as any doc — a CLAUDE.md that names the wrong auth library actively sabotages every session.
+- **No embedded code blocks**: reference scripts by path (`scripts/deploy.sh`) instead of pasting their content: pasted copies go stale silently and nobody notices until an agent follows the wrong version. **Exception: the `## ship config` yaml fence is REQUIRED by flowkit** (the git hooks and `/ship` parse it from CLAUDE.md): never flag it as embedded code; it is structured config, not a pasted walkthrough.
+- **No stale claims**: the stack, commands and structure they describe must match reality. Audit them with the same stale-claims check as any doc: a CLAUDE.md that names the wrong auth library actively sabotages every session.
 - **No task tracking**: pending/completed lists belong in `docs/TASK_TODO.md` (pm-tasks' protected-zone rule covers these files too).
 
 ## Subfolder purposes
@@ -125,9 +125,9 @@ Active feature specs for current or upcoming work. These describe *how something
 **Examples:** `26_APRIL_AGENTS.md`, `VOICE_INTEGRATION_SPEC.md`, `PRD_PHASE_2.md`
 
 ### GUIDES/
-How-to documentation for humans — but only the NON-OBVIOUS kind (see the value-to-reread bar). Setup/deployment/onboarding/conventions that differ from just running the standard commands. A deployment guide earns its place when the deploy has real steps beyond `npm run deploy`; a "how to register a user" guide does not — that is a README line at most. Cut the generic, keep the surprising.
+How-to documentation for humans, but only the NON-OBVIOUS kind (see the value-to-reread bar). Setup/deployment/onboarding/conventions that differ from just running the standard commands. A deployment guide earns its place when the deploy has real steps beyond `npm run deploy`; a "how to register a user" guide does not: that is a README line at most. Cut the generic, keep the surprising.
 
-**Examples:** `DEPLOYMENT_GUIDE.md` (when non-trivial), `CODING_RULES.md`, `TESTING.md`, `CSS_CONVENTIONS.md` — each only if it says something the code/commands don't already show.
+**Examples:** `DEPLOYMENT_GUIDE.md` (when non-trivial), `CODING_RULES.md`, `TESTING.md`, `CSS_CONVENTIONS.md`, each only if it says something the code/commands don't already show.
 
 ### RESEARCH/
 Investigation, analysis, benchmarks, competitor research, technology evaluations. Content that informed decisions but isn't prescriptive.
@@ -135,7 +135,7 @@ Investigation, analysis, benchmarks, competitor research, technology evaluations
 **Examples:** `KNOWLEDGE_TOOLS.md`, `COMPETITOR_ANALYSIS.md`, `MODEL_BENCHMARKS.md`, `TECH_EVALUATION.md`
 
 ### JOURNAL/
-The project's dated logbook: state-in-time reports, append-only, never edited after the fact. `KICKOFF_<YYMMDD>.md` (how the project was found when resuming — written by /kickoff) and `STANDUP_<YYMMDD>.md` (what happened — written by /standup, which may append several timestamped sections to the same day's file as work sessions close). One file per day per type; past days are closed records. Unlike RESEARCH/ (timeless investigations) or ARCHIVED/ (obsolete docs), JOURNAL/ entries are *born historical* — they describe a moment and stay valid as a record of it. Doctos never archives JOURNAL/ files by age; their age is the point.
+The project's dated logbook: state-in-time reports, append-only, never edited after the fact. `KICKOFF_<YYMMDD>.md` (how the project was found when resuming, written by /kickoff) and `STANDUP_<YYMMDD>.md` (what happened, written by /standup, which may append several timestamped sections to the same day's file as work sessions close). One file per day per type; past days are closed records. Unlike RESEARCH/ (timeless investigations) or ARCHIVED/ (obsolete docs), JOURNAL/ entries are *born historical*: they describe a moment and stay valid as a record of it. Doctos never archives JOURNAL/ files by age; their age is the point.
 
 **Examples:** `KICKOFF_260718.md`, `STANDUP_260725.md`
 
@@ -144,7 +144,7 @@ Documents that are no longer current but worth keeping for historical context. E
 
 **Archival note format:**
 ```markdown
-> **ARCHIVED** — 2026-04-05
+> **ARCHIVED**: 2026-04-05
 > This document is no longer current. [Reason: replaced by X / feature shipped / approach changed / no longer relevant].
 > Current reference: [link to replacement if any]
 
@@ -166,9 +166,9 @@ Managed exclusively by pm-tasks. Doctos only renames the folder if it uses a non
 
 ## Scoped invocation (routed findings)
 
-When doctos is invoked right after `/kickoff` or `/standup` handed it routed findings ("README claim X went stale", "3 loose .md at root"), don't run the full project audit — **verify the routed list and act on it only**:
+When doctos is invoked right after `/kickoff` or `/standup` handed it routed findings ("README claim X went stale", "3 loose .md at root"), don't run the full project audit: **verify the routed list and act on it only**:
 
-1. Take each routed finding and verify it yourself (trust, but verify — the router saw a diff-scoped partial picture)
+1. Take each routed finding and verify it yourself (trust, but verify: the router saw a diff-scoped partial picture)
 2. Fix the confirmed ones (with the usual confirmation for moves/renames)
 3. Note anything adjacent you spotted while verifying, but don't expand into a full sweep
 4. Report with the standard status line
@@ -183,29 +183,29 @@ Full scan of the project's documentation health.
 
 ### Steps
 
-1. **List all .md files at project root** — identify which are allowed vs violations
-1a. **Published-site guard** — if `docs/` contains `CNAME`, `index.html`, or `_config.yml`, or `.github/workflows/` has a Pages deploy workflow (`configure-pages`, `deploy-pages`, `jekyll`, `github-pages`, `mkdocs gh-deploy`), then `docs/` is a **published site**: the whole run degrades to **findings only — do NOT reorganize; fix in place**. Report every issue as usual, but never move, rename, or restructure anything under `docs/` (moves break live URLs). Mark the audit header with "docs/ is a published site — findings only" so CLEAN mode inherits the restriction. **Report this ONLY when the guard fires** — when `docs/` is a normal documentation folder, say nothing about it: a "docs/ is not a published site" line is noise, it states the default and confuses the reader into thinking it means something. This guard applies to full AUDIT too, not just scoped runs.
-2. **Scan docs/ folder** — check subfolder names, file names, structure
-3. **Check naming conventions** — find lowercase folders, inconsistent file names, .txt docs
-4. **Detect obsolete documents** — signals:
-   - **Age**: files not modified in 90+ days (`git log -1 --format=%as -- <file>`). Exclude `docs/JOURNAL/` — dated logbook entries are meant to age
-   - **Low reread value** (the value-to-reread bar above): a guide that restates what the obvious command already teaches (generic login/CRUD/register how-tos), a walkthrough that would collapse to a one-line README pointer, or a doc nobody would reopen. Flag as "low reread value — [generic how-to / restates the command / never reopened], consider README one-liner or ARCHIVED/". Keep decision records, hard-won fixes, and non-obvious setup regardless of length — those are exactly what justifies a doc.
-   - **Stale claims**: content that contradicts the project's reality — tech mentioned that is absent from package.json/Cargo.toml/deps, referenced files or routes that no longer exist, counts that no longer match ("22 prototypes" when 3 remain). Spot-check each doc's boldest claims against the codebase; a doc describing the wrong stack misleads every future reader (human or agent) and is worse than no doc
-   - **Coverage gaps** (the inverse check): recent shipped work — new modules, features, commands visible in the last ~20 commits — that no doc mentions. Missing docs are findings too, not just misplaced ones. Report as "undocumented: X" with a suggested destination
-   - **Prioritize via the journal**: if `docs/JOURNAL/` has recent `KICKOFF_*`/`STANDUP_*` entries, read the latest ones first and start the stale-claims and coverage checks on the files/features they mention — recently-moved areas are where docs lie first. The journal doesn't change what you detect, it changes where you look first
-5. **Check for task-related issues** — if task folders/files use non-standard names, flag for renaming and suggest running `/pm-tasks` after
-6. **Check docs/README.md** — does it exist? does it have documentation rules?
-7. **Audit agent instruction files** — apply the CLAUDE.md / AGENTS.md hygiene rules (see "Agent instruction files" section): flag embedded code blocks, stale tech claims, and task tracking inside them
-7b. **Essay-comments in code (in passing, no full sweep)** — comment blocks over ~3 lines that narrate the logic, noticed while verifying other findings, are findings too: report each with a suggested docs/ destination (usually ARCHITECTURE/ or GUIDES/) so the block shrinks to a one-line WHY pointer in code
+1. **List all .md files at project root**: identify which are allowed vs violations
+1a. **Published-site guard**: if `docs/` contains `CNAME`, `index.html`, or `_config.yml`, or `.github/workflows/` has a Pages deploy workflow (`configure-pages`, `deploy-pages`, `jekyll`, `github-pages`, `mkdocs gh-deploy`), then `docs/` is a **published site**: the whole run degrades to **findings only: do NOT reorganize; fix in place**. Report every issue as usual, but never move, rename, or restructure anything under `docs/` (moves break live URLs). Mark the audit header with "docs/ is a published site: findings only" so CLEAN mode inherits the restriction. **Report this ONLY when the guard fires.** When `docs/` is a normal documentation folder, say nothing about it: a "docs/ is not a published site" line is noise, it states the default and confuses the reader into thinking it means something. This guard applies to full AUDIT too, not just scoped runs.
+2. **Scan docs/ folder**: check subfolder names, file names, structure
+3. **Check naming conventions**: find lowercase folders, inconsistent file names, .txt docs
+4. **Detect obsolete documents**, signals:
+   - **Age**: files not modified in 90+ days (`git log -1 --format=%as -- <file>`). Exclude `docs/JOURNAL/`: dated logbook entries are meant to age
+   - **Low reread value** (the value-to-reread bar above): a guide that restates what the obvious command already teaches (generic login/CRUD/register how-tos), a walkthrough that would collapse to a one-line README pointer, or a doc nobody would reopen. Flag as "low reread value: [generic how-to / restates the command / never reopened], consider README one-liner or ARCHIVED/". Keep decision records, hard-won fixes, and non-obvious setup regardless of length: those are exactly what justifies a doc.
+   - **Stale claims**: content that contradicts the project's reality: tech mentioned that is absent from package.json/Cargo.toml/deps, referenced files or routes that no longer exist, counts that no longer match ("22 prototypes" when 3 remain). Spot-check each doc's boldest claims against the codebase; a doc describing the wrong stack misleads every future reader (human or agent) and is worse than no doc
+   - **Coverage gaps** (the inverse check): recent shipped work (new modules, features, commands visible in the last ~20 commits) that no doc mentions. Missing docs are findings too, not just misplaced ones. Report as "undocumented: X" with a suggested destination
+   - **Prioritize via the journal**: if `docs/JOURNAL/` has recent `KICKOFF_*`/`STANDUP_*` entries, read the latest ones first and start the stale-claims and coverage checks on the files/features they mention: recently-moved areas are where docs lie first. The journal doesn't change what you detect, it changes where you look first
+5. **Check for task-related issues**: if task folders/files use non-standard names, flag for renaming and suggest running `/pm-tasks` after
+6. **Check docs/README.md**: does it exist? does it have documentation rules?
+7. **Audit agent instruction files**: apply the CLAUDE.md / AGENTS.md hygiene rules (see "Agent instruction files" section): flag embedded code blocks, stale tech claims, and task tracking inside them
+7b. **Essay-comments in code (in passing, no full sweep)**: comment blocks over ~3 lines that narrate the logic, noticed while verifying other findings, are findings too: report each with a suggested docs/ destination (usually ARCHITECTURE/ or GUIDES/) so the block shrinks to a one-line WHY pointer in code
 8. **Report everything.** Wording rules so the report reads clearly to someone who doesn't know doctos's model:
    - **Always use literal paths**, not the bare word "docs". "3 files loose in `docs/`" is ambiguous (the folder? documentation in general?); write "3 files directly inside `docs/`, not yet sorted into a subfolder (ARCHITECTURE/GUIDES/…)". Name the actual files.
-   - `docs/` in a finding ALWAYS means the literal `docs/` directory at the repo root — never "documentation" as a concept. If you mean the concept, write "the documentation".
-   - Only report findings, not clean checks: a line confirming a rule already holds ("root is clean", "docs/ is not a published site") is noise — omit it. The report is a list of what to fix, not a checklist of what passed.
+   - `docs/` in a finding ALWAYS means the literal `docs/` directory at the repo root: never "documentation" as a concept. If you mean the concept, write "the documentation".
+   - Only report findings, not clean checks: a line confirming a rule already holds ("root is clean", "docs/ is not a published site") is noise: omit it. The report is a list of what to fix, not a checklist of what passed.
 
 ```
-## Doctos Audit — [Project Name]
+## Doctos Audit: [Project Name]
 
-### Root violations — 4 files should move to docs/
+### Root violations: 4 files should move to docs/
 | File | Suggested destination |
 |------|---------------------|
 | REFACTOR_PLAN.md | docs/ARCHITECTURE/REFACTOR_PLAN.md |
@@ -213,14 +213,14 @@ Full scan of the project's documentation health.
 | UI_UX_ANALYSIS.md | docs/RESEARCH/UI_UX_ANALYSIS.md |
 | DEV-WORKFLOW.md | docs/GUIDES/DEV_WORKFLOW.md |
 
-### Naming issues — 3 items need renaming
+### Naming issues: 3 items need renaming
 | Current | Standard |
 |---------|----------|
 | docs/archived/ | docs/ARCHIVED/ |
 | docs/agents.md | docs/AGENTS.md (or move to root) |
 | docs/features/spec.txt | docs/FEATURES/SPEC.md |
 
-### Task-related renaming — 2 items (delegate to pm-tasks)
+### Task-related renaming: 2 items (delegate to pm-tasks)
 | Current | Standard |
 |---------|----------|
 | docs/COMPLETED_TASK/ | docs/TASK_COMPLETED/ |
@@ -228,15 +228,15 @@ Full scan of the project's documentation health.
 > After renaming, run `/pm-tasks` to audit task content
 
 ### Missing structure
-- docs/README.md — no documentation index
-- docs/GUIDES/ — no guides folder (5 guide-like files sit directly in `docs/`, not in a subfolder: SETUP.md, DEPLOY.md, TESTING.md, …)
-- docs/ARCHIVED/ — no archive folder (obsolete files mixed with active ones)
+- docs/README.md: no documentation index
+- docs/GUIDES/: no guides folder (5 guide-like files sit directly in `docs/`, not in a subfolder: SETUP.md, DEPLOY.md, TESTING.md, …)
+- docs/ARCHIVED/: no archive folder (obsolete files mixed with active ones)
 
-### Potentially obsolete — 2 files (90+ days untouched)
+### Potentially obsolete: 2 files (90+ days untouched)
 | File | Last modified | Suggestion |
 |------|--------------|------------|
 | docs/OLD_API_DESIGN.md | 2025-11-15 | Archive with note |
-| docs/PHASE_1_SETUP.md | 2026-01-20 | Archive — Phase 1 complete |
+| docs/PHASE_1_SETUP.md | 2026-01-20 | Archive: Phase 1 complete |
 
 ### Summary
 | Category | Issues |
@@ -262,7 +262,7 @@ When a .md file at root needs to move, classify it into the right subfolder:
 | Setup, deploy, install, workflow, conventions, testing, onboarding | `GUIDES/` |
 | Research, analysis, benchmark, comparison, evaluation | `RESEARCH/` |
 | Fix report, migration complete, old implementation, summary of past work | `ARCHIVED/` |
-| Unclear / mixed content | Read the file to decide — if still ambiguous, ask the user |
+| Unclear / mixed content | Read the file to decide: if still ambiguous, ask the user |
 
 ---
 
@@ -272,12 +272,12 @@ Executes all fixes identified in the audit.
 
 ### Steps
 
-1. **Run audit first** — build the full list of issues
-1b. **Freshness verdict per file being moved.** Structure and content rot together: a file worth relocating is a file worth 30 seconds of scrutiny, and moving a stale doc to a tidy folder just gives the lie a better address. For every file in the move plan, check `git log -1 --format=%as -- <file>` and spot-check its boldest claim against the codebase. Attach a verdict to each plan line: ✅ vigente · 🟡 revisar (old but spot-check passed — add a review task) · 🔴 deprecated (contradicts reality — goes to ARCHIVED/ with note instead of its planned destination, plus a task to replace it). Real case that motivated this: a `project_definition.md` moved during a cleanup turned out to describe a *different project entirely* (copied from another repo, never adapted) — structure-only cleaning would have promoted it to ARCHITECTURE/.
+1. **Run audit first**: build the full list of issues
+1b. **Freshness verdict per file being moved.** Structure and content rot together: a file worth relocating is a file worth 30 seconds of scrutiny, and moving a stale doc to a tidy folder just gives the lie a better address. For every file in the move plan, check `git log -1 --format=%as -- <file>` and spot-check its boldest claim against the codebase. Attach a verdict to each plan line: ✅ vigente · 🟡 revisar (old but spot-check passed: add a review task) · 🔴 deprecated (contradicts reality: goes to ARCHIVED/ with note instead of its planned destination, plus a task to replace it). Real case that motivated this: a `project_definition.md` moved during a cleanup turned out to describe a *different project entirely* (copied from another repo, never adapted). Structure-only cleaning would have promoted it to ARCHITECTURE/.
 2. **Show the execution plan** to the user and ask for confirmation:
 
 ```
-## Doctos Clean Plan — [Project Name]
+## Doctos Clean Plan: [Project Name]
 
 ### Will move (root → docs/):
 1. REFACTOR_PLAN.md → docs/ARCHITECTURE/REFACTOR_PLAN.md
@@ -310,7 +310,7 @@ Proceed? (y/n)
    - Add archival notes to files moved to ARCHIVED/
    - Convert .txt files to .md
    - Rename hyphens to underscores in file names (`DEV-WORKFLOW.md` → `DEV_WORKFLOW.md`)
-   - **Repair inbound references**: after every move or rename, search the whole project for the old path/filename (other docs, CLAUDE.md pointers, code comments) and update each reference to the new location. Moving a file without fixing its inbound links converts organization into breakage — this step is what makes the clean safe
+   - **Repair inbound references**: after every move or rename, search the whole project for the old path/filename (other docs, CLAUDE.md pointers, code comments) and update each reference to the new location. Moving a file without fixing its inbound links converts organization into breakage: this step is what makes the clean safe
    - Create docs/README.md with documentation index and writing rules
    - If task-related files were renamed, remind user: "Task folders renamed. Run `/pm-tasks` to audit task content."
 
@@ -329,11 +329,11 @@ Proceed? (y/n)
 
 ### Handling edge cases
 
-**File name conflicts:** If moving `ARCHITECTURE.md` from root to `docs/ARCHITECTURE/` but `docs/ARCHITECTURE/ARCHITECTURE.md` already exists — ask the user whether to merge, rename, or skip.
+**File name conflicts:** If moving `ARCHITECTURE.md` from root to `docs/ARCHITECTURE/` but `docs/ARCHITECTURE/ARCHITECTURE.md` already exists: ask the user whether to merge, rename, or skip.
 
-**Published docs sites:** if the audit flagged `docs/` as a published site (CNAME / index.html / _config.yml / Pages workflow), CLEAN must refuse every move or rename under `docs/` — only in-place content fixes (stale claims, archival notes prepended without moving the file) are allowed. Say so explicitly in the plan.
+**Published docs sites:** if the audit flagged `docs/` as a published site (CNAME / index.html / _config.yml / Pages workflow), CLEAN must refuse every move or rename under `docs/`: only in-place content fixes (stale claims, archival notes prepended without moving the file) are allowed. Say so explicitly in the plan.
 
-**Non-markdown files in docs/:** Shell scripts (`.sh`), config files, images — these are fine. Only audit `.md` and `.txt` files.
+**Non-markdown files in docs/:** Shell scripts (`.sh`), config files, images: these are fine. Only audit `.md` and `.txt` files.
 
 **Nested project structures:** For workspaces with sub-projects (e.g., a monorepo with `backend_api/` and `browser_extension/`), audit each sub-project independently. Don't move sub-project docs to the workspace root.
 
@@ -348,7 +348,7 @@ Creates the standard docs structure. Like pm-tasks init, this both creates from 
 1. **Scan what exists** (same as audit detection)
 2. **Branch:**
 
-#### A) Nothing exists — fresh setup
+#### A) Nothing exists: fresh setup
 
 Create the full structure:
 ```
@@ -368,7 +368,7 @@ Only create subfolders that the project likely needs. A small utility doesn't ne
 
 Minimum for any project: `docs/README.md` + `docs/GUIDES/`
 
-#### B) Existing non-standard setup — standardize
+#### B) Existing non-standard setup: standardize
 
 Same as CLEAN mode but more aggressive:
 - Run the full audit
@@ -379,7 +379,7 @@ Same as CLEAN mode but more aggressive:
 3. **Write docs/README.md** with documentation index and writing rules:
 
 ```markdown
-# [Project Name] — Documentation
+# [Project Name]: Documentation
 
 > Documentation index and writing guidelines for this project.
 
@@ -404,10 +404,10 @@ README.md, CLAUDE.md, AGENTS.md, CONTRIBUTING.md, CHANGELOG.md, LICENSE
 1. **No .md files at project root** except the allowed list above
 2. **UPPERCASE_SNAKE_CASE** for all doc file names (`CODING_RULES.md`, not `coding-rules.md`)
 3. **UPPERCASE** for all doc subfolders (`GUIDES/`, not `guides/`)
-4. **No task tracking outside TASK_TODO.md** — use `/pm-tasks` for task management
-5. **No code blocks in documentation summaries** — reference file paths and function names
-6. **Archive, don't delete** — obsolete docs go to `ARCHIVED/` with a note, not to the trash
-7. **Feature specs move to ARCHIVED/** when the feature ships — the code is now the source of truth
+4. **No task tracking outside TASK_TODO.md**: use `/pm-tasks` for task management
+5. **No code blocks in documentation summaries**: reference file paths and function names
+6. **Archive, don't delete**: obsolete docs go to `ARCHIVED/` with a note, not to the trash
+7. **Feature specs move to ARCHIVED/** when the feature ships: the code is now the source of truth
 ```
 
 4. **If task structure is missing**, suggest: "No task tracking found. Run `/pm-tasks init` to set up TASK_TODO.md and TASK_COMPLETED/."
@@ -446,11 +446,11 @@ Doctos and pm-tasks are complementary but have clear boundaries:
 
 - **Respect sub-projects.** In workspaces with multiple projects, each sub-project owns its own docs/. Don't centralize sub-project docs at the workspace level.
 
-- **Respect documented conventions — they outrank the default layout.** Before flagging a structural deviation (flat `docs/` with no subfolders, `CHANGELOG.md` living in `docs/`, a specific file location), check whether the repo DOCUMENTS it on purpose — a numbered rule in CLAUDE.md, a note in `docs/README.md`, a CONTRIBUTING convention. If it does, that is an intentional choice, not debt: do NOT flag it, or at most note it once as "intentional per <ref>, respected". doctos standardizes repos that have no opinion; it does not override repos that have one. A skill that fights a documented convention makes the maintainer decline its findings by hand every run — exactly the friction it exists to remove. The structure rules in this skill are the DEFAULT for the undecided, never a mandate over the decided.
+- **Respect documented conventions: they outrank the default layout.** Before flagging a structural deviation (flat `docs/` with no subfolders, `CHANGELOG.md` living in `docs/`, a specific file location), check whether the repo DOCUMENTS it on purpose (a numbered rule in CLAUDE.md, a note in `docs/README.md`, a CONTRIBUTING convention). If it does, that is an intentional choice, not debt: do NOT flag it, or at most note it once as "intentional per <ref>, respected". doctos standardizes repos that have no opinion; it does not override repos that have one. A skill that fights a documented convention makes the maintainer decline its findings by hand every run: exactly the friction it exists to remove. The structure rules in this skill are the DEFAULT for the undecided, never a mandate over the decided.
 
 - **Language matching.** If the project's docs are in Spanish, keep Spanish. Don't translate filenames or content. But do standardize the casing: `arquitectura-tecnica.md` → `ARQUITECTURA_TECNICA.md`.
 
-- **Never clobber, always Edit.** When touching an existing file (adding an archival note, fixing a link, updating an index), use targeted edits with exact match on the current content — never rewrite the whole file from memory. A full rewrite silently drops entries you didn't notice; a failed exact-match edit fails loudly, which is the safe direction.
+- **Never clobber, always Edit.** When touching an existing file (adding an archival note, fixing a link, updating an index), use targeted edits with exact match on the current content: never rewrite the whole file from memory. A full rewrite silently drops entries you didn't notice; a failed exact-match edit fails loudly, which is the safe direction.
 
 - **End every report with a status line.** `**Status: DONE**` clean; `DONE_WITH_CONCERNS` (+ one line why); `BLOCKED`; `NEEDS_CONTEXT` when only the user can decide. Standard terminal vocabulary that other skills and scripts can consume.
 
