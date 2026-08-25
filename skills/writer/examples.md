@@ -81,3 +81,28 @@ noted), NOT a list of findings. These guard the clusters rule against an over-ea
 > The migration script backfills the new column in batches of 500, citeturn0search1 so it never
 > locks the table for long.
 - Correct verdict: 1 finding, forensic residue (`citeturn0search1`). Report it on sight even though the prose is otherwise clean; do not manufacture extra findings to pad the list.
+
+## At-scale em-dash sweep fixtures (see references/em-dash.md)
+
+Real failure modes from a whole-repo purge. The correct behavior is the note, not a blind conversion.
+
+**Two table rows each ending in an em dash: do NOT merge**
+```
+| **SUTCETI** | En desarrollo — demo por presentar |
+| **Uvaviña** | Prospecto — presentando propuestas |
+```
+- Correct: fix each row independently (each em dash becomes a comma inside its own cell). A multiline paired-punctuation regex would read the two dashes as one open-close pair and merge the rows into corrupted content. Verify by rendering the table, not by counting delimiters.
+
+**Em dash as a UI glyph in code: do NOT touch**
+```tsx
+<td>{client.email || "—"}</td>
+```
+- Correct: leave it. The "—" is the "no data" cell marker the interface renders, not prose. Converting it is a bug. Same for em dashes inside code comments or code fences.
+
+**A born-historical record: skip, do not "correct"**
+> `docs/JOURNAL/STANDUP_260725.md`: "Shipped the parser — tests still red on Windows."
+- Correct: leave the entry as written. JOURNAL/ and ARCHIVED/ record a moment; editing them (even to remove the em dash) falsifies the record. Detect may note it; edit skips it.
+
+**Source and derived: fix the source first**
+> `docs/profile/07-cv.md` holds "Antonio Martinez — CEO & Builder"; `README.md` and `layout.tsx` (browser/OG/Twitter title) quote it.
+- Correct: fix `docs/profile/07-cv.md` first (the source), then the derived surfaces, so the tell does not regenerate on the next build. The site title is a bio and the highest-leverage prose in the repo (Google + every share preview), map it first.

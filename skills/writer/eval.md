@@ -32,7 +32,8 @@ the draft and run the checks again. For detect requests, check only the "Detect"
 ## Formatting
 
 14. No emoji headings, decorative bold, Title Case headings, bullets-that-should-be-prose, or headers over tiny sections?
-15. **Zero em dashes** in the output, of any length of copy, each replaced by the comma, colon, parentheses, period, or "and" the sentence wants? (This overrides the sample-outranks rule.)
+15. **Zero em dashes** in prose output, of any length of copy, each replaced by the comma, colon, parentheses, period, or "and" the sentence wants? (This overrides the sample-outranks rule.)
+15a. Carve-out honored: em dashes used as a UI glyph / empty-value marker (`{x || "—"}`), inside code or code comments, or in a code fence were LEFT untouched (converting them is a bug)?
 15b. Plain ASCII punctuation (no curly quotes, Unicode bullets, or citation artifacts) unless the glyph is intentional or matches the author's samples?
 
 ## Final read
@@ -55,6 +56,19 @@ the draft and run the checks again. For detect requests, check only the "Detect"
 ## Invocation mode
 
 23. Standalone: full edited draft plus **What changed** plus exit status. Embedded (another skill called writer): finished prose ONLY, no What-changed, no findings list, no status line (unless BLOCKED, as a single `WARN writer:` trailing line)?
+
+## At-scale sweep (whole-repo em-dash purge, see references/em-dash.md)
+
+24. Frozen content skipped: were `docs/JOURNAL/`, `docs/ARCHIVED/`, changelogs, and commit messages left as written (a record is not rewritten, even to remove a tell)?
+25. Source before derived: was the source surface (e.g. `docs/profile/`) fixed first, so the tell does not regenerate into the derived CV/bio/README on the next pass?
+26. Site metadata treated as a top-priority bio: were the browser `<title>`, OG title, and Twitter title checked (not left under "meta descriptions")?
+27. No multiline paired-punctuation regex was used, no unrelated lines (e.g. two adjacent table rows) were merged, and the result was verified by RENDERING, not by counting balanced delimiters?
+
+The four field scenarios these guard (fixtures in `examples.md`):
+- A markdown table with an em dash ending two consecutive rows: must NOT be merged into one parenthetical.
+- `{value || "—"}` in TSX: must NOT be touched (UI glyph, not prose).
+- A `docs/JOURNAL/` entry: must be skipped, not "corrected".
+- A source (`docs/profile/07-cv.md`) and a README that quotes it: fix the source first.
 
 ---
 
