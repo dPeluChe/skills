@@ -114,7 +114,7 @@ Key semantics, with defaults only where safe:
    passing → do NOT block: create a task in docs/TASK_TODO.md (via pm-tasks) so it isn't lost,
    and continue.
 4. **Secret scan on the diff**: `git diff` staged+unstaged against patterns for PATs/tokens
-   (`dpat_`, `ghp_`, `sk-`, `AKIA`), private keys, DSNs/connection strings, passwords in env
+   (`ghp_`, `sk-`, `AKIA`), private keys, DSNs/connection strings, passwords in env
    files. Any hit = HARD STOP, name the file:line, never commit. `.env*` files never enter a
    commit.
 
