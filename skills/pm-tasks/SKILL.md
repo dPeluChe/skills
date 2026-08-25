@@ -25,7 +25,7 @@ Every project should converge to this layout:
 
 ```
 docs/
-├── TASK_TODO.md              ← single source of truth for pending tasks
+├── TASK_TODO.md              ← single source of truth for pending project tasks
 └── TASK_COMPLETED/
     ├── README.md             ← rules and format reference
     ├── 2603.md               ← March 2026 completed tasks
@@ -41,6 +41,19 @@ docs/
 - **No task tracking in random .md files**: architecture docs, setup guides, feature specs, and other markdown files should not accumulate `- [ ]` / `- [x]` task checklists. If tasks are found scattered across .md files, centralize them into TASK_TODO.md (pending) or TASK_COMPLETED/ (done), and replace the original with a brief reference to where the task is now tracked
 
 If a project deviates from this, the skill should detect it and offer to standardize (see INIT mode).
+
+## Project task vs process activity
+
+Not every `- [ ]` is a project task. Two kinds share the checkbox syntax and must be kept apart:
+
+- **Project task**: work WE do in the repo, closed by a commit ("regenerate the reglamento PDFs", "deploy to Vercel", "decide which version ships"). Lives in `TASK_TODO.md`, archived to `TASK_COMPLETED/YYMM.md` as *what was built*.
+- **Process activity**: a real-world step people take outside the editor, closed when someone went somewhere ("go to the CFE office and ask for the address", "call 071 to report the cracked pole", "collect signatures from the 245 units"). Its value is as a memory of the record it supports, not a delivery log. It lives NEXT TO that record (e.g. `CFE/CHECKLIST_EXPEDIENTE.md`), never in `TASK_TODO.md`, and is never archived to `YYMM.md`.
+
+**Why it matters** (not cosmetic): mixing them drowns the real backlog under errands (one field case: 18 of 22 items in one file were errands, 4 were repo work); it makes the monthly archive lie about "what was built"; and the two have different lifecycles, a commit versus a trip. This applies to code repos too: requesting access, scheduling a security review, waiting on a contract signature, or coordinating a maintenance window are all process activities that otherwise contaminate the backlog.
+
+**Cheap detection**: physical-world verbs (go, call, ask, collect, deliver, locate, submit / ir, llamar, preguntar, recabar, entregar, localizar, presentar) plus mentions of people, offices, or phone numbers, versus file paths, commands, and function names.
+
+**The rule**: "one source of truth" still holds, but only for PROJECT tasks (one `TASK_TODO.md`). A process checklist does not compete with it; it is a different document type. AUDIT reports the mix as its own finding; ARCHIVE never sends a process activity to `YYMM.md`.
 
 ## Modes
 
@@ -155,6 +168,7 @@ Full health check of the task backlog and project structure. This should surface
 | **Agent-file contamination** | CLAUDE.md / AGENTS.md carry task checklists or progress logs | "Extract tasks: agent files are instructions, not backlogs" |
 | **Markdown contamination** | Other .md files have `- [ ]`/`- [x]` task lists | "Run `/pm-tasks scan` for full sweep and centralization" |
 | **Missing dates** | Tasks without `added:` tag | "Add `added: YYYY-MM-DD` to enable staleness tracking" |
+| **Process activities mixed in** | Items that are real-world errands, not repo work (see "Project task vs process activity") | "N of M items look like process activities, not project tasks: separate into a checklist next to their record" |
 
 #### Staleness detection
 
@@ -221,7 +235,7 @@ Moves completed tasks from TASK_TODO.md into monthly archive files.
 
 ### Steps
 
-1. **Run audit logic**: identify all completed tasks
+1. **Run audit logic**: identify all completed tasks. **Exclude process activities** (see "Project task vs process activity"): a completed errand ("called 071", "collected the signatures") is NOT archived to `YYMM.md`, because the monthly file answers "what was built this month". Mark it done where it lives, next to its record.
 2. **Show the user** what will be archived and ask for confirmation
 3. **Determine target file**: `docs/TASK_COMPLETED/YYMM.md` using today's date
 4. **Create infrastructure if missing**:
