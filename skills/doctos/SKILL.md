@@ -21,13 +21,26 @@ Enforces a clean, consistent documentation structure across any project. Moves s
 
 ## The value-to-reread bar (what deserves to exist)
 
-Structure is not enough: a tidy folder full of docs nobody rereads still costs tokens to scan and confuses readers. **A doc earns its place only if someone will reopen it AND it says something the code/tooling doesn't already show.** Apply this bar in every audit, alongside the structure and freshness checks:
+Structure is not enough: a tidy folder full of docs nobody rereads still costs tokens to scan and confuses readers. **A doc earns its place only if someone will reopen it AND no other source already shows what it says.** Apply this bar in every audit, alongside the structure and freshness checks. The referent shifts by repo type: in a code repo the other source is the code and tooling ("how to register a user" restates the command); in a content repo there may be NO other source, which is exactly when the document has the most value (a legal analysis is worth keeping precisely because nothing else shows it). Ask "is there another source that already shows this?", not "does the code show this?".
 
 - **Keep**: decisions and their *why* (ADRs), hard-won fixes / past errors that were painful to solve (the historical record that stops the team re-suffering them), setup that is genuinely non-obvious, and anything a README should link as context.
 - **Cut (flag for ARCHIVED/ or deletion)**: generic how-tos that restate what running the obvious command already teaches. The litmus test the user gave: *"how to register a user" is not worth documenting; a deployment guide is worth it ONLY if the deploy differs from just running the commands.* If a guide would be replaced by one line ("run `X`"), it is that one line: put it in the README, not a GUIDE.
 - **The cost is real**: every doc that survives gets reread by humans and re-scanned by agents. Verbose, generic, or never-reopened docs are not neutral: they dilute the signal and cost tokens. Concise and functional beats complete.
 
 This is a judgement call, so doctos **flags** low-value docs as findings ("low reread value: generic how-to, consider README one-liner or delete") and lets the user decide; it never deletes prose on its own.
+
+## Repo type: is the content the product?
+
+Before applying the layout and naming rules below, detect the repo type. Those rules assume `.md` files are documentation ABOUT a system (code). Some repos are the opposite: the documents ARE the product (a bylaw / reglamento, contracts, a research corpus, a book). Moving a content file into `docs/GUIDES/` is like moving `src/` into `docs/`.
+
+**Detection (cheap):** no dependency manifest at root (`package.json`, `Cargo.toml`, `pyproject.toml`, `go.mod`, `Gemfile`, and the like) AND more than half the files are documents (`.md`, `.pdf`, `.docx`, `.odt`) means a **content repo**. Otherwise treat it as a code/docs repo, the default this skill was written for.
+
+**In a content repo, the default layout does not apply. Instead:**
+- **Do not move the content into `docs/`.** `docs/` holds only META about the repo (how the material is organized, how to contribute, a changelog). The content itself lives organized **by domain**: by area, topic, or the material's own structure, never folded into the technical taxonomy.
+- **The technical taxonomy has no slot for content.** ARCHITECTURE / FEATURES / GUIDES / RESEARCH all describe documentation about a system; a bylaw or a contract fits none of them. Do not force content into them. Use domain folders that fit the material and that a reader of that material would expect.
+- **Match the audience's language and literacy in folder names.** These repos get opened by non-technical readers (neighbors, older people, clients), often in Spanish. `archivo/` is understood; `ARCHIVED/` is not. Use readable, localized names (`archivo/`, `guias/`, `borradores/`), not UPPERCASE English. The UPPERCASE English convention below is for technical / code repos.
+
+This is the same spirit as the published-site guard and the "respect documented conventions" rule: when a repo has its own working structure, doctos reports hygiene findings but never imposes the default layout on top of it.
 
 ## The standard structure
 
@@ -65,7 +78,7 @@ proyecto/
 
 ## Naming conventions
 
-These are non-negotiable. Consistency across projects is the whole point.
+These are non-negotiable **for code / docs repos**. Consistency across projects is the whole point. (Content repos are the exception: see "Repo type" above. There, folder names match the audience's language and literacy, e.g. `archivo/` not `ARCHIVED/`.)
 
 | Element | Convention | Example |
 |---------|-----------|---------|
@@ -99,7 +112,7 @@ Only these files are allowed at the project root:
 | `CODE_OF_CONDUCT.md` | Optional | Community standards |
 | `SECURITY.md` | Optional | Security policy |
 
-**Everything else at root that is .md must move to docs/.** No exceptions. Files like `REFACTOR_PLAN.md`, `DATABASE_LOCK_FIX.md`, `UI_UX_ANALYSIS.md`, `PROJECT-SUMMARY.md` at root are violations: they belong in the appropriate docs/ subfolder.
+**Everything else at root that is .md must move to docs/** (in a code / docs repo). Files like `REFACTOR_PLAN.md`, `DATABASE_LOCK_FIX.md`, `UI_UX_ANALYSIS.md`, `PROJECT-SUMMARY.md` at root are violations: they belong in the appropriate docs/ subfolder. The exception is a content repo (see "Repo type" above): there the `.md` files ARE the product and stay in their domain structure, only meta-docs about the repo go in `docs/`.
 
 ## Agent instruction files (CLAUDE.md, AGENTS.md)
 
@@ -183,6 +196,7 @@ Full scan of the project's documentation health.
 
 ### Steps
 
+0. **Detect repo type first** (see "Repo type" above): check for a root dependency manifest and the document-to-file ratio. If it is a content repo, do NOT propose the default layout or UPPERCASE English folders; report hygiene findings against the repo's own domain structure and use readable localized names. State "content repo: findings against its own structure, default layout not imposed" in the header so CLEAN inherits it.
 1. **List all .md files at project root**: identify which are allowed vs violations
 1a. **Published-site guard**: if `docs/` contains `CNAME`, `index.html`, or `_config.yml`, or `.github/workflows/` has a Pages deploy workflow (`configure-pages`, `deploy-pages`, `jekyll`, `github-pages`, `mkdocs gh-deploy`), then `docs/` is a **published site**: the whole run degrades to **findings only: do NOT reorganize; fix in place**. Report every issue as usual, but never move, rename, or restructure anything under `docs/` (moves break live URLs). Mark the audit header with "docs/ is a published site: findings only" so CLEAN mode inherits the restriction. **Report this ONLY when the guard fires.** When `docs/` is a normal documentation folder, say nothing about it: a "docs/ is not a published site" line is noise, it states the default and confuses the reader into thinking it means something. This guard applies to full AUDIT too, not just scoped runs.
 2. **Scan docs/ folder**: check subfolder names, file names, structure
@@ -191,6 +205,7 @@ Full scan of the project's documentation health.
    - **Age**: files not modified in 90+ days (`git log -1 --format=%as -- <file>`). Exclude `docs/JOURNAL/`: dated logbook entries are meant to age
    - **Low reread value** (the value-to-reread bar above): a guide that restates what the obvious command already teaches (generic login/CRUD/register how-tos), a walkthrough that would collapse to a one-line README pointer, or a doc nobody would reopen. Flag as "low reread value: [generic how-to / restates the command / never reopened], consider README one-liner or ARCHIVED/". Keep decision records, hard-won fixes, and non-obvious setup regardless of length: those are exactly what justifies a doc.
    - **Stale claims**: content that contradicts the project's reality: tech mentioned that is absent from package.json/Cargo.toml/deps, referenced files or routes that no longer exist, counts that no longer match ("22 prototypes" when 3 remain). Spot-check each doc's boldest claims against the codebase; a doc describing the wrong stack misleads every future reader (human or agent) and is worse than no doc
+   - **Derived artifact vs its source** (applies to code AND content repos, often the highest-value finding): a file that is an export of a source drifts silently when the source changes and the export is not regenerated. Detection is cheap: same base name, different extension; compare mtime and size. In a content repo the source is the `.md` and the derived files are the exported `.pdf` / `.docx`; in a code repo the source is the `.ts` and the derived files are the generated `.d.ts` / OpenAPI / snapshots. Flag any derived file older than or materially diverging from its source ("`X.pdf` is 13 months older than `X.md`: stale export, readers may be trusting the old version"). Field case: three generations of a bylaw's PDF/DOCX lagged the Markdown source for 13 months with nobody noticing. This is not a doc-repo special case; it is the general form of the stale-claims check.
    - **Coverage gaps** (the inverse check): recent shipped work (new modules, features, commands visible in the last ~20 commits) that no doc mentions. Missing docs are findings too, not just misplaced ones. Report as "undocumented: X" with a suggested destination
    - **Prioritize via the journal**: if `docs/JOURNAL/` has recent `KICKOFF_*`/`STANDUP_*` entries, read the latest ones first and start the stale-claims and coverage checks on the files/features they mention: recently-moved areas are where docs lie first. The journal doesn't change what you detect, it changes where you look first
 5. **Check for task-related issues**: if task folders/files use non-standard names, flag for renaming and suggest running `/pm-tasks` after
