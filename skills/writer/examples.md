@@ -106,3 +106,24 @@ Real failure modes from a whole-repo purge. The correct behavior is the note, no
 **Source and derived: fix the source first**
 > `docs/profile/07-cv.md` holds "Antonio Martinez — CEO & Builder"; `README.md` and `layout.tsx` (browser/OG/Twitter title) quote it.
 - Correct: fix `docs/profile/07-cv.md` first (the source), then the derived surfaces, so the tell does not regenerate on the next build. The site title is a bio and the highest-leverage prose in the repo (Google + every share preview), map it first.
+
+**A numeric range: en dash, never prose punctuation**
+> CV line: `Earlier (2006 — 2015): Corporativo BiT`
+- Correct: `Earlier (2006–2015): Corporativo BiT` (en dash). NOT `2006: 2015` or `2006, 2015`: an em dash between two years is a range, and converting it to punctuation corrupts a fact that cannot be recovered without the source. Detect ranges (digit, dash, digit) before anything else.
+
+**Two loose em dashes on one line: not a pair**
+> `Says what was built, how, and why — in that order. Spanish-native writing in English — short sentences.`
+- Correct: each dash is independent (different clauses): `...how, and why, in that order. Spanish-native writing in English: short sentences.` WRONG: wrapping them as a parenthetical `why ( in that order. ... in English ) short sentences`. Two dashes in a multi-sentence line are two marks, not a pair.
+
+**Fence content decides, not the fence**
+> `06-social.md` has a ` ```text ` fence with LinkedIn experience entries staged for copy-paste, using em dashes.
+> `antonio.md` has a ` ```text ` fence with structural templates like `[What it is — one line]`.
+- Correct: convert the `06-social.md` fence (it is publishable copy, the channel the rule targets); leave the `antonio.md` fence untouched (bracket-marker templates are instructions, not prose). Skipping all fences misses the real copy; editing all fences corrupts the templates.
+
+**Layered config: find every copy of the value**
+> A Next.js repo defines the page title in `layout.tsx` AND overrides it per route in several `page.tsx` files.
+- Correct: grep the whole tree for the title STRING, not just `layout.tsx`. A file-scoped map found 3; the real count was 6. Search for the value, not the file.
+
+**Invariant check catches what the em-dash count misses**
+> After a sweep, `grep -c "—"` returns 0 and looks clean, but a table row lost a column and a date range became `2006: 2015`.
+- Correct: the clean em-dash count proves nothing (the conversion happened, it just converted the wrong thing). Comparing invariants against the pre-sweep version (column count per row, the set of years) is what surfaces the damage. Run invariant checks as a required final step.

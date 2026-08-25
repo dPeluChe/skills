@@ -62,13 +62,22 @@ the draft and run the checks again. For detect requests, check only the "Detect"
 24. Frozen content skipped: were `docs/JOURNAL/`, `docs/ARCHIVED/`, changelogs, and commit messages left as written (a record is not rewritten, even to remove a tell)?
 25. Source before derived: was the source surface (e.g. `docs/profile/`) fixed first, so the tell does not regenerate into the derived CV/bio/README on the next pass?
 26. Site metadata treated as a top-priority bio: were the browser `<title>`, OG title, and Twitter title checked (not left under "meta descriptions")?
-27. No multiline paired-punctuation regex was used, no unrelated lines (e.g. two adjacent table rows) were merged, and the result was verified by RENDERING, not by counting balanced delimiters?
+27. No multiline paired-punctuation regex was used, no unrelated lines (e.g. two adjacent table rows) were merged?
+28. Ranges preserved: was every em dash between two numbers or years converted to an en dash, never to a colon/comma/period (a corrupted range is an irreversible fact error)?
+29. Pair scope respected: were two em dashes treated as a parenthetical pair ONLY within the same clause, never inferred by counting, even on a single multi-sentence line?
+30. Fence content judged, not the fence: was a `text`/no-language fence of publishable author-voice copy converted, while code/shell/bracket-marker-template fences were left untouched?
+31. Layered config searched by value: for a value that can live at several levels (Next.js metadata, i18n, themes), was the whole tree grepped for the string, not just the one expected file?
+32. Invariant checks run against the pre-sweep version: are the set of years/numbers, the table shape (columns per row, row count), and link targets all unchanged? (Measuring what you changed does not catch breakage; comparing invariants does.)
 
-The four field scenarios these guard (fixtures in `examples.md`):
+The field scenarios these guard (fixtures in `examples.md`):
 - A markdown table with an em dash ending two consecutive rows: must NOT be merged into one parenthetical.
-- `{value || "—"}` in TSX: must NOT be touched (UI glyph, not prose).
+- `{value || "—"}` in TSX, and a table `| — |` "no data" cell: must NOT be touched (UI glyph, not prose).
 - A `docs/JOURNAL/` entry: must be skipped, not "corrected".
 - A source (`docs/profile/07-cv.md`) and a README that quotes it: fix the source first.
+- A CV line `2006 — 2015`: must become an en dash, never a colon.
+- A multi-sentence paragraph (one line) with two loose em dashes: must NOT be wrapped as a pair.
+- A ` ```text ` fence of LinkedIn copy: does convert. A fence with `[What it is — one line]` templates: does not.
+- A Next.js app with the title in both `layout.tsx` and `page.tsx`: both must be found.
 
 ---
 
