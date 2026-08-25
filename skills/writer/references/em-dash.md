@@ -54,6 +54,23 @@ stable across a real sweep:
   markdown / the running UI, not at a delimiter tally. Delimiter counts confirm the bug instead
   of catching it.
 
+## Audit the emitted output, not the source
+
+To count a tell, grep the artifact that actually reaches a reader, not the source files. The
+source lies in both directions:
+
+- **It over-counts.** Many em dashes (or slop words) live in doc-comments, dead code, or examples
+  that never render. In one field case, 70% of a source file's em dashes were in Rust doc-comments
+  that never reached the emitted prompt. Cleaning them is wasted work.
+- **It under-counts.** Tells enter the output by interpolation from places a source grep never
+  looks: a `Cargo.toml` / `package.json` `description` field spliced into a header, a config value,
+  a template variable, generated tables. In the same case, the installed artifact had exactly 9 em
+  dashes (the right number to fix) while the source had 29 (the wrong target).
+
+So: render or generate the real output and grep THAT. When the artifact is a prompt, check the
+installed prompt; when it is a page, check the rendered page; when it is a report, check the emitted
+report. This is the general form of "verify by rendering".
+
 ## Git verification traps
 
 - **`git mv` inflates the "did I add em dashes?" diff.** A moved file counts its ENTIRE body as
