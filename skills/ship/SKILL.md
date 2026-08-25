@@ -4,20 +4,20 @@ description: >
   Close a work cycle as a PR with mechanical gates and verifiable evidence: repo/branch identity
   check, lint 0 warnings, build/tests, LOC limit, secret scan on the diff, quality pass, task
   bookkeeping, PR on the CURRENT branch, and a merge step governed by the repo's merge policy
-  (auto | ask) — ending with an evidence table (command + output, PR #, merge SHA). Use whenever
+  (auto | ask), ending with an evidence table (command + output, PR #, merge SHA). Use whenever
   the user wants to close/ship work as a PR: "haz pr merge", "cerremos los prs", "hagamos
   elmerge", "cierra este pr", "listo para merge?", "hay que hacer el pr", "valida lint y build y
-  haz el pr", "ship it", "/ship". The user almost never types the slash — trigger from informal
+  haz el pr", "ship it", "/ship". The user almost never types the slash; trigger from informal
   prose and typos. Disambiguation: standup closes a SESSION (journal delta across PRs); ship
-  closes ONE PR cycle with gates — ship's evidence table is input for standup's journal entry.
+  closes ONE PR cycle with gates; ship's evidence table is input for standup's journal entry.
   /simplify is a quality pass ship INVOKES; pm-tasks does the task archiving ship DELEGATES.
 allowed-tools: Read, Glob, Grep, Bash, Edit, Write, Skill
 ---
 
-# Ship — PR closing with gates and evidence
+# Ship: PR closing with gates and evidence
 
 Turns the user's dictated ritual (lint → build → review → PR → merge → bookkeeping) into one
-mechanical flow. Every "done" claim carries its command and output — the report kills the
+mechanical flow. Every "done" claim carries its command and output; the report kills the
 "¿seguro? ¿ya todo?" round-trips.
 
 ## Why this exists
@@ -29,9 +29,9 @@ real secrets (PATs, DB passwords, cloud keys) pasted into diffs and chats.
 
 ## Step 0: Identity gate (before anything else)
 
-The workspaces bundle several repos in one tree (e.g. `workspace-dpeluche/` contains
-`dpeluche.dev/`, `skills/`, and is ITSELF a git repo). The shell may reset cwd between commands.
-Verify — and re-verify after any `cd`:
+The workspaces bundle several repos in one tree (e.g. a `workspace/` dir may contain several
+child repos and be a git repo itself). The shell may reset cwd between commands.
+Verify, and re-verify after any `cd`:
 
 ```bash
 pwd && git rev-parse --show-toplevel   # am I in the repo I think I'm in?
@@ -49,7 +49,7 @@ git branch --show-current              # on the branch I think I'm on?
 ## Config per repo (read from CLAUDE.md, fail loud on gaps)
 
 Read the repo's CLAUDE.md for a `ship` config block. **Canonical format** (one schema so every
-repo writes it the same way — without it the skill falls back to detect-and-confirm):
+repo writes it the same way; without it the skill falls back to detect-and-confirm):
 
 ```yaml
 # ship config
@@ -62,7 +62,7 @@ required_proofs:
     run: node scripts/mcp-smoke.mjs             # must exit 0 before merge
 loc_limit: 500
 simplify: 500   # run /simplify only if changed LOC > N (off = only on request)
-reviewer: rigo                                  # team repos only
+reviewer: <github-handle>                       # team repos only
 release_prefix: "STAGING RELEASE:|PROD RELEASE:" # only where applicable
 branch_cleanup: delete                          # delete | keep | ask
 hooks_skip:                                     # conscious git-hook gaps (flowkit verify
@@ -71,35 +71,35 @@ hooks_skip:                                     # conscious git-hook gaps (flowk
 
 Key semantics, with defaults only where safe:
 
-- `lint` / `build` / `test` / `typecheck` commands — **no safe default**: if absent, detect from
+- `lint` / `build` / `test` / `typecheck` commands, **no safe default**: if absent, detect from
   manifest scripts and CONFIRM with the user once; never guess silently. Respect overrides like
-  isolated build dirs (e.g. `NEXT_BUILD_DIR=.next-ci npm run build` — a normal build there kills
+  isolated build dirs (e.g. `NEXT_BUILD_DIR=.next-ci npm run build`; a normal build there kills
   the user's running dev server). **A gate that passes without validating anything is a FALSE
-  GREEN — worse than no gate.** The classic trap: `npx tsc --noEmit` against a root `tsconfig.json`
+  GREEN, worse than no gate.** The classic trap: `npx tsc --noEmit` against a root `tsconfig.json`
   that is a project-references stub (`"files": []` + `"references"`) checks NOTHING and exits 0;
   the real command is `tsc --noEmit -p tsconfig.app.json`. Worse, `tsc -b` and the framework
-  build only cover *referenced* projects — a sibling dir with its own tsconfig that the root
+  build only cover *referenced* projects; a sibling dir with its own tsconfig that the root
   doesn't reference (`convex/`, `functions/`, `workers/`) is checked by none of them, so the
   repo ships green with that code broken (it surfaces only at deploy). Chain a `-p` per
   unreferenced sibling: `tsc -b --noEmit && tsc --noEmit -p convex/tsconfig.json`. When first
   wiring a repo's `typecheck:` (or any gate), confirm it FAILS on a real error in EACH area
-  before trusting its green — a check you have never seen go red has not been verified.
-- `merge_policy: auto | ask` — default **ask**. `auto` = merge immediately once ALL gates and
+  before trusting its green; a check you have never seen go red has not been verified.
+- `merge_policy: auto | ask`, default **ask**. `auto` = merge immediately once ALL gates and
   required proofs pass (the user's standing instruction in some solo repos: "no dejes los prs
   abiertos"). `ask` = draft → show exactly what will run → explicit OK → execute. Team repos and
   supervised flows are `ask` even if the session feels fluid.
-  **Scope honesty**: merge_policy binds ONLY the ship skill when invoked — nothing stops a web
+  **Scope honesty**: merge_policy binds ONLY the ship skill when invoked; nothing stops a web
   merge or `gh pr merge` outside it. It is the reminder, not the lock. The lock is server-side
   branch protection (Settings → Branches → require PR + approval); recommend it once per
   supervised repo. Enforcement scale in one line:
   memory < tool-read config < server-side protection < compiler invariant.
-- `required_proofs` — per-repo/per-area field tests that must pass BEFORE merge regardless of
+- `required_proofs`: per-repo/per-area field tests that must pass BEFORE merge regardless of
   policy (e.g. "convex/mcp* touched → run scripts/mcp-smoke.mjs, exit 0"). Heavier flows declare
   heavier proofs; a green build is not proof that the feature works.
 - `loc_limit` (default 500) · `simplify` (default 500; `off` = only on request) ·
   `reviewer` (team repos) · `release_prefix` rules ·
   `branch_cleanup: delete | keep | ask` (default ask).
-- `hooks_skip` — nested map of git hooks this repo consciously does not run, with the reason
+- `hooks_skip`: nested map of git hooks this repo consciously does not run, with the reason
   (`flowkit hooks --verify` reports them as ok-skipped instead of failing forever). The
   one-line `hooks_skip: pre-push: "reason"` form is also accepted.
 
@@ -109,7 +109,7 @@ Key semantics, with defaults only where safe:
    equivalent) introduced by the diff.
 2. **Build/tests**: repo's commands, exit 0. Use the configured isolated variant when declared.
 3. **LOC**: a file over `loc_limit` that IS part of the current work → do the split RIGHT
-   THERE, same branch, same cycle, before creating the PR (the split is part of the work — not
+   THERE, same branch, same cycle, before creating the PR (the split is part of the work, not
    a separate PR). A legacy file over the limit that was barely touched or only detected in
    passing → do NOT block: create a task in docs/TASK_TODO.md (via pm-tasks) so it isn't lost,
    and continue.
@@ -124,20 +124,20 @@ Invoke `/simplify` on the diff (the user's recurring "¿algo que optimizar/mejor
 formalized) only when the diff exceeds the `simplify` threshold (default 500 changed lines;
 `off` = never automatically). Below the threshold, run it only on explicit request. Apply what
 it finds or record why not. Future: per-area importance thresholds (e.g. anything touching
-auth) — noted as an evolution, not implemented.
+auth), noted as an evolution, not implemented.
 
 **Lint health on the diff (JS/TS/React repos).** Run `flowkit lint-health` and read it against
 the DIFF, not the whole tree: a NEW blanket `eslint-disable` (no rule named), or a rule newly
-turned `off`/`0` in the eslint config, is a finding — that is a gate the diff just switched off
+turned `off`/`0` in the eslint config, is a finding; that is a gate the diff just switched off
 (a false green). A **scoped, reasoned** disable the diff adds
 (`/* eslint-disable <rule> -- why */`) is fine and never a finding. Pre-existing holes in
-untouched files are advisory only — do not block the PR on them (note them for a task if worth
+untouched files are advisory only; do not block the PR on them (note them for a task if worth
 it). When a diff turns a rule off, `flowkit lint-health --measure '<rule>'` quantifies what that
 now hides. The check never auto-fixes and never blocks a commit; it informs the report.
 
 **Lockfile changed → run `flowkit lint-health --canary`.** If the diff touches a lockfile
 (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, …), a dependency bump may have silently
-shifted lint/typecheck coverage with no code change — an upgrade can unscope a preset and stop a
+shifted lint/typecheck coverage with no code change; an upgrade can unscope a preset and stop a
 whole extension from being linted. The canary plants a violation per extension and confirms the
 gate still catches it (or surfaces a parse error). A green lint proves nothing if a dep bump
 quietly stopped the linter from reaching those files.
@@ -150,7 +150,7 @@ the code (route to `/doctos` when the content is large enough to need placement)
 **Language: code in English (always).** English is the codebase's base language. Read the diff
 for **file names, identifiers (functions, variables) and comments** the change introduces in
 another language (`calcularFactura` → `computeInvoice`, a Spanish comment → English + terse).
-This is a **judgment call, not a grep** — domain terms, proper nouns and established names in the
+This is a **judgment call, not a grep**: domain terms, proper nouns and established names in the
 repo are fine; the target is NEW code drifting off English. Flag it in the report; never rewrite
 someone's code silently.
 
@@ -158,21 +158,21 @@ someone's code silently.
 
 - Docs whose claims the diff invalidates → fix if trivial, otherwise route to `/doctos`.
 - Completed tasks → delegate to `/pm-tasks` (TASK_TODO.md → TASK_COMPLETED/YYMM.md).
-- Repo uses Tasky MCP (e.g. henri) → sync the task there too (comment + status) so the two
+- Repo uses Tasky MCP → sync the task there too (comment + status) so the two
   never diverge.
 
-## Step 4: PR — on the CURRENT branch
+## Step 4: PR on the CURRENT branch
 
 - **Never create a new branch without being asked** (recurring correction in the corpus). The
-  branch you're on is the branch that ships. Exception: commits stranded on a protected main —
+  branch you're on is the branch that ships. Exception: commits stranded on a protected main,
   see Step 0.
 - Title/description per repo convention; respect release prefixes where configured
   (e.g. `STAGING RELEASE:` / `PROD RELEASE:` only on staging/prod branches, never develop).
 - Assign the configured reviewer in team repos.
 - **gh CLI failure mode**: if `gh` fails (auth expired, TLS/keychain), report the EXACT error,
-  ask the user to re-auth (`gh auth login`), retry ONCE — never loop on a broken gh.
+  ask the user to re-auth (`gh auth login`), retry ONCE; never loop on a broken gh.
 
-## Step 5: Merge — governed by policy
+## Step 5: Merge governed by policy
 
 - `auto`: gates green + required proofs green → merge now, then Step 6. Any gate or proof
   failed → behave as `ask`.
@@ -182,12 +182,12 @@ someone's code silently.
 ## Step 6: After the merge
 
 `git checkout <default branch> && git pull` (repos with symlinked checkouts serve whatever
-branch is checked out — returning to main is mandatory, not cosmetic). Branch cleanup per
+branch is checked out; returning to main is mandatory, not cosmetic). Branch cleanup per
 config. Re-verify working tree is clean.
 
 ## Step 7: Evidence report (kills the "¿seguro?")
 
-Close with a table — every row is a claim WITH its proof:
+Close with a table, every row is a claim WITH its proof:
 
 | Gate | Command | Result |
 |---|---|---|
@@ -196,9 +196,9 @@ Close with a table — every row is a claim WITH its proof:
 | Build | `<cmd>` | exit 0 |
 | Proofs | `<smoke/e2e cmd>` | N/N pass |
 | Secrets | diff scan | clean |
-| PR | — | #N · URL · merged SHA `abc123` (or OPEN, awaiting OK) |
-| Tasks | — | moved: list (or none) |
-| Docs | — | touched: list (or none) |
+| PR | n/a | #N · URL · merged SHA `abc123` (or OPEN, awaiting OK) |
+| Tasks | n/a | moved: list (or none) |
+| Docs | n/a | touched: list (or none) |
 
 Anything not done says NOT DONE with the reason. This table is the natural input for the
 micro-standup journal entry.
@@ -208,5 +208,5 @@ micro-standup journal entry.
 - Never pushes directly to a protected default branch; everything goes through a PR.
 - Never merges under `ask` without explicit OK; never closes PRs on its own initiative.
 - A failed gate produces a report, not a workaround. Secrets found = hard stop.
-- Ship orchestrates; repo-level git hooks (pre-commit/pre-push) remain the guarantee layer —
+- Ship orchestrates; repo-level git hooks (pre-commit/pre-push) remain the guarantee layer;
   recommend them once where gates exist only as prose.

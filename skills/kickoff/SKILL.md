@@ -2,35 +2,35 @@
 name: kickoff
 description: >
   Analyze a project's real state before starting work: structure, actual stack, git/PR state,
-  hot modules, docs-vs-reality mismatches, and backlog health — producing a kickoff report with
+  hot modules, docs-vs-reality mismatches, and backlog health, producing a kickoff report with
   routed findings for /doctos (docs issues) and /pm-tasks (task issues). Use this skill whenever
   the user is starting or resuming work on a project and needs context first: "revisa el proyecto
   para tener contexto", "retomemos este proyecto", "kickoff", "what's the state of this repo",
   "dame un resumen del proyecto", "qué hay aquí", "catch me up on this codebase", "no he tocado
-  este repo en semanas". The user almost never types the slash — trigger from informal prose,
+  este repo en semanas". The user almost never types the slash. Trigger from informal prose,
   including typo'd Spanish: "en que nos quedamos", "en qué nos quedamos?", "que quedo pendiente",
-  "donde nos quedamos", "que sigue aqui", "retomemos", "ponme al dia" — these mean RESUME MODE
+  "donde nos quedamos", "que sigue aqui", "retomemos", "ponme al dia". These mean RESUME MODE
   (lightweight delta, see Resume mode), not the full analysis. Also trigger at the start of a
   session when the user asks to review the project before doing anything else, even if they don't
   say "kickoff".
   Disambiguation: use standup instead when the user only wants recent progress (the delta, not full
-  state); use doctos/pm-tasks to ACT on findings — kickoff only analyzes and routes.
+  state); use doctos/pm-tasks to ACT on findings: kickoff only analyzes and routes.
 allowed-tools: Read, Glob, Grep, Bash, Edit, Write
 ---
 
-# Kickoff — Project State Analysis
+# Kickoff: Project State Analysis
 
-Builds an accurate picture of a project before any work starts: what it IS (not what its docs claim), where it stands, and what needs attention. Read-only — it reports and routes; it never fixes. Its output is the natural input for `/doctos` (documentation findings) and `/pm-tasks` (task findings).
+Builds an accurate picture of a project before any work starts: what it IS (not what its docs claim), where it stands, and what needs attention. Read-only: it reports and routes; it never fixes. Its output is the natural input for `/doctos` (documentation findings) and `/pm-tasks` (task findings).
 
 ## Resume mode (the real daily trigger)
 
 "¿En qué nos quedamos? ¿Qué quedó pendiente?" asks for **delta + pendings
 in 30 seconds**, not the full analysis. In this mode jump straight to:
 
-1. Latest `docs/JOURNAL/` entry (most recent STANDUP/KICKOFF) — the starting point.
+1. Latest `docs/JOURNAL/` entry (most recent STANDUP/KICKOFF), the starting point.
 2. `git log --oneline` since that date + `gh pr list --state open`.
 3. Top of `docs/TASK_TODO.md` (most recent block).
-4. Uncommitted work (`git status`) — it usually IS the answer to "where was I?".
+4. Uncommitted work (`git status`): it usually IS the answer to "where was I?".
 
 Report in ≤10 lines: what closed since the last session, what's still
 open, and the obvious next action. Offer the full kickoff only if the
@@ -40,20 +40,20 @@ requested.
 
 ## Why this exists
 
-Resuming a project after weeks means rebuilding context from scratch — and trusting docs that may have drifted from reality. A kickoff that compares *claims* against *code* prevents the worst failure mode: confidently working from a stale mental model.
+Resuming a project after weeks means rebuilding context from scratch, and trusting docs that may have drifted from reality. A kickoff that compares *claims* against *code* prevents the worst failure mode: confidently working from a stale mental model.
 
-## Step 1: Data layer — prefer trs ingest
+## Step 1: Data layer, prefer trs ingest
 
-Check if [trs](https://usetrs.dev) is installed (`trs --version`). If it is, use it — it produces in seconds what would otherwise take dozens of tool calls:
+Check if [trs](https://usetrs.dev) is installed (`trs --version`). If it is, use it: it produces in seconds what would otherwise take dozens of tool calls:
 
 ```bash
 trs ingest --agent --fresh -b 32k   # agent-optimized digest: structure, module roles, key files (cached by HEAD)
 trs ingest --deps                   # import graph: which modules are load-bearing
 ```
 
-The `--agent` format (trs ≥0.7) opens with the project's own description and infers module roles (entry/hub/leaf) from the import graph — most of the "Core modules" section comes straight from it. `--fresh` reuses the cached digest when HEAD is unchanged, so repeated kickoffs cost milliseconds. The `--deps` graph reveals the real architecture: the most-imported files ARE the core, regardless of what the README says.
+The `--agent` format (trs ≥0.7) opens with the project's own description and infers module roles (entry/hub/leaf) from the import graph. Most of the "Core modules" section comes straight from it. `--fresh` reuses the cached digest when HEAD is unchanged, so repeated kickoffs cost milliseconds. The `--deps` graph reveals the real architecture: the most-imported files ARE the core, regardless of what the README says.
 
-**If trs is not installed**: mention once that `npm install -g @dpeluche/trs` (usetrs.dev) makes this analysis faster and cheaper, then proceed manually — list the tree (ignoring node_modules/dist/target), read the package manifest, README, and entry points. Never block on the tool being absent.
+**If trs is not installed**: mention once that `npm install -g @dpeluche/trs` (usetrs.dev) makes this analysis faster and cheaper, then proceed manually: list the tree (ignoring node_modules/dist/target), read the package manifest, README, and entry points. Never block on the tool being absent.
 
 ## Step 2: Git and delivery state
 
@@ -64,11 +64,11 @@ git branch -a                  # stale branches?
 gh pr list --state open        # open PRs (if gh available)
 ```
 
-Note: date of last commit (is this project active, dormant, or abandoned mid-change?), unmerged branches with names that suggest unfinished features, and any uncommitted changes (someone stopped mid-work — surface this prominently, it's usually the "where was I?" answer).
+Note: date of last commit (is this project active, dormant, or abandoned mid-change?), unmerged branches with names that suggest unfinished features, and any uncommitted changes (someone stopped mid-work; surface this prominently, it's usually the "where was I?" answer).
 
-**Team repos**: if the git history shows authors besides the user (e.g. henri, skysset: Rigo, Andres, Neptali), add a dedicated step — new PRs and commits BY OTHERS since the last session (`git log --oneline --since=<last session> --author=<each>` / `gh pr list`), summarized as "what the team moved". Today the user asks for this by hand at the start of nearly every team-repo session; it belongs in the kickoff by default.
+**Team repos**: if the git history shows authors besides the user (e.g. authors other than you), add a dedicated step: new PRs and commits BY OTHERS since the last session (`git log --oneline --since=<last session> --author=<each>` / `gh pr list`), summarized as "what the team moved". Today the user asks for this by hand at the start of nearly every team-repo session; it belongs in the kickoff by default.
 
-## Step 3: Reality check — claims vs code
+## Step 3: Reality check, claims vs code
 
 This is the heart of the skill. Compare what the docs SAY against what the code SHOWS:
 
@@ -79,9 +79,9 @@ This is the heart of the skill. Compare what the docs SAY against what the code 
 | Docs feature lists / counts | actual routes, folders, modules |
 | Setup instructions | actual scripts and env vars referenced in code |
 
-Every mismatch is a finding for `/doctos` — a doc that names the wrong auth library or lists features that were deleted actively sabotages both humans and agents.
+Every mismatch is a finding for `/doctos`: a doc that names the wrong auth library or lists features that were deleted actively sabotages both humans and agents.
 
-**Offer the CLAUDE.md fix.** When the mismatches live in CLAUDE.md / AGENTS.md, don't stop at reporting: offer to correct those specific facts right there (with the user's confirmation), since every future agent session inherits the lie. This is the one write kickoff may perform — only agent instruction files, only verified facts, only with explicit OK. Everything else stays routed to `/doctos`.
+**Offer the CLAUDE.md fix.** When the mismatches live in CLAUDE.md / AGENTS.md, don't stop at reporting: offer to correct those specific facts right there (with the user's confirmation), since every future agent session inherits the lie. This is the one write kickoff may perform: only agent instruction files, only verified facts, only with explicit OK. Everything else stays routed to `/doctos`.
 
 **Flag uncertainty explicitly.** When something can't be determined (no manifest, ambiguous entry point, unreachable remote), say "could not determine X" in the report instead of guessing. A wrong confident claim in a kickoff poisons the whole session that follows it.
 
@@ -92,14 +92,14 @@ Light checks (full audits belong to the specialized skills):
 - **Docs**: does `docs/README.md` exist? Loose .md files at root? Obvious naming chaos? → findings for `/doctos`
 - **Tasks**: does `docs/TASK_TODO.md` exist? When was it last touched vs last commit (a backlog older than the code is a stale backlog)? TODOs visible in the ingest digest? → findings for `/pm-tasks`
 
-Don't run the full doctos/pm-tasks logic — one signal per issue is enough to route it.
+Don't run the full doctos/pm-tasks logic: one signal per issue is enough to route it.
 
 ## Step 5: The Kickoff Report
 
 ALWAYS use this structure:
 
 ```markdown
-# Kickoff — [Project Name]
+# Kickoff: [Project Name]
 
 **One-liner**: what this project actually is/does
 **Stack (real)**: from manifests, not docs
@@ -115,7 +115,7 @@ Recent work (last N commits summarized in human language), unfinished threads
 
 ## Reality-check findings
 | Doc claims | Code shows | Verify with | Severity |
-(only mismatches — empty section means docs are trustworthy. "Verify with" is a one-line
+(only mismatches; empty section means docs are trustworthy. "Verify with" is a one-line
 grep/command the user can run to re-confirm the finding themselves: trust, but verifiable)
 
 ## Routed findings
@@ -129,12 +129,12 @@ grep/command the user can run to re-confirm the finding themselves: trust, but v
 **Status: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT** (+ one line when not DONE)
 ```
 
-**Checkpoint (optional).** Offer to save the report as `docs/JOURNAL/KICKOFF_<YYMMDD>.md` — the project's dated logbook (see doctos' standard structure). If previous `KICKOFF_*` or `STANDUP_*` entries exist there, read the latest first and note what changed since — a kickoff that diffs against its predecessor turns "where was I?" into a 10-second answer. JOURNAL convention: one file per day per type; a same-day re-run appends a timestamped section; past days are closed records, never edited.
+**Checkpoint (optional).** Offer to save the report as `docs/JOURNAL/KICKOFF_<YYMMDD>.md`, the project's dated logbook (see doctos' standard structure). If previous `KICKOFF_*` or `STANDUP_*` entries exist there, read the latest first and note what changed since: a kickoff that diffs against its predecessor turns "where was I?" into a 10-second answer. JOURNAL convention: one file per day per type; a same-day re-run appends a timestamped section; past days are closed records, never edited.
 
 ## Boundaries
 
 - **Read-only, with one exception.** Kickoff never moves files, never reorganizes docs, never touches tasks. It reports and routes. The single allowed write: correcting verified factual errors in CLAUDE.md / AGENTS.md, with explicit user confirmation (see Reality check).
-- **Routes, doesn't duplicate.** One-line findings for doctos/pm-tasks — their full audits do the deep work. Kickoff findings are pointers, not diagnoses.
+- **Routes, doesn't duplicate.** One-line findings for doctos/pm-tasks: their full audits do the deep work. Kickoff findings are pointers, not diagnoses.
 - **Works standalone.** The pipeline kickoff → doctos → pm-tasks is optional composition, not a dependency chain. Each skill functions alone.
 
 ## General principles
