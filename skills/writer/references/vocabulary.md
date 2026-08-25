@@ -34,21 +34,29 @@ showcasing, ensuring — participles that fake analysis. Weight these higher tod
 
 ## Español
 
+Es la lista que más se usa — mantenla a la par de la inglesa, no a la mitad. Cuando aparezca un
+tell nuevo en un draft real, agrégalo aquí en su tier.
+
 **Tier 1 — marcar con una sola aparición:**
-sumergirse en, fomentar, aprovechar el potencial, un antes y un después, tapiz,
+sumergirse en, adentrarse en, fomentar, aprovechar el potencial, un antes y un después, tapiz,
 panorama en constante evolución, es un testimonio de, pone de relieve, sin precedentes,
-revolucionar, potenciar.
+revolucionar, potenciar, allanar el camino, de vital importancia, abrir un abanico de posibilidades,
+llevar al siguiente nivel, en la era de.
 
 **Tier 2 — marcar solo con ≥2 por párrafo:**
-robusto, vanguardista, vibrante, impulsar (figurative default), integral (as filler),
-juega un papel crucial, de vanguardia, multifacético, meticuloso.
+robusto, sólido (figurative), vanguardista, de vanguardia, vibrante, impulsar (figurative default),
+integral (as filler), juega un papel crucial, multifacético, meticuloso, desbloquear, abordar
+(as filler: "abordar el desafío"), de la mano de, fluido (=seamless), holístico, dinámico,
+innovador (as filler), sinergia.
 
 **Tier 3 — nunca solo; cuenta solo dentro de un cluster:**
-clave (as universal adjective), esencial, poderoso, integral (literal), garantizar, mejorar.
+clave (as universal adjective), esencial, poderoso, integral (literal), garantizar, mejorar,
+fundamental, significativamente, eficiente.
 
 **A menudo vacías** (Tier 1 cuando abren o rellenan):
-cabe destacar, es importante mencionar, hoy en día, en el mundo de, la realidad es que,
-a fin de cuentas, en definitiva, no es casualidad que, dicho esto.
+cabe destacar, es importante mencionar, hoy en día, en la actualidad, en el mundo de,
+la realidad es que, a fin de cuentas, en definitiva, no es casualidad que, dicho esto,
+en última instancia, sin lugar a dudas, de manera eficaz, en el corazón de, es innegable que.
 
 ## Model first-word tells (corroboration only, never proof alone)
 

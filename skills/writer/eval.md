@@ -21,7 +21,7 @@ Run after every edit, before returning the draft. Answer each check pass or fail
 11b. Are structural patterns fixed: anaphora/mirrored pairs varied, transformation pivots stated plainly, forced-optimism endings and automatic moral lessons deleted, sycophancy/acknowledgment loops cut, engagement-bait closers removed, hedge stacks reduced to one hedge or a commitment?
 11c. Genre check: if the piece is expressive (post, essay, opinion), does the edit keep human stance and uneven rhythm instead of flattening to neutral? If technical/reference, did it stay neutral with no injected personality?
 11d. Are the added structural tells handled where present: false agency ("the data tells us") given a human actor, diff-anchored narration ("was added to replace") stated as current state, false ranges and abstract-metaphor nouns (substrate, flywheel, north star) made concrete, stacked historical analogies and Wh-openers cut?
-11e. Clusters, not isolated tells: was nothing flagged or cut on a single weak signal (one em dash, one Tier-3 word, perfect grammar) absent a real cluster — except forensic residue and the author's declared #1 marker?
+11e. Clusters, not isolated tells: was nothing flagged or cut on a single weak signal (one em dash, one Tier-3 word, perfect grammar) absent a real cluster — except forensic residue and any always-flag marker the project voice pack declares?
 
 ## Claims and evidence
 

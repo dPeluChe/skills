@@ -13,15 +13,17 @@ co-occurring with one structural pattern. A lone Tier-3 word is never a finding.
 
 The two exceptions that ARE a finding on their own:
 - **Forensic residue** (below) — mechanical copy-paste leftovers, not style.
-- The author's own #1 marker when the author has flagged it (for Antonio: em dashes in
-  short copy — always reported in detect even alone, per SKILL.md).
+- **An always-flag marker declared in the project voice pack** — a tell the author has asked to
+  report even in isolation (a project may, for example, declare em dashes in short copy). This
+  applies only when the voice pack sets one; no author is baked into this skill.
 
 ## What NOT to flag (leave it alone)
 
 These read as slop to a nervous detector but are signs of a real writer:
 
 - **Perfect grammar or punctuation by itself.** Clean ≠ generated.
-- **A single em dash, or a semicolon.** AI *underuses* semicolons; their presence leans human.
+- **A single em dash, or a semicolon** — unless the project voice pack declares the em dash an
+  always-flag marker (see the exception above). AI *underuses* semicolons; their presence leans human.
 - **Legitimate in-domain jargon.** "weighted interval score" in a stats paper is precise,
   not slop. The tell is generic business jargon (leverage, ecosystem, landscape) leaking in,
   not correct technical vocabulary.

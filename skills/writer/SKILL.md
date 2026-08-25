@@ -12,7 +12,7 @@ description: >
   another skill or task produces user-facing prose that should not sound AI-generated.
   Disambiguation: standup/kickoff GENERATE reports (they may hand prose to writer for tone);
   writer edits or audits prose it is given — it never invents content.
-allowed-tools: Read, Glob, Grep, Edit, Write
+allowed-tools: Read, Glob, Grep, Edit
 ---
 
 # Writer — human prose, in the author's voice
@@ -58,7 +58,7 @@ Everything we publish — docs, product copy, applications — is co-written wit
 Voice evidence, in priority order:
 
 1. **Pasted samples** — if the user pastes past writing along with the draft, treat it as voice samples: derive cadence, vocabulary, bluntness, humor from samples + draft. Samples inform **style only, never content**.
-2. **Project voice rules** — check, in order: `docs/WRITING_VOICE.md`, `docs/profile/antonio.md` (or any `docs/profile/*style*.md` / voice-dna-style file), `docs/profile/10-editorial-rules.md`. If found, load as author-level rules (claims wording, channel register, banned/preferred phrasing). These OVERRIDE the generic rules below on conflict.
+2. **Project voice rules** — check, in order: `docs/WRITING_VOICE.md`, `docs/profile/*style*.md` (or any voice-dna-style file), `docs/profile/*editorial-rules*.md`. If found, load as author-level rules (claims wording, channel register, banned/preferred phrasing). These OVERRIDE the generic rules below on conflict. The voice pack may also declare an **always-flag marker** — a tell to report even in isolation (e.g. a project may set em dashes in short copy). This is how a per-author exception is expressed; the skill itself hardcodes no author.
 3. **Project examples** — `docs/WRITING_EXAMPLES.md` (also under `docs/profile/`) or `examples.md` next to the voice rules: before/after pairs and per-channel registers in the author's voice. Match the register of the TARGET CHANNEL, not a blended average — the same author can be terse in English on X and warm with emojis in Spanish on LinkedIn, and both are the real voice.
 
 With none of the above, edit from the draft's own voice signals alone. For a tweet-length draft with no samples, ask for one or two past posts before editing — short drafts carry too little voice evidence and come back generic.
@@ -85,7 +85,7 @@ Detect the draft's language; apply the universal patterns plus that language's b
 
 ## Precision: clusters, not isolated tells
 
-One tell is noise; a cluster is a confession. Before flagging a passage — in detect OR edit — require **≥2 distinct tells**, or one Tier-1 word co-occurring with one structural pattern. A lone Tier-3 word, a single em dash, or perfect grammar is **not** a finding. The full what-NOT-to-flag catalog, the density tests (summary-loss, topic-swap, sentence-load), and forensic residue (always a finding) live in `references/precision.md` — load it for any detect job. Two standing exceptions that flag alone: forensic copy-paste residue, and the author's declared #1 marker (for Antonio, em dashes in short copy).
+One tell is noise; a cluster is a confession. Before flagging a passage — in detect OR edit — require **≥2 distinct tells**, or one Tier-1 word co-occurring with one structural pattern. A lone Tier-3 word, a single em dash, or perfect grammar is **not** a finding. The full what-NOT-to-flag catalog, the density tests (summary-loss, topic-swap, sentence-load), and forensic residue (always a finding) live in `references/precision.md` — load it for any detect job. Two standing exceptions that flag alone: forensic copy-paste residue, and any **always-flag marker the project voice pack declares** (see Author voice pack) — the skill names no author of its own.
 
 ## Words to cut
 
@@ -96,6 +96,7 @@ Tiered ban-lists (EN + ES) live in `references/vocabulary.md`. The rule: **Tier 
 | Pattern | Smells like (EN / ES) | Fix |
 |---|---|---|
 | Binary contrast | "It's not X. It's Y." / "No es X. Es Y." | State Y directly |
+| Additive escalation | "not only X, but also Y" / "no solo X, sino también Y" | Make the one claim, or split into two plain sentences |
 | Negative listing | "Not a X. Not a Y. A Z." | Just say Z |
 | Colon reveal | "The best part: it learns." / "Lo mejor: aprende solo." | Plain sentence |
 | Throat-clearing | "Here's the thing..." / "Seamos honestos..." | Cut, state the point |
@@ -129,7 +130,7 @@ More structural tells with fixes (aphorism formulas, and the above with regex-le
 
 ## Formatting slop
 
-- **Em dashes — #1 PRIORITY in detect and edit.** The author's primary "an AI wrote this" marker (corrected across multiple real sessions). Rule: 0 in short copy; 1–2 in long drafts only when they clearly beat commas or parentheses. In Detect, ALWAYS report it when present, even if it's the only finding. (The sample-outranks exception still applies: an author whose samples use them keeps them.)
+- **Em dashes — the most common "an AI wrote this" marker.** Rule: 0 in short copy; 1–2 in long drafts only when they clearly beat commas or parentheses. Under the clusters rule an em dash alone is not a finding — it corroborates; but if the project voice pack declares it an always-flag marker, report it even in isolation. (The sample-outranks exception still applies: an author whose samples use them keeps them.)
 - No emoji in headings. No bold sprinkled mid-sentence for emphasis. No headers over two-sentence sections.
 - Bullets only where prose reads worse — two sentences often beat a three-item list.
 - No Title Case headings (Spanish: never Capitalizar Cada Palabra).
