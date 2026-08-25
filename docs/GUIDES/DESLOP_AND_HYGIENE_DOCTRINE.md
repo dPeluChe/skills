@@ -25,7 +25,20 @@ To count a tell, grep the artifact a reader actually gets (rendered page, genera
 installed prompt), never the source. Source over-counts (tells in doc-comments or dead code that
 never render) and under-counts (tells interpolated from a `package.json` / `Cargo.toml`
 description spliced into a header). This is the general form of "verify by rendering". Enforced in
-`skills/writer/references/em-dash.md` and the repo-wide detect steps of `writer/SKILL.md`.
+`skills/writer/references/em-dash.md` and the repo-wide detect steps of `writer/SKILL.md`. One
+value can also live at several config layers (a Next.js title in `layout.tsx` and again in a route
+`page.tsx`): grep the tree for the value, not the one file you expect it in.
+
+## Verify invariants, not what you changed
+
+Measuring what you edited cannot tell you whether you broke something. A clean em-dash count and
+balanced parentheses both pass over corrupted content, because the edit happened, it just changed
+the wrong character. What catches damage is comparing, against the pre-edit version, the things a
+punctuation edit must never touch: the set of years and numbers, table shape (columns per row, row
+count), and link targets. A range is the sharpest case: an em dash between two years is a range and
+goes to an en dash, never to prose punctuation; `2006 — 2015` turned into `2006: 2015` is a
+corrupted fact, irreversible without the source. Run invariant checks as a required last step, not
+a suggestion. Enforced in `skills/writer/references/em-dash.md`.
 
 ## Structure is durable; words rotate
 
@@ -75,6 +88,16 @@ A file that is an export of a source (a `.pdf` from a `.md`, a `.d.ts` from a `.
 silently when the source changes and the export is not regenerated. Cheap check: same base name,
 different extension, compare mtime and size. This is the general form of the stale-claims check and
 applies to code and content alike. Enforced in `skills/doctos/SKILL.md` (AUDIT detection).
+
+## Not every checkbox is a project task
+
+A `- [ ]` can be a project task (work we do in the repo, closed by a commit, archived as "what was
+built") or a process activity (a real-world errand people do outside the editor, closed when
+someone went somewhere: request access, call an office, collect signatures, schedule a security
+review). Mixing them drowns the real backlog under errands and makes the monthly archive lie about
+what shipped. Keep one `TASK_TODO.md` for project tasks only; a process checklist lives next to the
+record it supports and is never archived to `YYMM.md`. Applies to code repos too. Enforced in
+`skills/pm-tasks/SKILL.md`.
 
 ## How to validate a de-slop skill
 
