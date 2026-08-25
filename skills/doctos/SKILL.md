@@ -19,6 +19,12 @@ allowed-tools: Read, Glob, Grep, Bash, Edit, Write
 
 Enforces a clean, consistent documentation structure across any project. Moves stray files into `docs/`, renames to standard conventions, archives obsolete content, and delegates task-related work to pm-tasks.
 
+**Reference routing.** This file is the always-loaded core: the rules and the mode logic. The output formats load on demand:
+
+| Load | When |
+|---|---|
+| `references/report-templates.md` | Producing an AUDIT report, showing a CLEAN plan or its post-clean report, or writing the `docs/README.md` that INIT creates |
+
 ## The value-to-reread bar (what deserves to exist)
 
 Structure is not enough: a tidy folder full of docs nobody rereads still costs tokens to scan and confuses readers. **A doc earns its place only if someone will reopen it AND no other source already shows what it says.** Apply this bar in every audit, alongside the structure and freshness checks. The referent shifts by repo type: in a code repo the other source is the code and tooling ("how to register a user" restates the command); in a content repo there may be NO other source, which is exactly when the document has the most value (a legal analysis is worth keeping precisely because nothing else shows it). Ask "is there another source that already shows this?", not "does the code show this?".
@@ -217,54 +223,7 @@ Full scan of the project's documentation health.
    - `docs/` in a finding ALWAYS means the literal `docs/` directory at the repo root: never "documentation" as a concept. If you mean the concept, write "the documentation".
    - Only report findings, not clean checks: a line confirming a rule already holds ("root is clean", "docs/ is not a published site") is noise: omit it. The report is a list of what to fix, not a checklist of what passed.
 
-```
-## Doctos Audit: [Project Name]
-
-### Root violations: 4 files should move to docs/
-| File | Suggested destination |
-|------|---------------------|
-| REFACTOR_PLAN.md | docs/ARCHITECTURE/REFACTOR_PLAN.md |
-| DATABASE_LOCK_FIX.md | docs/ARCHIVED/DATABASE_LOCK_FIX.md |
-| UI_UX_ANALYSIS.md | docs/RESEARCH/UI_UX_ANALYSIS.md |
-| DEV-WORKFLOW.md | docs/GUIDES/DEV_WORKFLOW.md |
-
-### Naming issues: 3 items need renaming
-| Current | Standard |
-|---------|----------|
-| docs/archived/ | docs/ARCHIVED/ |
-| docs/agents.md | docs/AGENTS.md (or move to root) |
-| docs/features/spec.txt | docs/FEATURES/SPEC.md |
-
-### Task-related renaming: 2 items (delegate to pm-tasks)
-| Current | Standard |
-|---------|----------|
-| docs/COMPLETED_TASK/ | docs/TASK_COMPLETED/ |
-| docs/TASKS/TODO.md | docs/TASK_TODO.md |
-> After renaming, run `/pm-tasks` to audit task content
-
-### Missing structure
-- docs/README.md: no documentation index
-- docs/GUIDES/: no guides folder (5 guide-like files sit directly in `docs/`, not in a subfolder: SETUP.md, DEPLOY.md, TESTING.md, …)
-- docs/ARCHIVED/: no archive folder (obsolete files mixed with active ones)
-
-### Potentially obsolete: 2 files (90+ days untouched)
-| File | Last modified | Suggestion |
-|------|--------------|------------|
-| docs/OLD_API_DESIGN.md | 2025-11-15 | Archive with note |
-| docs/PHASE_1_SETUP.md | 2026-01-20 | Archive: Phase 1 complete |
-
-### Summary
-| Category | Issues |
-|----------|--------|
-| Root violations | 4 |
-| Naming issues | 3 |
-| Task renaming | 2 |
-| Missing structure | 3 |
-| Potentially obsolete | 2 |
-| **Total** | **14** |
-
-> Run `/doctos clean` to fix all issues
-```
+Use the **AUDIT report format** in `references/report-templates.md` (load it at this step). It groups findings into Root violations, Naming issues, Task-related renaming, Missing structure, Potentially obsolete, and a Summary table with a total.
 
 ### Classification logic for root violations
 
@@ -289,34 +248,7 @@ Executes all fixes identified in the audit.
 
 1. **Run audit first**: build the full list of issues
 1b. **Freshness verdict per file being moved.** Structure and content rot together: a file worth relocating is a file worth 30 seconds of scrutiny, and moving a stale doc to a tidy folder just gives the lie a better address. For every file in the move plan, check `git log -1 --format=%as -- <file>` and spot-check its boldest claim against the codebase. Attach a verdict to each plan line: ✅ vigente · 🟡 revisar (old but spot-check passed: add a review task) · 🔴 deprecated (contradicts reality: goes to ARCHIVED/ with note instead of its planned destination, plus a task to replace it). Real case that motivated this: a `project_definition.md` moved during a cleanup turned out to describe a *different project entirely* (copied from another repo, never adapted). Structure-only cleaning would have promoted it to ARCHITECTURE/.
-2. **Show the execution plan** to the user and ask for confirmation:
-
-```
-## Doctos Clean Plan: [Project Name]
-
-### Will move (root → docs/):
-1. REFACTOR_PLAN.md → docs/ARCHITECTURE/REFACTOR_PLAN.md
-2. DATABASE_LOCK_FIX.md → docs/ARCHIVED/DATABASE_LOCK_FIX.md (+ archival note)
-3. UI_UX_ANALYSIS.md → docs/RESEARCH/UI_UX_ANALYSIS.md
-4. DEV-WORKFLOW.md → docs/GUIDES/DEV_WORKFLOW.md (renamed: hyphen → underscore)
-
-### Will rename:
-5. docs/archived/ → docs/ARCHIVED/
-6. docs/features/spec.txt → docs/FEATURES/SPEC.md (converted to markdown)
-
-### Will rename (task-related):
-7. docs/COMPLETED_TASK/ → docs/TASK_COMPLETED/
-8. docs/TASKS/TODO.md → docs/TASK_TODO.md (+ delete empty TASKS/ folder)
-
-### Will create:
-9. docs/README.md (documentation index + writing rules)
-10. docs/GUIDES/ (folder)
-
-### Will archive (with note):
-11. docs/OLD_API_DESIGN.md → docs/ARCHIVED/OLD_API_DESIGN.md
-
-Proceed? (y/n)
-```
+2. **Show the execution plan** to the user and ask for confirmation, using the **CLEAN plan format** in `references/report-templates.md` (grouped into Will move / Will rename / Will rename task-related / Will create / Will archive, ending in "Proceed? (y/n)").
 
 3. **After confirmation, execute:**
    - Use `git mv` where possible to preserve history
@@ -329,18 +261,7 @@ Proceed? (y/n)
    - Create docs/README.md with documentation index and writing rules
    - If task-related files were renamed, remind user: "Task folders renamed. Run `/pm-tasks` to audit task content."
 
-4. **Post-clean report:**
-
-```
-## Doctos Clean Complete
-
-- Moved: 4 files from root to docs/
-- Renamed: 3 files/folders
-- Created: 2 (docs/README.md, docs/GUIDES/)
-- Archived: 1 file (with note)
-
-> Task folders were renamed. Run `/pm-tasks` to verify task content is clean.
-```
+4. **Post-clean report:** use the **CLEAN post-clean report format** in `references/report-templates.md` (counts of moved / renamed / created / archived, plus the pm-tasks reminder).
 
 ### Handling edge cases
 
@@ -391,39 +312,7 @@ Same as CLEAN mode but more aggressive:
 - Execute after confirmation
 - Create any missing standard folders
 
-3. **Write docs/README.md** with documentation index and writing rules:
-
-```markdown
-# [Project Name]: Documentation
-
-> Documentation index and writing guidelines for this project.
-
-## Structure
-
-| Folder | Contents |
-|--------|----------|
-| `ARCHITECTURE/` | Technical architecture, decisions, schemas |
-| `FEATURES/` | Active feature specs and PRDs |
-| `GUIDES/` | Setup, deployment, coding conventions |
-| `RESEARCH/` | Analysis, benchmarks, evaluations |
-| `ARCHIVED/` | Obsolete docs (with archival notes) |
-| `TASK_TODO.md` | Pending tasks (managed by pm-tasks) |
-| `TASK_COMPLETED/` | Completed task archive (managed by pm-tasks) |
-
-## Root-level files (only these)
-
-README.md, CLAUDE.md, AGENTS.md, CONTRIBUTING.md, CHANGELOG.md, LICENSE
-
-## Writing rules
-
-1. **No .md files at project root** except the allowed list above
-2. **UPPERCASE_SNAKE_CASE** for all doc file names (`CODING_RULES.md`, not `coding-rules.md`)
-3. **UPPERCASE** for all doc subfolders (`GUIDES/`, not `guides/`)
-4. **No task tracking outside TASK_TODO.md**: use `/pm-tasks` for task management
-5. **No code blocks in documentation summaries**: reference file paths and function names
-6. **Archive, don't delete**: obsolete docs go to `ARCHIVED/` with a note, not to the trash
-7. **Feature specs move to ARCHIVED/** when the feature ships: the code is now the source of truth
-```
+3. **Write docs/README.md** with documentation index and writing rules, using the **INIT docs/README.md template** in `references/report-templates.md` (structure table, root-level files, and the seven writing rules). For a content repo, adapt it per the note there.
 
 4. **If task structure is missing**, suggest: "No task tracking found. Run `/pm-tasks init` to set up TASK_TODO.md and TASK_COMPLETED/."
 
