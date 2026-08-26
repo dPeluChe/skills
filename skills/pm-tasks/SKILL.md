@@ -19,6 +19,13 @@ allowed-tools: Read, Glob, Grep, Bash, Edit, Write
 
 Manages the flow of tasks from code TODOs to TASK_TODO.md to monthly completion archives. Works across any project. Enforces a single standard structure while respecting each project's content conventions.
 
+**Reference routing.** This file is the always-loaded core: the rules and the mode logic. The output formats and file templates load on demand:
+
+| Load | When |
+|---|---|
+| `references/report-formats.md` | Producing a report or plan for the user: the AUDIT report, the SCAN report, the duplicate/mergeable groups, or the INIT standardization plan |
+| `references/templates.md` | Writing a file: the `TASK_TODO.md` and `TASK_COMPLETED/README.md` scaffolds, an archive entry, or the rich session-based archive format |
+
 ## The standard structure
 
 Every project should converge to this layout:
@@ -202,22 +209,7 @@ Read all pending tasks and analyze them for overlap. This is about finding tasks
 - Tasks that touch the same module/service: "add rate limiting to auth" + "add retry logic to auth" → "Auth service hardening"
 - Sequential tasks that make more sense together: "create user table" + "add user API endpoints" + "build user settings page" → might stay separate but should be noted as a sequence
 
-**How to report:**
-
-```
-### Duplicate / Mergeable Tasks: 2 groups found
-
-#### Group 1: Login form tasks (3 tasks → suggest merge into 1)
-- UI-003: Change login button style `added: 2026-02-15` 🔴 dormant
-- UI-007: Add validation to login form `added: 2026-03-01`
-- UI-012: Add loading state to login `added: 2026-03-20`
-> These all touch `LoginForm.tsx`. Suggest merging into: **UI-003: Login form improvements** (button style + validation + loading state)
-
-#### Group 2: Possible duplicate
-- AUTH-002: Implement token refresh `added: 2026-03-10`
-- SEC-005: Handle expired JWT tokens `added: 2026-03-25`
-> These may overlap: token refresh and expired JWT handling are closely related. Review if SEC-005 is already covered by AUTH-002's scope.
-```
+**How to report:** group the overlapping tasks, name a suggested merged task, and note possible duplicates for review. Full example: `references/report-formats.md` § Duplicate / Mergeable detection example.
 
 Ask the user which groups they want to merge. When merging:
 - Keep the oldest task key (it may already be referenced elsewhere)
@@ -250,16 +242,7 @@ Moves completed tasks from TASK_TODO.md into monthly archive files.
 
 ### Archive entry format
 
-```markdown
-## YYYY-MM-DD: Brief description of what was completed
-
-### TASK-KEY: Task Title
-- [x] Specific completed item
-- [x] Another completed item
-- [x] Modified `path/to/file.rs`, added `function_name()` for feature X
-
-Notes: Brief context about why this was done, key decisions, dependencies resolved. Reference commit hashes if relevant (commit abc1234).
-```
+Each entry is a dated `## YYYY-MM-DD` header, the task key and title, its completed `- [x]` items with file/function references (never code blocks), and a Notes line for context. Full template: `references/templates.md` § Archive entry format.
 
 ### Enriching entries
 
@@ -389,29 +372,7 @@ Creates the standard structure from scratch OR standardizes an existing non-stan
 
 #### B) Non-standard setup found: standardize
 
-Show the user a migration plan before doing anything:
-
-```
-## Standardization Plan: [Project Name]
-
-### Files to move/rename:
-1. TASK_TODO.md (root) → docs/TASK_TODO.md
-2. docs/tasks_completed/ → docs/TASK_COMPLETED/
-3. docs/TASK_COMPLETED/2026_04.md → docs/TASK_COMPLETED/2604.md
-4. docs/TASK_COMPLETED/2026-03.md → docs/TASK_COMPLETED/2603.md
-
-### Files to create:
-5. docs/TASK_COMPLETED/README.md (format reference)
-
-### Files to consolidate:
-6. MIGRATION_TASKS.md → merge pending into docs/TASK_TODO.md, archive completed
-
-### Content updates:
-7. Add TASK_COMPLETED/ cross-reference header to TASK_TODO.md
-8. Update README.md links if they reference old paths
-
-Proceed? (y/n)
-```
+Show the user a migration plan before doing anything, grouped into Files to move/rename, Files to create, Files to consolidate, and Content updates, ending in "Proceed? (y/n)". Full example: `references/report-formats.md` § Standardization plan example.
 
 After confirmation:
 - Use `git mv` where possible to preserve history

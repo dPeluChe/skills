@@ -65,3 +65,16 @@ What was decided and why. Include discarded alternatives if they matter.
 - `file.rs`: one-line description of change
 - `new_file.rs`: NEW: what it does
 ```
+
+## Archive entry format (ARCHIVE writes this to YYMM.md)
+
+```markdown
+## YYYY-MM-DD: Brief description of what was completed
+
+### TASK-KEY: Task Title
+- [x] Specific completed item
+- [x] Another completed item
+- [x] Modified `path/to/file.rs`, added `function_name()` for feature X
+
+Notes: Brief context about why this was done, key decisions, dependencies resolved. Reference commit hashes if relevant (commit abc1234).
+```
