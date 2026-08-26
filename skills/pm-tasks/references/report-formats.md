@@ -92,3 +92,48 @@ Full example reports for AUDIT and SCAN modes. Match this structure and level of
 
 **Status: DONE_WITH_CONCERNS**. SETUP.md checkboxes kept (guide steps)
 ```
+
+## Duplicate / Mergeable detection example (AUDIT)
+
+Standalone example of the duplicate/mergeable groups block, richer than the summary line in the AUDIT report above.
+
+```
+### Duplicate / Mergeable Tasks: 2 groups found
+
+#### Group 1: Login form tasks (3 tasks → suggest merge into 1)
+- UI-003: Change login button style `added: 2026-02-15` 🔴 dormant
+- UI-007: Add validation to login form `added: 2026-03-01`
+- UI-012: Add loading state to login `added: 2026-03-20`
+> These all touch `LoginForm.tsx`. Suggest merging into: **UI-003: Login form improvements** (button style + validation + loading state)
+
+#### Group 2: Possible duplicate
+- AUTH-002: Implement token refresh `added: 2026-03-10`
+- SEC-005: Handle expired JWT tokens `added: 2026-03-25`
+> These may overlap: token refresh and expired JWT handling are closely related. Review if SEC-005 is already covered by AUTH-002's scope.
+```
+
+## Standardization plan example (INIT, non-standard setup)
+
+Shown to the user for confirmation before INIT migrates an existing non-standard setup.
+
+```
+## Standardization Plan: [Project Name]
+
+### Files to move/rename:
+1. TASK_TODO.md (root) → docs/TASK_TODO.md
+2. docs/tasks_completed/ → docs/TASK_COMPLETED/
+3. docs/TASK_COMPLETED/2026_04.md → docs/TASK_COMPLETED/2604.md
+4. docs/TASK_COMPLETED/2026-03.md → docs/TASK_COMPLETED/2603.md
+
+### Files to create:
+5. docs/TASK_COMPLETED/README.md (format reference)
+
+### Files to consolidate:
+6. MIGRATION_TASKS.md → merge pending into docs/TASK_TODO.md, archive completed
+
+### Content updates:
+7. Add TASK_COMPLETED/ cross-reference header to TASK_TODO.md
+8. Update README.md links if they reference old paths
+
+Proceed? (y/n)
+```
