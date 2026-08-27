@@ -111,6 +111,7 @@ Examples below are English. The Spanish mirror of this table (same patterns, sam
 | Additive escalation | "not only X, but also Y" | Make the one claim, or split into two plain sentences |
 | Negative listing | "Not a X. Not a Y. A Z." | Just say Z |
 | Colon reveal | "The best part: it learns." | Plain sentence |
+| Colon-as-connector | "coming from traditional automation: instead of X, we do Y" (colon bolting on a comparison/reframe) | State the point directly; drop the comparison framing |
 | Throat-clearing | "Here's the thing..." | Cut, state the point |
 | Faux-insight setup | "What nobody tells you..." | The claim stands alone |
 | Superficial analysis | trailing "-ing": "...highlighting their commitment" | Explain the real mechanism or cut |
@@ -145,10 +146,10 @@ More structural tells with fixes (aphorism formulas, and the above with regex-le
 - **Em dashes: cut on sight in prose, everywhere, zero tolerance.** Almost no human reaches for an em dash while writing, so it is the single strongest "an AI wrote this" marker, and it reads badly to nearly everyone. Rule: zero em dashes in any prose draft, of any length. Replace each one with the punctuation the sentence actually wants: a comma, a colon, parentheses, a period, or the word "and" / "y". In detect, report **every** prose em dash present, even as the only finding. This is the one formatting rule that **overrides the sample-outranks rule**: cut em dashes even when the author's own samples contain them.
   - **Carve-out: an em dash is not always prose.** Leave it alone (or convert it differently) when it is: a **range between two numbers or years** (`2006 — 2015`), which goes to an en dash `–`, never to prose punctuation (getting this wrong corrupts a fact and is irreversible without the source); a UI glyph or empty-value placeholder (`{client.email || "—"}`, a "no data" cell marker); inside code or code comments; or inside a fence whose content is not prose (code, shell, bracket-marker templates). A `text`/no-language fence holding publishable copy in the author's voice IS in scope. Converting the wrong one is a bug, not a de-slop fix. Details and the invariant checks in `references/em-dash.md`.
   - **Applying the ban at scale** (a whole repo, many files): follow the mechanics in `references/em-dash.md`. In short: replace line by line with a single-match assertion, never sweep paired punctuation with a multiline regex, and verify by RENDERING the result, not by counting balanced delimiters.
-- No emoji in headings. No bold sprinkled mid-sentence for emphasis. No headers over two-sentence sections.
+- No emoji in headings. No bold sprinkled mid-sentence for emphasis. No headers over two-sentence sections. No bolding every proper noun or acronym (`**React**`, `**API**`): bold loses meaning when everything is bold.
 - Bullets only where prose reads worse; two sentences often beat a three-item list.
 - No Title Case headings (Spanish: never Capitalizar Cada Palabra).
-- No decorative horizontal rules; no inline-bold-header lists ("**Route details**: starts at...") where prose works.
+- No decorative horizontal rules; no inline-bold-header lists ("**Route details**: starts at...") where prose works. **Carve-out (do not over-cut):** a bold lead-in that ends in a period, names the item, and is followed by *genuinely new* detail is fine, not a tell (`**Schema in TypeScript.** Tables live in one file.`). Cut the pattern only when the bold label just restates the sentence that follows.
 - Plain ASCII punctuation unless the glyph is intentional: no curly quotes or apostrophes pasted from chat UIs, no Unicode bullets in markdown, no leftover citation artifacts. These are tool tells, not style. (Full forensic-residue list in `references/precision.md`. The sample-outranks rule applies to emoji and spoken cadence, but NOT to em dashes.)
 
 ## Channel registers
