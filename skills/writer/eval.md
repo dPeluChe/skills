@@ -40,6 +40,7 @@ the draft and run the checks again. For detect requests, check only the "Detect"
 
 16. Does the draft avoid robotic symmetry, repeated sentence shapes, stacked punchy fragments?
 17. Would it sound natural read aloud to a sharp colleague (Spanish: se lo dirías así a un amigo?)?
+17b. Final reframing gate: reading the whole thing once more, **what still makes this obviously AI-generated?** If anything answers that question, fix it before returning.
 18. Does the output include the full edited draft and a short **What changed** section, plus the exit status? (Embedded mode: finished prose only, see check 23.)
 
 ## Detect
