@@ -18,9 +18,12 @@ print(len(hook.get("jobs") or []) + len(hook.get("commands") or {}))
 ' "$2" 2>/dev/null || echo 0
 }
 
-canary_panel() { # prints "label<TAB>line-content", one synthetic secret per
-  # CENTRAL CUSTOM rule in hooks/.gitleaks.toml + one DEFAULT-ruleset shape
-  # (proves [extend] useDefault = true is still on).
+canary_panel() { # prints "label<TAB>line-content": 6 shapes = 5 of the 6 central
+  # custom rules in hooks/.gitleaks.toml + one DEFAULT-ruleset shape (proves
+  # [extend] useDefault = true is still on). `dpeluche-github-pat` is deliberately
+  # unshaped: a ghp_ value also matches gitleaks' own default github-pat rule, so
+  # it cannot separate the custom rule from the default one, and it would appear
+  # as a second label in the useDefault differential the guard asserts.
   #
   # Two constraints shape this function:
   # 1. Values are ASSEMBLED from split fragments so no secret-shaped literal

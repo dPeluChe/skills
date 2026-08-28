@@ -17,15 +17,12 @@ if command -v lefthook >/dev/null 2>&1 && command -v gitleaks >/dev/null 2>&1; t
   FFOK="$TMP/ff-ok"
   make_repo "$FFOK"
   if run_ff --repo "$FFOK"; then
-    # name WHICH line is missing and echo the verify verdict lines: CI keeps no
-    # fixture logs on a green-path job, so a bare "report missing" costs a whole
-    # investigation to re-derive (that is how the canary flake stayed unsolved)
-    ff_missing=""
-    for ff_pat in "-- verify: PASS" \
-                  "ok pre-commit: effective hooksPath invokes lefthook" \
-                  "ok gitleaks:"; do
-      grep -q -- "$ff_pat" "$TMP/out.log" || ff_missing="$ff_missing '$ff_pat'"
-    done
+    # the console alone should show the cause: a bare "report missing" makes the
+    # reader open the fixture log to learn which of three lines was absent
+    ff_missing="$(missing_lines "$TMP/out.log" \
+      "-- verify: PASS" \
+      "ok pre-commit: effective hooksPath invokes lefthook" \
+      "ok gitleaks:")"
     if [ -z "$ff_missing" ]; then
       ok "install closes with the effective-state verification (verify: PASS)"
     else

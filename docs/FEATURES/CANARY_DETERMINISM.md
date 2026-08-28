@@ -81,6 +81,15 @@ code and not in the tests.
 
 ## Deferred: telling probe rot from a gate failure
 
+**Partly mitigated already.** The panel guard scans every shape against the central
+config directly, so a gitleaks release that renames or drops `stripe-access-token`
+turns CI red with a message naming the rotted shape. That converts "users get a
+mysterious false alarm" into "maintainers get a named CI failure first", which is
+most of the value below. What is left is the user-side case, and it is now
+concentrated: the panel depends on one upstream default rule BY NAME, and CI
+installs gitleaks through `brew install` with no version pin, so the scenario to
+watch is the day Homebrew ships a gitleaks that touches that rule.
+
 Determinism fixes the probe's input, not its environment. The shapes still depend
 on whatever gitleaks the user has installed, so the day a bundled rule is renamed
 or dropped, `verify` would blame the gate. A first attempt at this (re-scanning an

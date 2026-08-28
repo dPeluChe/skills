@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
 # Collect the test suite's per-fixture logs into one directory for upload.
 #
-# install.sh and verify write their real detail into per-fixture logs under the
-# suite's $TMP; the console shows only the assertion line. A red run that keeps
-# no fixtures is undiagnosable after the fact, which is how a flake survived in
-# main for months (docs/FEATURES/CANARY_DETERMINISM.md). Both CI jobs call this
-# so the file filter cannot drift between them.
+# Fixture retention policy lives in scripts/tests/00-helpers.sh; this only copies
+# what a failed run left behind. Both CI jobs call it so the filter cannot drift.
 #
 # Usage: scripts/collect-fixture-logs.sh <suite-output-file> <destination-dir>
 set -uo pipefail
@@ -18,9 +15,12 @@ mkdir -p "$dst"
 base="$(grep '\[keep-tmp\] TMP=' "$suite_out" 2>/dev/null | sed 's/.*TMP=//' | head -1)"
 
 if [ -n "$base" ] && [ -d "$base" ]; then
-  find "$base" -type f \( -name '*.log' -o -name '*.tsv' -o -name '*.json' \
-    -o -name 'lefthook*.yml' -o -name '.gitleaks*.toml' -o -name 'CLAUDE.md' -o -name 'CLAUDE.local.md' \) \
-    -print0 2>/dev/null \
+  # take everything small rather than an allow-list: on a failure-only path
+  # completeness beats artifact size, and a pattern nobody remembered to add is
+  # exactly the "red run with no evidence" this script exists to prevent. The
+  # list had already grown 4 -> 7 patterns while still missing the extensionless
+  # hook stubs, the evidence for the largest failure class here.
+  find "$base" -type d -name objects -prune -o -type f -size -128k -print0 2>/dev/null \
     | while IFS= read -r -d '' f; do
         rel="${f#"$base"/}"
         mkdir -p "$dst/$(dirname "$rel")"
