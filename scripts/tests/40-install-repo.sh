@@ -167,10 +167,16 @@ EOF
   CHAINED="$TMP/chained-repo"
   make_repo "$CHAINED"
   if run_install "$GCFG_CHAIN" --repo "$CHAINED"; then
-    if grep -q "chain wrappers: OK" "$TMP/out.log" \
+    # the last clause is the regression guard: lefthook 2.x ignores a
+    # GIT_CONFIG_* scope override and installs into the GLOBAL hooksPath, which
+    # silently replaced the chain wrappers with its own stubs on a real machine
+    # and went unnoticed for a month
+    if grep -q "local core.hooksPath pinned" "$TMP/out.log" \
        && [[ -f "$CHAINED/.git/hooks/pre-commit" ]] \
-       && grep -q 'git rev-parse --git-dir' "$GHOOKS/pre-commit"; then
-      ok "hooksPath chained: install proceeds, stubs in .git/hooks, wrappers untouched"
+       && [[ "$(git -C "$CHAINED" config --local core.hooksPath)" == *"/.git/hooks" ]] \
+       && grep -q 'git rev-parse --git-dir' "$GHOOKS/pre-commit" \
+       && ! grep -q lefthook "$GHOOKS/pre-commit"; then
+      ok "hooksPath chained: local hooksPath pinned, stubs in .git/hooks, GLOBAL wrappers not clobbered"
     else
       nope "hooksPath chained: wrong path taken (see $TMP/out.log)"
     fi

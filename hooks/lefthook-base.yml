@@ -63,12 +63,20 @@ pre-commit:
     - name: block-env-files
       run: |
         set -u
+        # TEMPLATE files are the documented exception: a repo's setup guide says
+        # `cp .env.ejemplo .env`, so the template must be committable. Blocking it
+        # pushed a real project to rename the file and edit its guide, and the
+        # template had already been missing from the repo for weeks (a .gitignore
+        # of .env.* hid it), so a fresh clone could not follow its own setup.
+        # Their content is still scanned: gitleaks-staged runs on the same commit.
         bad="$(git diff --cached --name-only --diff-filter=ACMR \
-          | grep -E '(^|/)\.env(\..+)?$' | grep -Ev '\.env\.example$' || true)"
+          | grep -E '(^|/)\.env(\..+)?$' \
+          | grep -Eiv '\.env\.(example|ejemplo|sample|template|dist)$' || true)"
         if [ -n "$bad" ]; then
           echo "[hooks] BLOCKED — .env files staged (secrets never enter a commit):" >&2
           echo "$bad" >&2
           echo "[hooks] unstage with: git restore --staged <file>" >&2
+          echo "[hooks] naming a TEMPLATE? .env.example/.ejemplo/.sample/.template/.dist are allowed" >&2
           exit 1
         fi
 
@@ -242,6 +250,28 @@ pre-push:
     # CONSTRUCTION: the config-reading machinery is guarded, so a crash there
     # (parse error, missing command) leaves the commands empty and falls
     # through to the loud warning + exit 0 — never a stray 127 blocking.
+    # Completed tasks left in the backlog: ship DELEGATES archiving to pm-tasks,
+    # but a cycle that closes WITHOUT a formal /ship leaves the [x] items sitting
+    # in TASK_TODO.md, and the monthly archive silently stops answering "what was
+    # built this month". Field feedback: a whole session's [x] items were only
+    # caught by hand. Advisory, never blocks: the whole body is one guarded group.
+    - name: tasks-archive-nudge
+      run: |
+        {
+          todo=""
+          for f in docs/TASK_TODO.md TASK_TODO.md; do
+            [ -f "$f" ] && { todo="$f"; break; }
+          done
+          if [ -n "$todo" ]; then
+            n="$(grep -cE '^[[:space:]]*[-*][[:space:]]+\[[xX]\]' "$todo" 2>/dev/null || echo 0)"
+            if [ "${n:-0}" -gt 0 ]; then
+              echo "[hooks] $n completed task(s) still in $todo -- run: /pm-tasks archive"
+              echo "[hooks]   (they belong in docs/TASK_COMPLETED/YYMM.md; the monthly file"
+              echo "[hooks]    answers 'what was built this month'. Does not block.)"
+            fi
+          fi
+        } 2>/dev/null || true
+
     - name: ship-config-gate
       run: |
         set -u

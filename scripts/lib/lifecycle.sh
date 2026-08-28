@@ -62,6 +62,13 @@ run_unhook() {
   done
 
   echo ""
+  # the local core.hooksPath pin we add when a GLOBAL hooksPath is in play: only
+  # ours (it points at this repo's own .git/hooks), never a project-owned one
+  if [[ "$(git -C "$target" config --local --get core.hooksPath 2>/dev/null)" == "$gitdir/hooks" ]]; then
+    git -C "$target" config --unset core.hooksPath 2>/dev/null \
+      && removed+=("local core.hooksPath pin")
+  fi
+
   echo "-- unhook report ($target)"
   if [[ "${#removed[@]}" -eq 0 ]]; then
     echo "  nothing to remove -- repo was not wired (or already clean)"
@@ -309,8 +316,12 @@ run_upgrade() {
      && command -v lefthook >/dev/null 2>&1 \
      && lefthook_cfg_file "$cwd_root" >/dev/null; then
     cwd_gitdir="$(git -C "$cwd_root" rev-parse --absolute-git-dir)"
-    if ( cd "$cwd_root" && GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath \
-        GIT_CONFIG_VALUE_0="$cwd_gitdir/hooks" lefthook install --force >/dev/null 2>&1 ); then
+    # same trap as repo-wire: lefthook 2.x ignores a GIT_CONFIG_* scope override
+    # and installs into the GLOBAL hooksPath, clobbering the chain wrappers. Pin
+    # a LOCAL hooksPath first, but never over a hooksPath the project set itself.
+    [[ -n "$(git -C "$cwd_root" config --local --get core.hooksPath 2>/dev/null)" ]] \
+      || git -C "$cwd_root" config core.hooksPath "$cwd_gitdir/hooks"
+    if ( cd "$cwd_root" && lefthook install --force >/dev/null 2>&1 ); then
       echo "ok $(basename "$cwd_root"): remotes refreshed (lefthook install re-synced this repo's cache)"
     else
       echo "x $(basename "$cwd_root"): lefthook install failed -- remotes NOT refreshed"
