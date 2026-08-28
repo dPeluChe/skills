@@ -11,6 +11,10 @@ description: >
   prose and typos. Disambiguation: standup closes a SESSION (journal delta across PRs); ship
   closes ONE PR cycle with gates; ship's evidence table is input for standup's journal entry.
   /simplify is a quality pass ship INVOKES; pm-tasks does the task archiving ship DELEGATES.
+  Request-only: fire ONLY when the user explicitly asks to close/ship work as a PR (the informal
+  phrasings above count). NEVER invoke on your own initiative just because a merge, a feature, or a
+  work session finished, and not every project has a PR/deploy flow, so do not assume one. When
+  work wraps and the user has not asked to ship, stop or offer standup, do not run ship.
 allowed-tools: Read, Glob, Grep, Bash, Edit, Write, Skill
 ---
 
