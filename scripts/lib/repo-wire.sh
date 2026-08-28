@@ -222,13 +222,17 @@ wire_repo_hooks() { # $1 = target repo (absolute); full wiring of ONE repo, no e
     bad "global core.hooksPath set but chain wrapper(s) missing for: ${hookspath#broken:} -- each wrapper must delegate to \$(git rev-parse --git-dir)/hooks/<hook>; add them and re-run"
   elif [[ "$hookspath" == "chained" ]]; then
     # lefthook installs into `git rev-parse --git-path hooks`, which honors the
-    # GLOBAL core.hooksPath — a plain --force would clobber the chain wrappers.
-    # Scope-override hooksPath to the local hooks dir so stubs land in
-    # .git/hooks/, exactly where the wrappers delegate.
+    # GLOBAL core.hooksPath. A GIT_CONFIG_* scope override used to keep the stubs
+    # in .git/hooks, but lefthook 2.x reads the global scope directly and answers
+    # "Installing hooks anyway in <global>": it CLOBBERS the chain wrappers and
+    # never writes the repo's lefthook.checksum, so every later hook run retries
+    # the sync and reprints the ~30-line hooksPath warning, forever. Pin a LOCAL
+    # core.hooksPath instead: local beats global, git runs .git/hooks directly,
+    # lefthook installs there, the checksum sticks and the warning stops.
     gitdir="$(git -C "$target" rev-parse --absolute-git-dir)"
-    if ( cd "$target" && GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath \
-        GIT_CONFIG_VALUE_0="$gitdir/hooks" lefthook install --force ); then
-      note "-> global hooksPath with chain wrappers: OK -- lefthook stubs in .git/hooks (invoked via the chain)"
+    git -C "$target" config core.hooksPath "$gitdir/hooks"
+    if ( cd "$target" && lefthook install --force ); then
+      note "-> global hooksPath: local core.hooksPath pinned to .git/hooks; chain wrappers untouched"
     else
       bad "lefthook install --force failed -- see its message above; fix and re-run"
     fi

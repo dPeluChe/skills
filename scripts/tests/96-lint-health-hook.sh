@@ -151,3 +151,53 @@ if grep -q "committing directly to 'main' (the default branch)" "$TMP/db-main.lo
 else
   nope "hook default-branch: warn/silence/opt-out wrong (see $TMP/db-main.log / feat / optout)"
 fi
+
+# ── block-env-files: real .env stays blocked, TEMPLATE names are committable.
+# Field feedback: `.env.ejemplo` (referenced by the repo's own setup guide as
+# `cp .env.ejemplo .env`) was blocked, forcing a rename and a doc edit. Only
+# `.env.example` had an exception. Content is still scanned by gitleaks-staged.
+ENV_HOOK="$(grep -l 'env files staged' "$TMP"/block*.sh 2>/dev/null | head -1)"
+if [[ -n "$ENV_HOOK" ]]; then
+  ok "hook: block-env-files block present in lefthook-base.yml pre-commit"
+  ENVREPO="$TMP/env-templates"
+  make_repo "$ENVREPO"
+  # templates: must pass
+  printf 'API_KEY=\n' > "$ENVREPO/.env.ejemplo"
+  printf 'API_KEY=\n' > "$ENVREPO/.env.example"
+  printf 'API_KEY=\n' > "$ENVREPO/.env.sample"
+  git -C "$ENVREPO" add -A
+  ( cd "$ENVREPO" && sh "$ENV_HOOK" ) > "$TMP/envt.log" 2>&1; envt_rc=$?
+  # a real .env: must block
+  printf 'API_KEY=live\n' > "$ENVREPO/.env"
+  git -C "$ENVREPO" add -f .env 2>/dev/null
+  ( cd "$ENVREPO" && sh "$ENV_HOOK" ) > "$TMP/envr.log" 2>&1; envr_rc=$?
+  if [[ "$envt_rc" -eq 0 && ! -s "$TMP/envt.log" ]] \
+     && [[ "$envr_rc" -eq 1 ]] && grep -q "BLOCKED" "$TMP/envr.log"; then
+    ok "hook block-env-files: .env.ejemplo/.example/.sample pass, a real .env still blocks"
+  else
+    nope "hook block-env-files: template/real split wrong (t=$envt_rc r=$envr_rc, see $TMP/envt.log)"
+  fi
+fi
+
+# ── tasks-archive-nudge: completed tasks left in TASK_TODO are announced on push.
+# ship delegates archiving to pm-tasks, but a cycle closed without a formal /ship
+# leaves [x] items behind and the monthly archive stops telling the truth.
+TN_HOOK="$(grep -l 'completed task(s) still in' "$TMP"/block*.sh 2>/dev/null | head -1)"
+if [[ -n "$TN_HOOK" ]]; then
+  ok "hook: tasks-archive-nudge block present in lefthook-base.yml pre-push"
+  TNREPO="$TMP/tasks-nudge"
+  make_repo "$TNREPO"
+  mkdir -p "$TNREPO/docs"
+  printf -- '- [x] shipped one\n- [ ] still pending\n  - [X] shipped two\n' > "$TNREPO/docs/TASK_TODO.md"
+  ( cd "$TNREPO" && sh "$TN_HOOK" ) > "$TMP/tn-hit.log" 2>&1; tn_rc=$?
+  printf -- '- [ ] only pending\n' > "$TNREPO/docs/TASK_TODO.md"
+  ( cd "$TNREPO" && sh "$TN_HOOK" ) > "$TMP/tn-clean.log" 2>&1
+  if [[ "$tn_rc" -eq 0 ]] \
+     && grep -q "2 completed task(s) still in docs/TASK_TODO.md" "$TMP/tn-hit.log" \
+     && grep -q "pm-tasks archive" "$TMP/tn-hit.log" \
+     && [[ ! -s "$TMP/tn-clean.log" ]]; then
+    ok "hook tasks-archive-nudge: counts [x] items, points at /pm-tasks archive, silent when none, exit 0"
+  else
+    nope "hook tasks-archive-nudge: wrong count/silence (rc=$tn_rc, see $TMP/tn-hit.log)"
+  fi
+fi
