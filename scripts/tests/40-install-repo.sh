@@ -177,6 +177,23 @@ EOF
        && grep -q 'git rev-parse --git-dir' "$GHOOKS/pre-commit" \
        && ! grep -q lefthook "$GHOOKS/pre-commit"; then
       ok "hooksPath chained: local hooksPath pinned, stubs in .git/hooks, GLOBAL wrappers not clobbered"
+
+      # staleness: repos wired BEFORE the pin existed keep retrying lefthook's
+      # sync and reprint the ~30-line warning forever. verify must SAY so (the
+      # fix cannot propagate if nothing announces it) and re-wiring must heal it.
+      git -C "$CHAINED" config --unset core.hooksPath          # back to the old convention
+      run_install "$GCFG_CHAIN" --repo "$CHAINED" --verify || true   # writes $TMP/out.log
+      cp "$TMP/out.log" "$TMP/stale-v.log"
+      run_install "$GCFG_CHAIN" --repo "$CHAINED" || true
+      cp "$TMP/out.log" "$TMP/stale-heal.log"
+      if grep -q "stale wiring: no local core.hooksPath pin" "$TMP/stale-v.log" \
+         && grep -q "Re-run: flowkit hooks" "$TMP/stale-v.log" \
+         && grep -q "wired before the local pin existed" "$TMP/stale-heal.log" \
+         && [[ -n "$(git -C "$CHAINED" config --local --get core.hooksPath)" ]]; then
+        ok "hooksPath stale: verify names the old convention, re-wiring pins it and says so"
+      else
+        nope "hooksPath stale: warning or healing missing (see $TMP/stale-v.log / stale-heal.log)"
+      fi
     else
       nope "hooksPath chained: wrong path taken (see $TMP/out.log)"
     fi

@@ -126,6 +126,18 @@ canary_secret_scan() { # $1 = target repo. EFFICACY probe of the EFFECTIVE gate,
   return 0
 }
 
+hookspath_pin_stale() { # $1 = target. 0 when this repo was wired BEFORE the local
+  # core.hooksPath pin existed: a GLOBAL hooksPath is in play and the repo has no
+  # local pin, so lefthook retries its hook sync on every run, cannot complete it,
+  # and reprints the ~30-line "core.hooksPath is set globally" block forever.
+  # The hooks DO run, so this is a staleness WARNING, never a verify failure.
+  # Fix is one command: flowkit hooks.
+  local gp
+  gp="$(git config --global core.hooksPath 2>/dev/null || true)"
+  [[ -n "$gp" ]] || return 1
+  [[ -z "$(git -C "$1" config --local --get core.hooksPath 2>/dev/null || true)" ]]
+}
+
 lefthook_cfg_file() { # $1 = target; prints the config file referencing our remote
   local target="$1" f
   for f in lefthook.yml lefthook-local.yml; do
@@ -271,6 +283,12 @@ verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification: config
       rc=1
     fi
   done
+  # staleness, not failure: the wiring works, it is just the older convention and
+  # it costs ~30 lines of lefthook noise on every git operation in this repo
+  if hookspath_pin_stale "$target"; then
+    echo "! stale wiring: no local core.hooksPath pin, so lefthook retries its sync every run"
+    echo "  (that is the repeated 'core.hooksPath is set globally' block). Re-run: flowkit hooks"
+  fi
   if [[ "$rc" -eq 0 ]]; then
     echo "-- verify: PASS (hooks active end-to-end)"
   else
