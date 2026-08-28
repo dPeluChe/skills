@@ -117,6 +117,8 @@ The during-development cadence. Window = since the last journal entry of today (
 - **Completed tasks**: does TASK_TODO.md contain items this change completed? → route: "run `/pm-tasks archive`"
 - With [trs](https://usetrs.dev): `trs ingest --changed` or `--since <ref>` gives exactly the changed-files digest for this check
 
+**2b. Retro lens (optional, disciplined).** Beyond what the work invalidated, notice what slowed THIS session down and would make the next one better. Categories: navigation (a pointer the agent lacked), a missing automated check, coding-standard drift, AGENTS.md/CLAUDE.md hygiene (stale or bloated), tool economy (calls that were wasted), a no-op (a step that did nothing), or information the agent could not reach. **Do not propose by default:** surface a finding ONLY when it is concrete, sits on a named surface, one reusable rule would prevent it, and it recurred or was costly this session; a speculative "maybe improve X" is worse than none. Route each, never apply it (standup edits nothing but its journal): a doc or navigation gap → `/doctos`; a task → `/pm-tasks`; a skill or doctrine gap → flag it as a suggestion for the user to act on. Most sessions surface nothing here, and that is the correct default.
+
 **3. Journal append.** Write to `docs/JOURNAL/STANDUP_<YYMMDD>.md` for TODAY:
 - File doesn't exist → create it with the entry
 - File exists (earlier run today) → **append** a new timestamped section; never rewrite earlier sections
@@ -127,6 +129,7 @@ The during-development cadence. Window = since the last journal entry of today (
 
 **Delta**: outcome bullets with evidence links
 **Impact**: stale docs / undocumented surface / completed tasks (or "none")
+**Retro**: friction worth fixing this session + where routed (or "none")
 **Routed**: /doctos: ... · /pm-tasks: ... (or "none")
 ```
 
