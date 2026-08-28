@@ -62,14 +62,6 @@ code and not in the tests.
   neutering the generic detector through its own `[allowlist]` would now show a
   green canary. Restoring that probe would mean feeding a heuristic rule again,
   which is the practice this whole document argues against.
-- **The probe can now tell its own rot from a gate failure** (`canary_shape_rotted`
-  in `verify.sh`). Determinism fixes the input, not the environment: the shapes
-  depend on whatever gitleaks the user has installed, so the day a bundled rule is
-  renamed or dropped, every install would have printed the same false alarm, this
-  time 100% of the time. On the failure path only, each UNSEEN shape is re-scanned
-  against the reference ruleset; if it is undetectable there too, the shape is
-  dead rather than the gate, and verify says so (rc 5) instead of accusing the
-  gate. Zero cost when everything is caught.
 - **Regression guard** (`scripts/tests/90-gitleaks-scope.sh`): asserts the panel
   is a **pure function** (two calls byte-identical, so re-introducing a random
   draw fails loudly instead of flaking), that it still emits 6 shapes, that every
@@ -86,6 +78,17 @@ code and not in the tests.
 - **Named assertion** (`scripts/tests/70-field-feedback.sh`): the verify-report
   check now says which line was missing and echoes the verify verdict lines,
   so the console alone shows the cause.
+
+## Deferred: telling probe rot from a gate failure
+
+Determinism fixes the probe's input, not its environment. The shapes still depend
+on whatever gitleaks the user has installed, so the day a bundled rule is renamed
+or dropped, `verify` would blame the gate. A first attempt at this (re-scanning an
+UNSEEN shape against the reference ruleset, and reporting rot instead of failure
+when it is undetectable there too) passed locally 10 out of 10 but made CI report
+PASS on the `drop-rule` fixture, which must FAIL. Since that direction can suppress
+a REAL "the gate stopped blocking" verdict, it was removed rather than left in on a
+hunch. It is worth re-landing only with a reproduction and a CI-proven guard.
 
 ## Rule this leaves behind
 

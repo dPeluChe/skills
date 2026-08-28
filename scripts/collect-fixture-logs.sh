@@ -19,7 +19,7 @@ base="$(grep '\[keep-tmp\] TMP=' "$suite_out" 2>/dev/null | sed 's/.*TMP=//' | h
 
 if [ -n "$base" ] && [ -d "$base" ]; then
   find "$base" -type f \( -name '*.log' -o -name '*.tsv' -o -name '*.json' \
-    -o -name 'lefthook*.yml' -o -name 'CLAUDE.md' -o -name 'CLAUDE.local.md' \) \
+    -o -name 'lefthook*.yml' -o -name '.gitleaks*.toml' -o -name 'CLAUDE.md' -o -name 'CLAUDE.local.md' \) \
     -print0 2>/dev/null \
     | while IFS= read -r -d '' f; do
         rel="${f#"$base"/}"

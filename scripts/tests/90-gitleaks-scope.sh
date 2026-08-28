@@ -436,32 +436,3 @@ if command -v gitleaks >/dev/null 2>&1; then
   fi
 fi
 
-# ── probe rot vs gate failure. A shape the REFERENCE ruleset itself no longer
-# detects (gitleaks renamed or dropped a bundled rule) must NOT be reported as
-# "your gate stopped blocking": that false alarm is the same class as the random
-# draws this panel was fixed for, only permanent. Fixture: drop the postgres rule
-# from the repo-local config AND from the cached central ruleset, so the shape is
-# undetectable anywhere. Expected: SHAPE ROTTED, verify still PASSes (wiring is
-# fine, efficacy for that shape is unproven, not failed).
-GSROT="$TMP/gs-rotted-shape"
-make_repo "$GSROT"
-run_gs --repo "$GSROT" || true
-gs_rot_cfg="$(find "$GSROT/.git/info/lefthook-remotes" -path '*/hooks/.gitleaks.toml' 2>/dev/null | head -1)"
-if [ -n "$gs_rot_cfg" ]; then
-  # strip the postgres rule from BOTH the repo-local override and the reference
-  python3 - "$gs_rot_cfg" "$GSROT/.gitleaks.toml" <<'PY'
-import re, sys
-src = open(sys.argv[1]).read()
-out = re.sub(r'\[\[rules\]\]\nid = "dpeluche-postgres-uri".*?(?=\[\[rules\]\]|\Z)', '', src, flags=re.S)
-open(sys.argv[1], "w").write(out)
-open(sys.argv[2], "w").write(out)
-PY
-  if run_gs --repo "$GSROT" --verify \
-     && grep -q "postgres-uri: SHAPE ROTTED" "$TMP/out.log" \
-     && grep -q "the PROBE rotted, not the gate" "$TMP/out.log" \
-     && grep -q -- "-- verify: PASS" "$TMP/out.log"; then
-    ok "probe rot: a shape the reference ruleset cannot detect reports SHAPE ROTTED, verify still PASSes"
-  else
-    nope "probe rot: undetectable shape must not be blamed on the gate (see $TMP/out.log)"
-  fi
-fi
