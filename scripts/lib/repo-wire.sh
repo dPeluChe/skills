@@ -230,6 +230,11 @@ wire_repo_hooks() { # $1 = target repo (absolute); full wiring of ONE repo, no e
     # core.hooksPath instead: local beats global, git runs .git/hooks directly,
     # lefthook installs there, the checksum sticks and the warning stops.
     gitdir="$(git -C "$target" rev-parse --absolute-git-dir)"
+    # say it out loud when an already-wired repo is being brought up to the
+    # current convention: this is the moment the recurring warning stops, and
+    # `flowkit hooks` is the entry point everyone already runs
+    [[ -n "$(git -C "$target" config --local --get core.hooksPath 2>/dev/null)" ]] \
+      || note "-> wired before the local pin existed: pinning now (this is what stops the repeated lefthook sync warning)"
     git -C "$target" config core.hooksPath "$gitdir/hooks"
     if ( cd "$target" && lefthook install --force ); then
       note "-> global hooksPath: local core.hooksPath pinned to .git/hooks; chain wrappers untouched"
