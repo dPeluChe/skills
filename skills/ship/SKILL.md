@@ -112,6 +112,14 @@ Key semantics, with defaults only where safe:
 1. **Lint**: repo's lint command, 0 errors AND 0 warnings; no new `eslint-disable` (or
    equivalent) introduced by the diff.
 2. **Build/tests**: repo's commands, exit 0. Use the configured isolated variant when declared.
+   **A gate command must run in a FRESH CLONE.** If it needs a file that does not travel with
+   the repo, it is not a gate, it is a local ritual: it passes on the machine that already has
+   the file and fails for everyone else, including CI. Field case: `build: docker compose
+   config -q` failed because `compose.yaml` requires a `.env` that is correctly gitignored, so
+   validating meant hand-copying the template first. Fix the command, not the clone: point it
+   at the committed template (`--env-file env.ejemplo`), or make the missing input explicit and
+   fail with that message. When you hit one, say so and propose the corrected line for the
+   repo's `## ship config` instead of silently working around it.
 3. **LOC**: a file over `loc_limit` that IS part of the current work → do the split RIGHT
    THERE, same branch, same cycle, before creating the PR (the split is part of the work, not
    a separate PR). A legacy file over the limit that was barely touched or only detected in
@@ -167,6 +175,13 @@ someone's code silently.
 
 ## Step 4: PR on the CURRENT branch
 
+- **Check whether the ground moved first.** In repos where the owner also pushes directly while
+  an agent works, the spec you implemented against can be rewritten under you. Before opening the
+  PR, fetch and diff the base against where this session started, scoped to the files the work
+  was based on: `git fetch -q origin && git diff --stat <session-start-sha>..origin/<base> -- <those files>`.
+  Anything there is a finding: say what changed and let the user decide (rebase, adjust, or
+  proceed) instead of opening a PR against a spec that no longer exists. Field case: a spec point
+  was rewritten mid-implementation and only surfaced by accident in the merge output.
 - **Never create a new branch without being asked** (recurring correction in the corpus). The
   branch you're on is the branch that ships. Exception: commits stranded on a protected main,
   see Step 0.
