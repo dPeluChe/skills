@@ -109,6 +109,9 @@ ALWAYS use this structure:
 ## Core modules
 The 3-5 load-bearing pieces (from the import graph or entry-point analysis), one line each.
 
+## Architecture sketch (optional, only when it helps)
+One small diagram when the structure or a key flow is hard to grasp in prose; omit it otherwise.
+
 ## Where things stand
 Recent work (last N commits summarized in human language), unfinished threads
 (branches, uncommitted changes, WIP markers), and anything that blocks starting.
@@ -128,6 +131,8 @@ grep/command the user can run to re-confirm the finding themselves: trust, but v
 
 **Status: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT** (+ one line when not DONE)
 ```
+
+**On the architecture sketch.** Include it only when a diagram raises signal over the prose, never by default. Pick the SMALLEST view that makes the point, and match its shape to what is confusing: an import/call tree for "how do these modules depend on each other" (feed it straight from the `trs ingest --deps` graph), a file/folder tree for "how is this laid out", or a short flow for a request/data path. Use a Mermaid block or a plain ASCII tree, keep only the nodes the reader needs, and do not draw one just to have one. One diagram at most; if two would be needed, the prose is clearer.
 
 **Checkpoint (optional).** Offer to save the report as `docs/JOURNAL/KICKOFF_<YYMMDD>.md`, the project's dated logbook (see doctos' standard structure). If previous `KICKOFF_*` or `STANDUP_*` entries exist there, read the latest first and note what changed since: a kickoff that diffs against its predecessor turns "where was I?" into a 10-second answer. JOURNAL convention: one file per day per type; a same-day re-run appends a timestamped section; past days are closed records, never edited.
 
