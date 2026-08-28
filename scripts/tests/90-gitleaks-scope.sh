@@ -293,7 +293,7 @@ EOF
      && grep -q "postgres-uri: caught" "$TMP/out.log" \
      && grep -q "sentry-dsn: caught" "$TMP/out.log" \
      && grep -q "iteris-token: caught" "$TMP/out.log" \
-     && grep -q "generic-high-entropy: caught" "$TMP/out.log" \
+     && grep -q "default-ruleset: caught" "$TMP/out.log" \
      && ! grep -q "UNSEEN" "$TMP/out.log"; then
     ok "verify breakdown: central config -> commit-msg + jobs + FULL canary panel caught (no UNSEEN)"
   else
@@ -370,4 +370,98 @@ if grep -q "1 problem(s) found" "$TMP/ps.log" \
   ok "problem_summary: repeats the problem line next to 'N problem(s) found'"
 else
   nope "problem_summary: problem not echoed next to the summary (see $TMP/ps.log)"
+fi
+
+# ── canary panel guard: the panel must be DETERMINISTIC and every shape must be
+# detectable. A random draw here silently became a "your gate stopped blocking"
+# alarm ~1% of the time (docs/FEATURES/CANARY_DETERMINISM.md), so the first
+# assertion below is the one that matters: it fails loudly if randomness ever
+# comes back, instead of flaking a fraction of the time like the bug it replaced.
+if command -v gitleaks >/dev/null 2>&1; then
+  # (a) determinism: canary_panel must be a pure function. Command substitution
+  # already runs it in a subshell, so the suite's own state is never clobbered.
+  # shellcheck disable=SC1091  # lib is sourced at runtime, path known only then
+  cp_a="$(source "$REPO_DIR/scripts/lib/verify.sh"; canary_panel)"
+  # shellcheck disable=SC1091
+  cp_b="$(source "$REPO_DIR/scripts/lib/verify.sh"; canary_panel)"
+  if [ "$cp_a" = "$cp_b" ]; then
+    ok "canary panel: deterministic (two calls byte-identical, no random draw)"
+  else
+    nope "canary panel: NOT deterministic -- two calls differ, so the suite would flake instead of failing"
+  fi
+
+  # (b) shape count: a shape silently dropped is coverage silently lost
+  CPDIR="$TMP/canary-panel"; mkdir -p "$CPDIR"
+  cp_n=0
+  while IFS=$'\t' read -r cp_label cp_content; do
+    [ -n "$cp_label" ] || continue
+    printf '%s\n' "$cp_content" > "$CPDIR/$cp_label.txt"
+    cp_n=$((cp_n + 1))
+  done <<< "$cp_a"
+  if [ "$cp_n" -eq 6 ]; then
+    ok "canary panel: emits the expected 6 shapes"
+  else
+    nope "canary panel: expected 6 shapes, got $cp_n"
+  fi
+
+  cp_unseen() { # $1 = gitleaks config -> labels that config does NOT detect
+    local f out=""
+    for f in "$CPDIR"/*.txt; do
+      # gitleaks exits 0 when it finds nothing: that is the UNSEEN case
+      gitleaks detect --no-git --source "$f" --config "$1" >/dev/null 2>&1 \
+        && out="$out $(basename "$f" .txt)"
+    done
+    printf '%s' "${out# }"
+  }
+
+  # (c) detectability baseline, and the control the useDefault check below reads
+  # against (the hook-level assertion earlier in this file is the authoritative
+  # one; this is a direct scan, deliberately lower fidelity but differential)
+  cp_missed="$(cp_unseen "$REPO_DIR/hooks/.gitleaks.toml")"
+  if [ -z "$cp_missed" ]; then
+    ok "canary panel: every shape detected by the central config (baseline for the useDefault check)"
+  else
+    nope "canary panel: shape(s) NOT detected by the central config: $cp_missed"
+  fi
+
+  # (d) the default-ruleset shape earns its place only if it is the ONE shape
+  # that stops being caught without '[extend] useDefault = true'
+  sed 's/useDefault = true/useDefault = false/' "$REPO_DIR/hooks/.gitleaks.toml" \
+    > "$TMP/panel-nodefault.toml"
+  cp_nd="$(cp_unseen "$TMP/panel-nodefault.toml")"
+  if [ "$cp_nd" = "default-ruleset" ]; then
+    ok "canary panel: default-ruleset is exactly the shape that needs [extend] useDefault = true"
+  else
+    nope "canary panel: with useDefault=false expected only 'default-ruleset' unseen, got: '${cp_nd:-none}'"
+  fi
+fi
+
+# ── probe rot vs gate failure. A shape the REFERENCE ruleset itself no longer
+# detects (gitleaks renamed or dropped a bundled rule) must NOT be reported as
+# "your gate stopped blocking": that false alarm is the same class as the random
+# draws this panel was fixed for, only permanent. Fixture: drop the postgres rule
+# from the repo-local config AND from the cached central ruleset, so the shape is
+# undetectable anywhere. Expected: SHAPE ROTTED, verify still PASSes (wiring is
+# fine, efficacy for that shape is unproven, not failed).
+GSROT="$TMP/gs-rotted-shape"
+make_repo "$GSROT"
+run_gs --repo "$GSROT" || true
+gs_rot_cfg="$(find "$GSROT/.git/info/lefthook-remotes" -path '*/hooks/.gitleaks.toml' 2>/dev/null | head -1)"
+if [ -n "$gs_rot_cfg" ]; then
+  # strip the postgres rule from BOTH the repo-local override and the reference
+  python3 - "$gs_rot_cfg" "$GSROT/.gitleaks.toml" <<'PY'
+import re, sys
+src = open(sys.argv[1]).read()
+out = re.sub(r'\[\[rules\]\]\nid = "dpeluche-postgres-uri".*?(?=\[\[rules\]\]|\Z)', '', src, flags=re.S)
+open(sys.argv[1], "w").write(out)
+open(sys.argv[2], "w").write(out)
+PY
+  if run_gs --repo "$GSROT" --verify \
+     && grep -q "postgres-uri: SHAPE ROTTED" "$TMP/out.log" \
+     && grep -q "the PROBE rotted, not the gate" "$TMP/out.log" \
+     && grep -q -- "-- verify: PASS" "$TMP/out.log"; then
+    ok "probe rot: a shape the reference ruleset cannot detect reports SHAPE ROTTED, verify still PASSes"
+  else
+    nope "probe rot: undetectable shape must not be blamed on the gate (see $TMP/out.log)"
+  fi
 fi

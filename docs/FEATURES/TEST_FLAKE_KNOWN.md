@@ -28,3 +28,11 @@ hardcoded refs.
 Result: the suite never touches github; 153/153 deterministic across runs. The
 one remaining github call is `run_upgrade`'s `git fetch origin` on the real
 skills clone (once per suite run) -- real behavior, not enough to rate-limit.
+
+---
+
+## Not the same as the ~1/3 flake
+
+A second, unrelated flake survived this one: `canary_panel` drew RANDOM values,
+and gitleaks' stopword filter dropped ~1% of them, which the canary reported as
+a security regression. Root cause, evidence and fix: `CANARY_DETERMINISM.md`.

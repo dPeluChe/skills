@@ -17,12 +17,20 @@ if command -v lefthook >/dev/null 2>&1 && command -v gitleaks >/dev/null 2>&1; t
   FFOK="$TMP/ff-ok"
   make_repo "$FFOK"
   if run_ff --repo "$FFOK"; then
-    if grep -q -- "-- verify: PASS" "$TMP/out.log" \
-       && grep -q "ok pre-commit: effective hooksPath invokes lefthook" "$TMP/out.log" \
-       && grep -q "ok gitleaks:" "$TMP/out.log"; then
+    # name WHICH line is missing and echo the verify verdict lines: CI keeps no
+    # fixture logs on a green-path job, so a bare "report missing" costs a whole
+    # investigation to re-derive (that is how the canary flake stayed unsolved)
+    ff_missing=""
+    for ff_pat in "-- verify: PASS" \
+                  "ok pre-commit: effective hooksPath invokes lefthook" \
+                  "ok gitleaks:"; do
+      grep -q -- "$ff_pat" "$TMP/out.log" || ff_missing="$ff_missing '$ff_pat'"
+    done
+    if [ -z "$ff_missing" ]; then
       ok "install closes with the effective-state verification (verify: PASS)"
     else
-      nope "install did not close with a real verify report (see $TMP/out.log)"
+      nope "install did not close with a real verify report -- missing:$ff_missing (see $TMP/out.log)"
+      grep -nE "^(x |- canary|-- verify)" "$TMP/out.log" | sed 's/^/    /'
     fi
   else
     nope "healthy wire for the verify fixture exited non-zero"
