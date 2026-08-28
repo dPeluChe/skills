@@ -32,8 +32,25 @@ jobs:
           python3 --version
           bash --version | head -1
 
+      # the suite keeps its fixtures when it FAILS (scripts/tests/00-helpers.sh)
+      # and wipes them when it passes, so a red gate can ship its own evidence
+      # at no cost to a green one.
       - name: Run hook suite
-        run: bash scripts/test-hooks.sh
+        run: |
+          set -o pipefail
+          bash scripts/test-hooks.sh 2>&1 | tee "$RUNNER_TEMP/suite.out"
+
+      - name: Collect fixture logs (failure only)
+        if: failure()
+        run: bash scripts/collect-fixture-logs.sh "$RUNNER_TEMP/suite.out" "$RUNNER_TEMP/diag"
+
+      - name: Upload fixture logs (failure only)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-diag-${{ github.run_id }}
+          path: ${{ runner.temp }}/diag
+          if-no-files-found: warn
 
   # ── diagnose (manual): run the suite keeping every fixture, then upload the
   # per-fixture logs as an artifact. install.sh/verify write their stderr to
@@ -49,30 +66,16 @@ jobs:
       - name: Install tools (shellcheck, gitleaks, lefthook)
         run: brew install shellcheck gitleaks lefthook
 
-      - name: Run suite (keep fixtures), capture TMP path
+      # FLOWKIT_KEEP_TMP forces keeping fixtures even on a GREEN run: that is the
+      # one thing gate cannot give you, and the reason this manual job exists.
+      - name: Run suite (keep fixtures even when green)
         env:
           FLOWKIT_KEEP_TMP: "1"
-        run: |
-          bash scripts/test-hooks.sh 2>&1 | tee "$RUNNER_TEMP/suite.out" || true
-          grep '\[keep-tmp\] TMP=' "$RUNNER_TEMP/suite.out" | sed 's/.*TMP=//' \
-            | head -1 > "$RUNNER_TEMP/keeptmp.path"
-          echo "suite TMP = $(cat "$RUNNER_TEMP/keeptmp.path")"
+        run: bash scripts/test-hooks.sh 2>&1 | tee "$RUNNER_TEMP/suite.out" || true
 
       - name: Collect fixture logs
         if: always()
-        run: |
-          base="$(cat "$RUNNER_TEMP/keeptmp.path" 2>/dev/null)"
-          dst="$RUNNER_TEMP/diag"; mkdir -p "$dst"
-          if [ -n "$base" ] && [ -d "$base" ]; then
-            find "$base" -type f \( -name '*.log' -o -name 'lefthook.yml' \
-              -o -name 'CLAUDE.md' -o -name 'CLAUDE.local.md' \) -print0 2>/dev/null \
-              | while IFS= read -r -d '' f; do
-                  rel="${f#"$base"/}"
-                  mkdir -p "$dst/$(dirname "$rel")"
-                  cp "$f" "$dst/$rel" 2>/dev/null || true
-                done
-          fi
-          echo "collected file count: $(find "$dst" -type f 2>/dev/null | wc -l)"
+        run: bash scripts/collect-fixture-logs.sh "$RUNNER_TEMP/suite.out" "$RUNNER_TEMP/diag"
 
       - name: Upload fixture logs
         if: always()

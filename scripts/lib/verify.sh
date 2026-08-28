@@ -19,27 +19,64 @@ print(len(hook.get("jobs") or []) + len(hook.get("commands") or {}))
 }
 
 canary_panel() { # prints "label<TAB>line-content", one synthetic secret per
-  # CENTRAL CUSTOM rule in hooks/.gitleaks.toml + a generic high-entropy value
-  # (proves [extend] useDefault = true is still on). Every value is ASSEMBLED
-  # AT RUNTIME from fragments so no secret-shaped literal ever lives in this
-  # file -- the secret-guard blocks those (and would block this very file).
-  # High-entropy pieces come from /dev/urandom via head|tr|cut (head reads a
-  # finite slice, so no pipe closes upstream -- no SIGPIPE under pipefail).
+  # CENTRAL CUSTOM rule in hooks/.gitleaks.toml + one DEFAULT-ruleset shape
+  # (proves [extend] useDefault = true is still on).
+  #
+  # Two constraints shape this function:
+  # 1. Values are ASSEMBLED from split fragments so no secret-shaped literal
+  #    ever lives here: this repo scans its own source, and a literal would be
+  #    blocked by the very gate the panel probes.
+  # 2. Values are DETERMINISTIC. A probe must never feed a random input to a
+  #    heuristically-filtered rule: random draws hit gitleaks' generic-api-key
+  #    STOPWORD filter ~1% of the time and were reported as a gate regression.
+  #    Root cause, evidence and arithmetic: docs/FEATURES/CANARY_DETERMINISM.md.
+  #
   # The postgres host avoids 'example'/'placeholder' -- those are allowlisted
   # and would make a real block read as UNSEEN.
-  local hex64 hex32 akia gen iter24 pgpw
+  local hex64 hex32 akia strp iter24 pgpw
   hex64="$(printf '0123456789abcdef%.0s' 1 2 3 4)"
   hex32="$(printf '0123456789abcdef%.0s' 1 2)"
   akia="$(printf 'AKIA%s' '2J94QXKZR7T3W8Y5')"
-  gen="$(head -c 400 /dev/urandom 2>/dev/null | LC_ALL=C tr -dc 'A-Za-z0-9' | cut -c1-40)"
-  iter24="$(head -c 400 /dev/urandom 2>/dev/null | LC_ALL=C tr -dc 'A-Za-z0-9' | cut -c1-24)"
-  pgpw="$(head -c 400 /dev/urandom 2>/dev/null | LC_ALL=C tr -dc 'A-Za-z0-9' | cut -c1-16)"
+  # strict-format DEFAULT rule (stripe-access-token): no entropy or stopword
+  # heuristic, so it is caught whenever useDefault is on and missed the moment
+  # it is turned off, which is the regression this shape exists to catch
+  strp='sk_''live_''4eC39HqLyjWDarjtT1zdp7dc'
+  iter24="$(printf 'Kq7Xm2Vt%.0s' 1 2 3)"
+  pgpw="$(printf 'Rn5Wd8Jb%.0s' 1 2)"
   printf 'dpat\ttoken = "dpat_%s"\n' "$hex64"
   printf 'aws\tkey = "%s"\n' "$akia"
   printf 'postgres-uri\turl = "%s%s:%s%s"\n' 'postgres''ql://' 'svcuser' "$pgpw" '@db.prod.internal/appdb'
   printf 'sentry-dsn\tdsn = "https://%s@o987654.ingest.sentry.io/7654321"\n' "$hex32"
   printf 'iteris-token\tITERIS_SYNC_TOKEN=sync_%s\n' "$iter24"
-  printf 'generic-high-entropy\tapi_key = "%s"\n' "$gen"
+  printf 'default-ruleset\tkey = "%s"\n' "$strp"
+}
+
+canary_reference_config() { # $1 = target repo; prints the CENTRAL ruleset the
+  # hook resolves from the lefthook remotes cache (same lookup as the
+  # gitleaks-staged job in hooks/lefthook-base.yml), or nothing.
+  # `rev-parse --git-common-dir` answers RELATIVE (".git") even under `-C`, so it
+  # must be resolved from inside the repo or the find silently searches the
+  # caller's cwd and every shape looks real.
+  ( cd "$1" 2>/dev/null || exit 0
+    d="$(git rev-parse --git-common-dir 2>/dev/null)" || exit 0
+    case "$d" in /*) ;; *) d="$PWD/$d" ;; esac
+    find "$d/info/lefthook-remotes" -path '*/hooks/.gitleaks.toml' 2>/dev/null | head -1 )
+}
+
+canary_shape_rotted() { # $1 = shape content, $2 = reference config. 0 = this
+  # shape is not detectable by the REFERENCE ruleset at all, so an UNSEEN
+  # verdict means the PROBE rotted (gitleaks renamed, tightened or dropped the
+  # rule), not that the gate stopped blocking. 1 = the shape IS detectable, so
+  # UNSEEN is a real gate failure. Runs only on the failure path: zero cost
+  # when every shape is caught.
+  local f rc
+  [[ -n "$2" && -f "$2" ]] || return 1   # cannot prove rot -> treat as real
+  f="$(mktemp)" || return 1
+  printf '%s\n' "$1" > "$f"
+  gitleaks detect --no-git --source "$f" --config "$2" >/dev/null 2>&1
+  rc=$?
+  rm -f "$f"
+  [[ "$rc" -eq 0 ]]                      # gitleaks exit 0 = nothing found = dead shape
 }
 
 canary_secret_scan() { # $1 = target repo. EFFICACY probe of the EFFECTIVE gate,
@@ -58,9 +95,10 @@ canary_secret_scan() { # $1 = target repo. EFFICACY probe of the EFFECTIVE gate,
   # (dropped rule / hook crash without a leak verdict), 2 = probe could not run,
   # 3 = no effective pre-commit hook exists, 4 = no HEAD yet (fresh repo -- a
   # legitimate state, NOT a failure: the canary is deferred until the first commit).
-  local target="$1" gitdir tmpidx blob out hookfile label content
-  local -a unseen=()
-  CANARY_REPORT=""; CANARY_UNSEEN=""
+  local target="$1" gitdir tmpidx blob out hookfile label content refcfg
+  local -a unseen=() rotted=()
+  CANARY_REPORT=""; CANARY_UNSEEN=""; CANARY_ROTTED=""
+  refcfg="$(canary_reference_config "$target")"
   git -C "$target" rev-parse HEAD >/dev/null 2>&1 || return 4
   gitdir="$(git -C "$target" rev-parse --absolute-git-dir)" || return 2
   hookfile="$(effective_hooks_dir "$target")/pre-commit"
@@ -95,8 +133,17 @@ canary_secret_scan() { # $1 = target repo. EFFICACY probe of the EFFECTIVE gate,
     # the verdict comes from the hook git executes, never from a direct scanner
     # call: "the scanner would flag it" is not "the commit gets blocked".
     if out="$(cd "$target" && GIT_INDEX_FILE="$tmpidx" "$hookfile" 2>&1)"; then
-      CANARY_REPORT+="  - $label: UNSEEN"$'\n'   # the commit would have gone through
-      unseen+=("$label")
+      # the commit would have gone through. Before calling that a gate failure,
+      # prove the shape is still detectable AT ALL by the reference ruleset:
+      # otherwise the probe rotted (gitleaks changed) and blaming the gate would
+      # be the same false alarm the random draws used to raise.
+      if canary_shape_rotted "$content" "$refcfg"; then
+        CANARY_REPORT+="  - $label: SHAPE ROTTED (reference ruleset no longer detects it)"$'\n'
+        rotted+=("$label")
+      else
+        CANARY_REPORT+="  - $label: UNSEEN"$'\n'
+        unseen+=("$label")
+      fi
     elif grep -q "leaks found" <<<"$out"; then
       CANARY_REPORT+="  - $label: caught"$'\n'   # blocked, and blocked BY the secret
     else
@@ -110,7 +157,9 @@ canary_secret_scan() { # $1 = target repo. EFFICACY probe of the EFFECTIVE gate,
   # `set -u` is an "unbound variable" fatal in bash 3.2 (macOS system bash), the
   # very case that means the gate WORKS. Caught by CI (runner bash 3.2 vs dev 5.x).
   CANARY_UNSEEN="${unseen[*]:-}"
+  CANARY_ROTTED="${rotted[*]:-}"
   [[ "${#unseen[@]}" -eq 0 ]] || return 1
+  [[ "${#rotted[@]}" -eq 0 ]] || return 5   # probe rot, NOT a gate regression
   return 0
 }
 
@@ -217,6 +266,8 @@ verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification: config
         1) echo "x canary: shape(s) passed the effective pre-commit hook UNSEEN: $CANARY_UNSEEN ($(gitleaks_config_label "$target")) -- these central rules stopped blocking (dropped rules -- a repo-local .gitleaks.toml must keep [extend] useDefault = true AND re-declare the central rules -- inert config merging 0 jobs, or a hook crash without a leak verdict)"
            printf '%s' "$CANARY_REPORT"
            rc=1 ;;
+        5) echo "- canary: shape(s) the reference ruleset itself no longer detects: $CANARY_ROTTED (gitleaks $(tool_version gitleaks)) -- the PROBE rotted, not the gate; efficacy unproven for those shapes, wiring checks above still hold"
+           printf '%s' "$CANARY_REPORT" ;;
         3) echo "x canary: no effective pre-commit hook -- git would run NOTHING at commit time (expected at $ehp/pre-commit)"
            rc=1 ;;
         4) echo "- canary: DEFERRED -- no commit yet (fresh repo); efficacy is probed from the first commit on. Wiring above is active (not a failure)." ;;

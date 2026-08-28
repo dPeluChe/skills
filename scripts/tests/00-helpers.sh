@@ -11,11 +11,13 @@ TMP="$(mktemp -d)"
 # FLOWKIT_KEEP_TMP=1 preserves every fixture (out.log/err.log et al.) instead of
 # wiping on exit -- CI diagnosis: the runner uploads $TMP as an artifact since
 # install.sh's stderr goes to per-fixture logs the console never shows.
-if [ -n "${FLOWKIT_KEEP_TMP:-}" ]; then
-  echo "[keep-tmp] TMP=$TMP"
-else
-  trap 'rm -rf "$TMP"' EXIT
-fi
+# Keep the fixtures when the suite FAILS, wipe them when it passes. The logs
+# install.sh and verify write per fixture are the only evidence a red run
+# leaves, and re-deriving them by hand is what let a flake survive for months
+# (docs/FEATURES/CANARY_DETERMINISM.md). Printing the path unconditionally lets
+# CI collect it; FLOWKIT_KEEP_TMP=1 forces keeping even on green.
+echo "[keep-tmp] TMP=$TMP"
+trap '[ -n "${FLOWKIT_KEEP_TMP:-}" ] || [ "$FAIL" -ne 0 ] || rm -rf "$TMP"' EXIT
 
 # Point lefthook `remotes` at a MINIMAL local repo, not github. The canary and
 # verify tests run the effective hook, which fetches the remote config; hitting
