@@ -377,19 +377,21 @@ fi
 # alarm ~1% of the time (docs/FEATURES/CANARY_DETERMINISM.md), so the first
 # assertion below is the one that matters: it fails loudly if randomness ever
 # comes back, instead of flaking a fraction of the time like the bug it replaced.
-if command -v gitleaks >/dev/null 2>&1; then
-  # (a) determinism: canary_panel must be a pure function. Command substitution
-  # already runs it in a subshell, so the suite's own state is never clobbered.
-  # shellcheck disable=SC1091  # lib is sourced at runtime, path known only then
-  cp_a="$(source "$REPO_DIR/scripts/lib/verify.sh"; canary_panel)"
-  # shellcheck disable=SC1091
-  cp_b="$(source "$REPO_DIR/scripts/lib/verify.sh"; canary_panel)"
-  if [ "$cp_a" = "$cp_b" ]; then
-    ok "canary panel: deterministic (two calls byte-identical, no random draw)"
-  else
-    nope "canary panel: NOT deterministic -- two calls differ, so the suite would flake instead of failing"
-  fi
+# (a) determinism: canary_panel must be a pure function. Needs no gitleaks, so it
+# runs unconditionally: this is the assertion that guards the whole fix, and
+# gating it behind a tool would let it vanish silently. Two SEPARATE sources (not
+# one source, two calls) also catch a value memoized at source time into a global.
+# shellcheck disable=SC1091  # lib sourced at runtime, path known only then
+cp_a="$(source "$REPO_DIR/scripts/lib/verify.sh"; canary_panel)"
+# shellcheck disable=SC1091  # same
+cp_b="$(source "$REPO_DIR/scripts/lib/verify.sh"; canary_panel)"
+if [ "$cp_a" = "$cp_b" ]; then
+  ok "canary panel: deterministic (two calls byte-identical, no random draw)"
+else
+  nope "canary panel: NOT deterministic -- two calls differ, so the suite would flake instead of failing"
+fi
 
+if command -v gitleaks >/dev/null 2>&1; then
   # (b) shape count: a shape silently dropped is coverage silently lost
   CPDIR="$TMP/canary-panel"; mkdir -p "$CPDIR"
   cp_n=0
@@ -405,11 +407,23 @@ if command -v gitleaks >/dev/null 2>&1; then
   fi
 
   cp_unseen() { # $1 = gitleaks config -> labels that config does NOT detect
-    local f out=""
+    # The verdict comes from the REPORTED leak, never from the exit code alone:
+    # gitleaks exits 1 both for "leaks found" and for a broken config, so an
+    # exit-code-only check reports a scan that never ran as full detection --
+    # the same "a failed check looks like a pass" trap this whole fix is about.
+    # (a pipe would defeat this: under `set -o pipefail` gitleaks' exit 1 on a
+    # real finding would propagate past a successful grep)
+    local f out="" scan
     for f in "$CPDIR"/*.txt; do
-      # gitleaks exits 0 when it finds nothing: that is the UNSEEN case
-      gitleaks detect --no-git --source "$f" --config "$1" >/dev/null 2>&1 \
-        && out="$out $(basename "$f" .txt)"
+      scan="$(gitleaks detect --no-git --source "$f" --config "$1" 2>&1 || true)"
+      # "no leaks found" CONTAINS "leaks found", so the clean case is matched
+      # first; anything else (a config error, a crash) counts as not-detected,
+      # which fails the assertion loudly instead of passing on an absent scan
+      case "$scan" in
+        *"no leaks found"*) out="$out $(basename "$f" .txt)" ;;
+        *"leaks found"*)    ;;
+        *)                  out="$out $(basename "$f" .txt)" ;;
+      esac
     done
     printf '%s' "${out# }"
   }

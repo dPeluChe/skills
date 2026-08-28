@@ -32,9 +32,7 @@ jobs:
           python3 --version
           bash --version | head -1
 
-      # the suite keeps its fixtures when it FAILS (scripts/tests/00-helpers.sh)
-      # and wipes them when it passes, so a red gate can ship its own evidence
-      # at no cost to a green one.
+      # fixture retention policy: scripts/tests/00-helpers.sh
       - name: Run hook suite
         run: |
           set -o pipefail
@@ -52,11 +50,7 @@ jobs:
           path: ${{ runner.temp }}/diag
           if-no-files-found: warn
 
-  # ── diagnose (manual): run the suite keeping every fixture, then upload the
-  # per-fixture logs as an artifact. install.sh/verify write their stderr to
-  # per-fixture logs the console never shows, so a runner-only failure is
-  # otherwise undiagnosable. This is how the bash-3.2 empty-array crashes were
-  # found. Reusable debug affordance; runs only on workflow_dispatch.
+  # ── diagnose (manual): the green-run counterpart of gate's failure artifact.
   diagnose:
     if: github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
