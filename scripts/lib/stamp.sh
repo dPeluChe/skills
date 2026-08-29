@@ -151,7 +151,14 @@ PY
   # for HISTORY (which cannot be annotated backward), NOT a decision to hide
   # current findings -- say so, so flowkit does not look like it overrode a choice.
   local n_allow
-  n_allow="$(grep -rIl 'gitleaks:allow' "$target" 2>/dev/null | grep -vcE '/\.git/|/node_modules/' || echo 0)"
+  # `grep -c` PRINTS 0 and EXITS 1 when nothing matches, so a `|| echo 0` fallback
+  # appended a SECOND line and every arithmetic test below crashed on "0\n0".
+  # That is the common case (a repo with no inline gitleaks:allow), so it fired on
+  # nearly every wiring, on stderr, where stdout-only assertions never saw it.
+  n_allow="$(grep -rIl 'gitleaks:allow' "$target" 2>/dev/null \
+    | grep -vcE '/\.git/|/node_modules/' 2>/dev/null || true)"
+  n_allow="${n_allow%%$'\n'*}"      # first line only
+  [[ "$n_allow" =~ ^[0-9]+$ ]] || n_allow=0
   if [[ "${n_allow:-0}" -gt 0 && "$n" != "0" && "$n" != "?" ]]; then
     echo "  this repo already uses inline 'gitleaks:allow' ($n_allow file(s)) -- the baseline covers HISTORY (can't be annotated backward), it does NOT override those inline decisions."
   fi

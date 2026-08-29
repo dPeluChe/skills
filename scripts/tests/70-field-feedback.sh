@@ -346,3 +346,21 @@ EOF
 else
   echo "· lefthook/gitleaks not installed — field-feedback fixtures skipped (non-fatal)"
 fi
+
+  # ── stderr hygiene: a wiring run must emit NO shell errors. This whole class
+  # was invisible because every assertion greps stdout: a `grep -c` that prints 0
+  # AND exits 1 made a `|| echo 0` fallback yield "0\n0", so an arithmetic test
+  # crashed on nearly every wire, on stderr, for weeks. A user running the command
+  # raw saw it immediately; the suite never did. Field feedback.
+  FFERR="$TMP/ff-stderr"
+  make_repo "$FFERR"
+  printf 'ok\n' > "$FFERR/README.md"
+  git -C "$FFERR" add README.md
+  git -C "$FFERR" -c user.email=t@t.t -c user.name=t commit -q -m readme
+  run_ff --repo "$FFERR"
+  if ! grep -qE 'syntax error|unbound variable|command not found|: line [0-9]+:' "$TMP/err.log"; then
+    ok "wiring stderr: no shell errors (syntax/unbound/not-found) leak from a normal wire"
+  else
+    nope "wiring stderr: shell error during wiring (see $TMP/err.log)"
+    grep -nE 'syntax error|unbound variable|command not found|: line [0-9]+:' "$TMP/err.log" | head -3 | sed 's/^/    /'
+  fi
