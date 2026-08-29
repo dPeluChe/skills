@@ -52,7 +52,12 @@ for x in data:
     x.setdefault("classification", "")   # real-rotate | public-by-design | false-positive
     x.setdefault("note", "")
     out.append(x)
-json.dump(out, open(p, "w"), indent=2)
+# trailing newline: without it a TRACKED baseline shows as modified on every
+# re-wire even when the findings are identical, which is exactly the kind of
+# no-op churn that trains people to ignore a dirty working tree
+with open(p, "w") as fh:
+    json.dump(out, fh, indent=2)
+    fh.write("\n")
 print(len(out))
 PY
 )"
