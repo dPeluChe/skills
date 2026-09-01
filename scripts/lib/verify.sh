@@ -160,6 +160,18 @@ hook_invokes_lefthook() { # $1 = target, $2 = hook name; does the hook git will
     gitdir="$(git -C "$target" rev-parse --absolute-git-dir)"
     [[ -f "$gitdir/hooks/$hook" ]] && grep -q lefthook "$gitdir/hooks/$hook" && return 0
   fi
+  # husky indirection: git runs .husky/_/<hook>, a two-line stub that sources the
+  # loader `h`, which then runs .husky/<hook> -- exactly where flowkit's own
+  # installer puts the delegation line. Inspecting only the stub reported
+  # "hooks NOT active" on a repo whose gate was provably blocking secrets: a
+  # false RED on a security check, which sends people to fix what already works
+  # and teaches them to ignore the check. Follow one level up.
+  # shellcheck disable=SC2016  # the pattern is literal shell text inside the stub
+  if grep -qE 'dirname "\$0"|\$\(dirname' "$file" 2>/dev/null; then
+    local up
+    up="$(dirname "$ehp")/$hook"
+    [[ -f "$up" ]] && grep -q lefthook "$up" && return 0
+  fi
   return 1
 }
 
