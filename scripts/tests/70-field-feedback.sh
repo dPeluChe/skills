@@ -167,10 +167,10 @@ jobs:
       - run: npm test
 EOF
   if run_ff --repo "$FFCI"; then
-    if grep -q 'lint: npm run lint   # from ci.yml -- verify' "$FFCI/CLAUDE.md" \
-       && grep -q 'typecheck: npx tsc --noEmit   # from ci.yml -- verify' "$FFCI/CLAUDE.md" \
-       && grep -q 'build: npm run build   # from ci.yml -- verify' "$FFCI/CLAUDE.md" \
-       && grep -q 'test: npm test   # from ci.yml -- verify' "$FFCI/CLAUDE.md" \
+    if grep -q 'lint: npm run lint # from ci.yml -- verify' "$FFCI/CLAUDE.md" \
+       && grep -q 'typecheck: npx tsc --noEmit # from ci.yml -- verify' "$FFCI/CLAUDE.md" \
+       && grep -q 'build: npm run build # from ci.yml -- verify' "$FFCI/CLAUDE.md" \
+       && grep -q 'test: npm test # from ci.yml -- verify' "$FFCI/CLAUDE.md" \
        && grep -q "Verify the CI-derived commands" "$TMP/out.log"; then
       ok "CI extraction: lint/typecheck/build/test pre-filled from ci.yml and marked for verification"
     else
@@ -193,8 +193,8 @@ EOF
 }
 EOF
   if run_ff --repo "$FFNPM"; then
-    if grep -q 'lint: npm run lint \[Vite\]   # from package.json scripts' "$FFNPM/CLAUDE.md" \
-       && grep -q 'build: npm run build   # from package.json scripts' "$FFNPM/CLAUDE.md" \
+    if grep -q 'lint: npm run lint \[Vite\] # from package.json scripts' "$FFNPM/CLAUDE.md" \
+       && grep -q 'build: npm run build # from package.json scripts' "$FFNPM/CLAUDE.md" \
        && grep -q 'test:.*no "test" script in package.json -- add one or omit' "$FFNPM/CLAUDE.md" \
        && ! grep -q '^test: npm test' "$FFNPM/CLAUDE.md"; then
       ok "npm scripts: present scripts (lint/build) suggested + Vite label; absent test named, never a phantom 'npm test'"
@@ -363,4 +363,38 @@ fi
   else
     nope "wiring stderr: shell error during wiring (see $TMP/err.log)"
     grep -nE 'syntax error|unbound variable|command not found|: line [0-9]+:' "$TMP/err.log" | head -3 | sed 's/^/    /'
+  fi
+
+  # ── the stamped ship config must survive `prettier --check`. Aligned padding
+  # before a trailing comment looks tidy but prettier collapses runs of spaces in
+  # markdown, so stamping made format:check FAIL. In one repo that check gates
+  # deploy, so installing flowkit left the deploy door red. Field feedback.
+  if ! grep -nE '[^ ] {2,}#' "$FFCI/CLAUDE.md" > "$TMP/ff-pad.log" 2>&1; then
+    ok "ship config stamp: no aligned padding before comments (prettier --check safe)"
+  else
+    nope "ship config stamp: padded comment would be rewritten by prettier (see $TMP/ff-pad.log)"
+    head -3 "$TMP/ff-pad.log" | sed 's/^/    /'
+  fi
+
+  # ── husky indirection: git runs .husky/_/<hook>, a stub that sources the loader
+  # `h`, and the delegation flowkit's own installer writes lives in .husky/<hook>.
+  # Inspecting only the stub reported "hooks NOT active" on a repo whose gate
+  # provably blocked secrets: a false RED on a security check, which also made the
+  # canary line ("ALL blocked by the effective pre-commit hook") contradict the
+  # verdict three lines above it. Field feedback.
+  FFHUSKY="$TMP/ff-husky"
+  make_repo "$FFHUSKY"
+  mkdir -p "$FFHUSKY/.husky/_"
+  # shellcheck disable=SC2016  # husky's stub text is literal, it expands at hook time
+  printf '#!/usr/bin/env sh\n. "$(dirname "$0")/h"\n' > "$FFHUSKY/.husky/_/pre-commit"
+  # shellcheck disable=SC2016  # same
+  printf '#!/usr/bin/env sh\nnpm test\nlefthook run pre-commit "$@"\n' > "$FFHUSKY/.husky/pre-commit"
+  chmod +x "$FFHUSKY/.husky/_/pre-commit" "$FFHUSKY/.husky/pre-commit"
+  git -C "$FFHUSKY" config core.hooksPath .husky/_
+  # shellcheck disable=SC1091  # libs sourced at runtime, in a subshell
+  if ( source "$REPO_DIR/scripts/lib/util.sh"; source "$REPO_DIR/scripts/lib/verify.sh"
+       hook_invokes_lefthook "$FFHUSKY" pre-commit ) 2>/dev/null; then
+    ok "husky indirection: delegation in .husky/<hook> found through the .husky/_ stub"
+  else
+    nope "husky indirection: false 'hooks NOT active' on a repo that DOES run lefthook"
   fi

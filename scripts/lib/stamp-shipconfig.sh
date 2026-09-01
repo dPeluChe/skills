@@ -166,16 +166,16 @@ npm_ship_lines() { # $1 = target repo; prints "key<TAB>ship-config-line" for
   scripts="$(pkg_scripts "$pkg")"
 
   if grep -qx 'lint' <<<"$scripts"; then
-    printf 'lint\tlint: npm run lint%s   # from package.json scripts\n' "$fwc"
+    printf 'lint\tlint: npm run lint%s # from package.json scripts\n' "$fwc"
   else
-    printf 'lint\tlint:            # TODO no "lint" script in package.json%s -- add one or omit\n' "$fwc"
+    printf 'lint\tlint: # TODO no "lint" script in package.json%s -- add one or omit\n' "$fwc"
   fi
 
   for s in typecheck type-check tsc; do
     grep -qx "$s" <<<"$scripts" && { ts_script="$s"; break; }
   done
   if [[ -n "$ts_script" ]]; then
-    printf 'typecheck\ttypecheck: npm run %s   # from package.json scripts\n' "$ts_script"
+    printf 'typecheck\ttypecheck: npm run %s # from package.json scripts\n' "$ts_script"
   elif [[ -f "$target/tsconfig.json" ]] \
        && grep -q '"references"' "$target/tsconfig.json" 2>/dev/null; then
     # a root tsconfig that is a project-references stub ("files": [] +
@@ -192,31 +192,31 @@ npm_ship_lines() { # $1 = target repo; prints "key<TAB>ship-config-line" for
         sib="$sib && npx tsc --noEmit -p $d/tsconfig.json"
       fi
     done
-    printf 'typecheck\ttypecheck:       # TODO root tsconfig is a references stub -- use: npx tsc -b --noEmit%s (plain tsc --noEmit checks NOTHING; -b alone skips unreferenced siblings like convex/)\n' "$sib"
+    printf 'typecheck\ttypecheck: # TODO root tsconfig is a references stub -- use: npx tsc -b --noEmit%s (plain tsc --noEmit checks NOTHING; -b alone skips unreferenced siblings like convex/)\n' "$sib"
   else
     tc_cmd="$(detect_typecheck_cmd "$pkg")"
     if [[ "$tc_cmd" == "npx tsc --noEmit" ]]; then
-      printf 'typecheck\ttypecheck:       # TODO e.g. npx tsc --noEmit (no typecheck script in package.json)\n'
+      printf 'typecheck\ttypecheck: # TODO e.g. npx tsc --noEmit (no typecheck script in package.json)\n'
     else
-      printf 'typecheck\ttypecheck:       # TODO e.g. %s -- this stack needs its OWN typechecker; tsc --noEmit does not understand its component files (no typecheck script in package.json)\n' "$tc_cmd"
+      printf 'typecheck\ttypecheck: # TODO e.g. %s -- this stack needs its OWN typechecker; tsc --noEmit does not understand its component files (no typecheck script in package.json)\n' "$tc_cmd"
     fi
   fi
 
   if grep -qx 'build' <<<"$scripts"; then
-    printf 'build\tbuild: npm run build   # from package.json scripts\n'
+    printf 'build\tbuild: npm run build # from package.json scripts\n'
   else
-    printf 'build\tbuild:           # TODO no "build" script in package.json -- add one or omit\n'
+    printf 'build\tbuild: # TODO no "build" script in package.json -- add one or omit\n'
   fi
 
   for s in test test:run test:ci; do
     grep -qx "$s" <<<"$scripts" && { test_script="$s"; break; }
   done
   if [[ "$test_script" == "test" ]]; then
-    printf 'test\ttest: npm test   # from package.json scripts\n'
+    printf 'test\ttest: npm test # from package.json scripts\n'
   elif [[ -n "$test_script" ]]; then
-    printf 'test\ttest: npm run %s   # from package.json scripts\n' "$test_script"
+    printf 'test\ttest: npm run %s # from package.json scripts\n' "$test_script"
   else
-    printf 'test\ttest:            # TODO no "test" script in package.json -- add one or omit\n'
+    printf 'test\ttest: # TODO no "test" script in package.json -- add one or omit\n'
   fi
 }
 
@@ -235,6 +235,10 @@ ci_grep_cmd() { # $1 = target, $2 = ERE; prints "cmd<TAB>workflow" of the first
 ensure_ship_config_template() { # $1 = target repo: stamp the block if missing.
   # Values come from the repo's CI workflows when extractable (marked
   # "# from <workflow> -- verify"); fallback is stack-flavored TODO examples.
+  # ONE space before a trailing comment, never aligned padding: prettier collapses
+  # runs of spaces in markdown, so an aligned block makes `prettier --check` fail
+  # the moment flowkit stamps it. In one repo that check gates deploy, so
+  # installing flowkit left the deploy door red. The YAML parses identically.
   local target="$1" cmd="$1/CLAUDE.md" stack suggest fill_action hit from
   stack="$(detect_stack_name "$target")"
   suggest="$(stack_suggested_cmds "$stack")"
@@ -250,10 +254,10 @@ ensure_ship_config_template() { # $1 = target repo: stamp the block if missing.
   local lint_line type_line build_line test_line ci_used=0
   case "$stack" in
     cargo)
-      lint_line='lint:            # TODO e.g. cargo fmt --check && cargo clippy -- -D warnings'
-      type_line='typecheck:       # TODO usually covered by clippy/build'
-      build_line='build:           # TODO e.g. cargo build'
-      test_line='test:            # TODO e.g. cargo test'
+      lint_line='lint: # TODO e.g. cargo fmt --check && cargo clippy -- -D warnings'
+      type_line='typecheck: # TODO usually covered by clippy/build'
+      build_line='build: # TODO e.g. cargo build'
+      test_line='test: # TODO e.g. cargo test'
       ;;
     npm)
       # read the ACTUAL package.json scripts (Next/Vite label, absent-script
@@ -269,36 +273,36 @@ ensure_ship_config_template() { # $1 = target repo: stamp the block if missing.
       done < <(npm_ship_lines "$target")
       ;;
     python)
-      lint_line='lint:            # TODO e.g. ruff check .'
-      type_line='typecheck:       # TODO e.g. mypy .'
-      build_line='build:           # TODO omit if none'
-      test_line='test:            # TODO e.g. pytest'
+      lint_line='lint: # TODO e.g. ruff check .'
+      type_line='typecheck: # TODO e.g. mypy .'
+      build_line='build: # TODO omit if none'
+      test_line='test: # TODO e.g. pytest'
       ;;
     go)
-      lint_line='lint:            # TODO e.g. go vet ./...'
-      type_line='typecheck:       # TODO covered by go build'
-      build_line='build:           # TODO e.g. go build ./...'
-      test_line='test:            # TODO e.g. go test ./...'
+      lint_line='lint: # TODO e.g. go vet ./...'
+      type_line='typecheck: # TODO covered by go build'
+      build_line='build: # TODO e.g. go build ./...'
+      test_line='test: # TODO e.g. go test ./...'
       ;;
     *)
-      lint_line='lint:            # TODO e.g. npm run lint'
-      type_line='typecheck:       # TODO e.g. npx tsc --noEmit'
-      build_line='build:           # TODO e.g. npm run build'
-      test_line='test:            # TODO omit if none'
+      lint_line='lint: # TODO e.g. npm run lint'
+      type_line='typecheck: # TODO e.g. npx tsc --noEmit'
+      build_line='build: # TODO e.g. npm run build'
+      test_line='test: # TODO omit if none'
       ;;
   esac
   # better than guessing: real commands already exercised by CI
   if hit="$(ci_grep_cmd "$target" '(^|[[:space:]/-])(lint|eslint|ruff check|clippy|fmt --check|golangci-lint)')"; then
-    from="${hit#*$'\t'}"; lint_line="lint: ${hit%%$'\t'*}   # from $from -- verify"; ci_used=1
+    from="${hit#*$'\t'}"; lint_line="lint: ${hit%%$'\t'*} # from $from -- verify"; ci_used=1
   fi
   if hit="$(ci_grep_cmd "$target" '(tsc|typecheck|type-check|mypy|go vet)')"; then
-    from="${hit#*$'\t'}"; type_line="typecheck: ${hit%%$'\t'*}   # from $from -- verify"; ci_used=1
+    from="${hit#*$'\t'}"; type_line="typecheck: ${hit%%$'\t'*} # from $from -- verify"; ci_used=1
   fi
   if hit="$(ci_grep_cmd "$target" '(^|[[:space:]])[[:alnum:]_ -]*build')"; then
-    from="${hit#*$'\t'}"; build_line="build: ${hit%%$'\t'*}   # from $from -- verify"; ci_used=1
+    from="${hit#*$'\t'}"; build_line="build: ${hit%%$'\t'*} # from $from -- verify"; ci_used=1
   fi
   if hit="$(ci_grep_cmd "$target" '(^|[[:space:]])(test|pytest|jest|vitest)')"; then
-    from="${hit#*$'\t'}"; test_line="test: ${hit%%$'\t'*}   # from $from -- verify"; ci_used=1
+    from="${hit#*$'\t'}"; test_line="test: ${hit%%$'\t'*} # from $from -- verify"; ci_used=1
   fi
 
   # If CLAUDE.md already documents a max-lines-per-file convention, honor IT
@@ -328,9 +332,9 @@ $lint_line
 $type_line
 $build_line
 $test_line
-merge_policy: ask   # auto | ask
+merge_policy: ask # auto | ask
 loc_limit: $loc_limit$loc_note
-simplify: 500       # run /simplify only if changed LOC > N (off = only on request)
+simplify: 500 # run /simplify only if changed LOC > N (off = only on request)
 \`\`\`
 EOF
   if [[ "$ci_used" == 1 ]]; then
