@@ -81,7 +81,8 @@ case "${1:-}" in
     MODE="lint-health"; shift
     while [[ $# -gt 0 ]]; do
       case "$1" in
-        --measure) LINT_MEASURE="${2:?usage: install.sh --lint-health --measure '<rule>' [path]}"; shift 2 ;;
+        --measure) LINT_MEASURE="${2:?usage: install.sh --lint-health --measure '<rule>' [--list] [path]}"; shift 2 ;;
+        --list) LINT_LIST=1; shift ;;
         --canary)  LINT_CANARY=1; shift ;;
         *) TARGET_REPO="$1"; shift ;;
       esac
@@ -125,7 +126,9 @@ case "$MODE" in
   upgrade) run_upgrade ;;
   lint-health)
     if [[ "$LINT_CANARY" -eq 1 ]]; then run_lint_canary "${TARGET_REPO:-.}"
-    elif [[ -n "$LINT_MEASURE" ]]; then run_lint_measure "$LINT_MEASURE" "${TARGET_REPO:-.}"
+    elif [[ -n "$LINT_MEASURE" ]]; then
+      if [[ "${LINT_LIST:-0}" == 1 ]]; then run_lint_measure "$LINT_MEASURE" "${TARGET_REPO:-.}" --list
+      else run_lint_measure "$LINT_MEASURE" "${TARGET_REPO:-.}"; fi
     else run_lint_health "${TARGET_REPO:-.}"; fi ;;
   loc-health) run_loc_health "${TARGET_REPO:-.}" ;;
   *)       run_sync "$@" ;;

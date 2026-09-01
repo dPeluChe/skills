@@ -48,6 +48,37 @@ _lh_is_usual() { # $1 = ignore entry; 0 = usual (safe), 1 = flag it
 }
 
 # ── headline audit (flowkit lint-health [path]) ─────────────────────────────
+_lh_rule_on() { # $1 = eslint --print-config JSON, $2 = rule. 0 = on (warn/error)
+  printf '%s' "$1" | python3 -c '
+import json, sys
+try: cfg = json.load(sys.stdin)
+except Exception: raise SystemExit(1)
+v = cfg.get("rules", {}).get(sys.argv[1])
+s = v[0] if isinstance(v, list) else v
+raise SystemExit(0 if s in (1, 2, "warn", "error") else 1)
+' "$2" 2>/dev/null
+}
+
+_lh_substitute() { # $1 = base rule; prints the rule that REPLACES it in TS repos.
+  # typescript-eslint ships presets that turn the BASE rule off on purpose (it
+  # misreports on TypeScript) and turns its own extension rule on. Reporting the
+  # base rule as a coverage gap sent a real handoff to "fix 96 findings" that were
+  # already covered, which would have meant duplicate rules and TS false positives.
+  case "$1" in
+    no-unused-vars)                 echo "@typescript-eslint/no-unused-vars" ;;
+    unused-imports/no-unused-vars)  echo "unused-imports/no-unused-imports" ;;
+    no-shadow)                      echo "@typescript-eslint/no-shadow" ;;
+    no-redeclare)                   echo "@typescript-eslint/no-redeclare" ;;
+    no-use-before-define)           echo "@typescript-eslint/no-use-before-define" ;;
+    no-unused-expressions)          echo "@typescript-eslint/no-unused-expressions" ;;
+    no-empty-function)              echo "@typescript-eslint/no-empty-function" ;;
+    no-implied-eval)                echo "@typescript-eslint/no-implied-eval" ;;
+    require-await)                  echo "@typescript-eslint/require-await" ;;
+    dot-notation)                   echo "@typescript-eslint/dot-notation" ;;
+    *) return 1 ;;
+  esac
+}
+
 run_lint_health() {
   local target="${1:-.}"
   target="$(cd "$target" 2>/dev/null && pwd)" || die "lint-health: not a directory: ${1:-.}"
@@ -113,7 +144,7 @@ run_lint_health() {
       "$cfg" 2>/dev/null | grep -oE "^['\"][^'\"]+['\"]" | tr -d "\"'" || true)
   done
 
-  local verified=0 scoped=""
+  local verified=0 scoped="" covered=""
   if [[ -n "$off_rules" && -x "$target/node_modules/.bin/eslint" ]]; then
     local sample printcfg
     sample="$(_lh_sample_src "$target")"
@@ -122,19 +153,23 @@ run_lint_health() {
         --print-config "$sample" 2>/dev/null )" || true
       if [[ "${printcfg:0:1}" == "{" ]]; then
         verified=1
-        local kept="" r c sev
+        local kept="" r c sub
         while IFS='|' read -r r c; do
           [[ -n "$r" ]] || continue
-          sev="$(printf '%s' "$printcfg" | python3 -c '
-import json, sys
-try: cfg = json.load(sys.stdin)
-except Exception: print("?"); raise SystemExit
-v = cfg.get("rules", {}).get(sys.argv[1])
-s = v[0] if isinstance(v, list) else v
-print(1 if s in (1, 2, "warn", "error") else 0)
-' "$r" 2>/dev/null || echo 0)"
-          if [[ "$sev" == "1" ]]; then scoped+="$r "   # ON for source => scoped override
-          else kept+="$r|$c"$'\n'; fi
+          if _lh_rule_on "$printcfg" "$r"; then
+            scoped+="$r "                      # ON for source => scoped override
+            continue
+          fi
+          # off, but is the job done by its TS-aware replacement (or the compiler)?
+          if sub="$(_lh_substitute "$r")" && _lh_rule_on "$printcfg" "$sub"; then
+            covered+="$r -> $sub"$'\n'
+            continue
+          fi
+          if [[ "$r" == "no-undef" ]] && compgen -G "$target/tsconfig*.json" >/dev/null 2>&1; then
+            covered+="no-undef -> tsc (TS2304), not eslint, in a TypeScript repo"$'\n'
+            continue
+          fi
+          kept+="$r|$c"$'\n'
         done < <(printf '%s' "$off_rules" | sort -u)
         off_rules="$kept"
       fi
@@ -159,6 +194,13 @@ print(1 if s in (1, 2, "warn", "error") else 0)
   fi
   if [[ -n "$scoped" ]]; then
     echo "  - scoped override(s), OFF only for some files but ON for source (fine): ${scoped% }"
+  fi
+  if [[ -n "$covered" ]]; then
+    echo "  - base rule(s) off because something else covers them (fine, do NOT re-enable:"
+    echo "    turning them back on duplicates the check and adds TS false positives):"
+    printf '%s' "$covered" | while IFS= read -r line; do
+      [[ -n "$line" ]] && echo "      $line"
+    done
   fi
 
   # ── unreasoned disables (info; reasoned scoped ones are fine) ──────────────
@@ -210,7 +252,12 @@ print(1 if s in (1, 2, "warn", "error") else 0)
 # rule it never ran = false green), so extending is the only honest method there.
 # Legacy .eslintrc: --rule works, use it. Any failure -> "inconclusive", never 0.
 run_lint_measure() {
-  local rule="$1" target="${2:-.}" bin=""
+  # A count nobody can reproduce is not actionable: the field report could not
+  # verify "13 findings" for no-undef and had no way to see WHICH files, so the
+  # only options left were trust it or ignore it. --list prints the findings.
+  local rule="$1" target="${2:-.}" bin="" want_list=0
+  if [[ "$target" == "--list" ]]; then want_list=1; target="${3:-.}"
+  elif [[ "${3:-}" == "--list" ]]; then want_list=1; fi
   target="$(cd "$target" 2>/dev/null && pwd)" || die "lint-health: not a directory: ${2:-.}"
   [[ -n "$rule" ]] || die "lint-health --measure: needs a rule name"
 
@@ -283,6 +330,25 @@ print(f"{findings} {files}")
     exit 0
   fi
   echo "$rule forced on: ${counts% *} findings across ${counts#* } files (via ${method} config)"
+  if [[ "$want_list" == 1 ]]; then
+    printf '%s' "$out" | python3 -c '
+import json, os, sys
+rule = sys.argv[1]; root = sys.argv[2]
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    raise SystemExit
+for res in data:
+    path = res.get("filePath", "")
+    if os.path.isabs(path):
+        path = os.path.relpath(path, root)
+    for m in res.get("messages", []):
+        if m.get("ruleId") == rule:
+            print("  %s:%s:%s  %s" % (path, m.get("line", 0), m.get("column", 0), m.get("message", "")))
+' "$rule" "$target" 2>/dev/null || echo "  (could not list findings)"
+  else
+    echo "  see them: flowkit lint-health --measure '$rule' --list ${2:-.}"
+  fi
   exit 0
 }
 
