@@ -258,3 +258,63 @@ if "$FLOWKIT" lint-health --canary "$LH_CANNA" > "$TMP/lh-canna.log" 2>&1 \
 else
   nope "canary: missing lint script should be N/A (see $TMP/lh-canna.log)"
 fi
+
+# ── base rules the TS-aware equivalent already covers are NOT a coverage gap.
+# typescript-eslint's presets turn the BASE rule off ON PURPOSE (it misreports on
+# TypeScript) and turn their own extension rule on. Reporting the base rule as a
+# hole sent a real handoff to "fix 96 findings" that were already covered, which
+# would have meant duplicate rules and TS false positives. Field feedback.
+LH_COV="$TMP/lh-covered"
+mkdir -p "$LH_COV/src" "$LH_COV/node_modules/.bin"
+cat > "$LH_COV/eslint.config.js" <<'EOF'
+export default [
+  { rules: { "no-unused-vars": "off", "no-undef": "off", "no-console": "off" } },
+]
+EOF
+printf 'export const a = 1\n' > "$LH_COV/src/a.ts"
+printf '{"compilerOptions":{}}\n' > "$LH_COV/tsconfig.json"
+cat > "$LH_COV/node_modules/.bin/eslint" <<'STUB'
+#!/bin/sh
+# base rules off; the TS extension rule is ON, so the job IS being done
+case "$*" in
+  *--print-config*) printf '%s\n' '{"rules":{"no-unused-vars":[0],"no-undef":[0],"no-console":[0],"@typescript-eslint/no-unused-vars":[2]}}' ;;
+esac
+STUB
+chmod +x "$LH_COV/node_modules/.bin/eslint"
+if "$FLOWKIT" lint-health "$LH_COV" > "$TMP/lh-cov.log" 2>&1 \
+   && grep -q "no-unused-vars -> @typescript-eslint/no-unused-vars" "$TMP/lh-cov.log" \
+   && grep -q "no-undef -> tsc (TS2304)" "$TMP/lh-cov.log" \
+   && grep -q "1 rule(s) OFF repo-wide" "$TMP/lh-cov.log" \
+   && grep -q "no-console (in eslint.config.js)" "$TMP/lh-cov.log"; then
+  ok "covered rules: base rule off + TS equivalent on reported as covered, only no-console left as a real gap"
+else
+  nope "covered rules: substitutes not recognized, base rules still counted as gaps (see $TMP/lh-cov.log)"
+fi
+
+# ── --measure --list: a count nobody can reproduce is not actionable. The field
+# report could not verify "13 findings" for no-undef and had no way to see WHICH
+# files, so the only options left were trust it or ignore it. Reuses the stub
+# fixture above (3 findings across 2 files).
+cat > "$LH_MEAS/node_modules/.bin/eslint" <<'STUB2'
+#!/bin/sh
+cat <<'JSON'
+[{"filePath":"a.ts","messages":[{"ruleId":"no-console","line":7,"column":3,"message":"Unexpected console statement."}]}]
+JSON
+exit 1
+STUB2
+chmod +x "$LH_MEAS/node_modules/.bin/eslint"
+if "$FLOWKIT" lint-health --measure 'no-console' --list "$LH_MEAS" > "$TMP/lh-list.log" 2>&1 \
+   && grep -q "no-console forced on: 1 findings across 1 files" "$TMP/lh-list.log" \
+   && grep -qE "a\.ts:7:3 +Unexpected console statement" "$TMP/lh-list.log"; then
+  ok "measure --list: prints file:line:col + message so the count is checkable"
+else
+  nope "measure --list: findings not listed (see $TMP/lh-list.log)"
+fi
+# without --list the count still stands, and it says how to see them
+if "$FLOWKIT" lint-health --measure 'no-console' "$LH_MEAS" > "$TMP/lh-nolist.log" 2>&1 \
+   && grep -q "see them: flowkit lint-health --measure" "$TMP/lh-nolist.log" \
+   && ! grep -q "a.ts:7:3" "$TMP/lh-nolist.log"; then
+  ok "measure: without --list the count stays terse and points at how to see the findings"
+else
+  nope "measure: the --list pointer is missing or findings leaked without asking (see $TMP/lh-nolist.log)"
+fi

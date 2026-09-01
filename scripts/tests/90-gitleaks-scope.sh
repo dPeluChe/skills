@@ -450,3 +450,16 @@ if command -v gitleaks >/dev/null 2>&1; then
   fi
 fi
 
+
+# ── the canary must disclose what it does NOT cover. gitleaks' allowlist is by
+# file TYPE, not by whether the value is an example, so a REAL key pasted into an
+# allowlisted path (docs/ by default) commits clean. Field feedback: "ok aws:
+# caught" reads as blanket coverage. Keep the allowlist, say it out loud.
+if command -v gitleaks >/dev/null 2>&1 && command -v lefthook >/dev/null 2>&1; then
+  if grep -q "scope: NOT scanned at all" "$TMP/out.log" 2>/dev/null \
+     && grep -q "docs/" "$TMP/out.log" 2>/dev/null; then
+    ok "canary scope: names the allowlisted paths it never scans (docs/), read from the ACTIVE config"
+  else
+    nope "canary scope: 'ALL blocked' shown without naming the unscanned paths (see $TMP/out.log)"
+  fi
+fi

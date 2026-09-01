@@ -48,7 +48,8 @@ Usage: flowkit <subcommand>
              inside a wired repo it also refreshes that repo's lefthook remotes cache
   lint-health [path]  audit a JS/TS/React repo's lint gate for false greens: blanket
              eslint-disable, rules turned off in config, unreasoned/ignored source (advisory, exit 0)
-             --measure '<rule>': force <rule> on (no config change) + count what it would reveal
+             --measure '<rule>' [--list]: force <rule> on (no config change) + count what
+                       it would reveal; --list prints each finding so the number is checkable
              --canary: plant a violation per extension present + prove the repo's lint CATCHES it
                        (a green lint proves nothing if the linter never reached those files)
   loc-health [path]  audit file sizes repo-wide against the loc_limit rule (ship config,

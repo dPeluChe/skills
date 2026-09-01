@@ -18,6 +18,28 @@ print(len(hook.get("jobs") or []) + len(hook.get("commands") or {}))
 ' "$2" 2>/dev/null || echo 0
 }
 
+gitleaks_allowlist_paths() { # $1 = target; the path patterns the ACTIVE config
+  # never scans. "ALL blocked" reads as blanket coverage, but the allowlist is by
+  # FILE TYPE, not by whether the value is an example: a REAL key pasted into an
+  # allowlisted path commits clean. Keeping the allowlist is right (docs are full
+  # of sample keys); leaving it unsaid is not.
+  local cfg d
+  if [[ -f "$1/.gitleaks.toml" ]]; then
+    cfg="$1/.gitleaks.toml"
+  else
+    # no nested `case` inside $( ): bash 3.2 mis-parses it there (caught by the
+    # stderr-hygiene test the moment it was introduced)
+    d="$(cd "$1" 2>/dev/null && git rev-parse --git-common-dir 2>/dev/null)" || return 0
+    [[ -n "$d" ]] || return 0
+    [[ "$d" == /* ]] || d="$1/$d"
+    cfg="$(find "$d/info/lefthook-remotes" -path '*/hooks/.gitleaks.toml' 2>/dev/null | head -1)"
+  fi
+  [[ -n "$cfg" && -f "$cfg" ]] || return 0
+  awk '/^\[allowlist\]/{f=1} f && /^paths[[:space:]]*=/{p=1; next} p && /^\]/{exit} p{print}' "$cfg" 2>/dev/null \
+    | tr -d "'" | sed 's/^[[:space:]]*//; s/,[[:space:]]*$//' \
+    | grep -vE '^[[:space:]]*$|lock' | tr '\n' ' '
+}
+
 canary_panel() { # prints "label<TAB>line-content": 6 shapes = 5 of the 6 central
   # custom rules in hooks/.gitleaks.toml + one DEFAULT-ruleset shape (proves
   # [extend] useDefault = true is still on). `dpeluche-github-pat` is deliberately
@@ -181,7 +203,7 @@ verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification: config
   # canary secret is actually flagged + no orphan stubs. A hook consciously
   # skipped via `hooks_skip: <hook>: reason` in the ship config block reports
   # ok-skipped instead of failing. Prints a report; returns 0 active / 1 not.
-  local target="$1" rc=0 cfg="" ehp gitdir hook f stubs=0 resolvable=0
+  local target="$1" rc=0 cfg="" ehp gitdir hook f stubs=0 resolvable=0 canary_scope
   local skip_reason jobs
   ehp="$(effective_hooks_dir "$target")"
   gitdir="$(git -C "$target" rev-parse --absolute-git-dir)"
@@ -249,7 +271,9 @@ verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification: config
       canary_secret_scan "$target"
       case "$?" in
         0) echo "ok canary: panel of synthetic secrets (one per central rule) ALL blocked by the effective pre-commit hook ($(gitleaks_config_label "$target"))"
-           printf '%s' "$CANARY_REPORT" ;;
+           printf '%s' "$CANARY_REPORT"
+           canary_scope="$(gitleaks_allowlist_paths "$target")"
+           [[ -n "$canary_scope" ]] && echo "  scope: NOT scanned at all -- $canary_scope(allowlisted by file TYPE, not by whether the value is an example: a REAL key pasted there commits clean)" ;;
         1) echo "x canary: shape(s) passed the effective pre-commit hook UNSEEN: $CANARY_UNSEEN ($(gitleaks_config_label "$target")) -- these central rules stopped blocking (dropped rules -- a repo-local .gitleaks.toml must keep [extend] useDefault = true AND re-declare the central rules -- inert config merging 0 jobs, or a hook crash without a leak verdict)"
            printf '%s' "$CANARY_REPORT"
            rc=1 ;;
