@@ -154,6 +154,14 @@ whole extension from being linted. The canary plants a violation per extension a
 gate still catches it (or surfaces a parse error). A green lint proves nothing if a dep bump
 quietly stopped the linter from reaching those files.
 
+**Tests in the diff (always).** Two checks, both from field failures, not theory. (1) Every
+test the diff ADDS must fail when the thing it guards breaks: read the assertion, or flip the
+fixture once and watch it go red. A check that only looks at an exit code, or greps a substring
+that also matches the negative ("no leaks found" contains "leaks found"), passes forever and
+proves nothing. (2) A `fix` commit with no test change is a finding unless the message says why
+(no harness, not reproducible, covered by an existing test named there). The regression test is
+what stops the same bug from shipping twice, and it tends to pay for itself within a PR.
+
 **Comment hygiene (always, regardless of the simplify threshold).** Scan the diff for comment
 blocks longer than ~3 lines that narrate the logic. Reduce each to a terse WHY reference; if
 the explanation is worth keeping, move it to the repo's docs/ and leave a one-line pointer in
