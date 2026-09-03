@@ -86,6 +86,28 @@ from this file and carries a line saying so, because the same list kept by hand 
 drifts and then nobody knows which one is true. When the two disagree, `.doctos.yml` wins and
 the difference is a finding.
 
+**The project README announces it.** A contributor who opens the repo has no reason to guess
+that documentation follows a convention or where it is written down, and a config nobody can
+find gets edited around instead of edited. INIT adds one short block to the root `README.md`,
+and AUDIT reports its absence as a finding:
+
+```markdown
+## Documentation
+
+Structure declared in [`.doctos.yml`](./.doctos.yml), index in [docs/README.md](./docs/README.md).
+```
+
+Two lines, no more: the README is an overview, not a manual. This is a pointer, never a copy of
+the structure, for the same reason the `docs/README.md` table is derived.
+
+**The default is measured, not invented.** A survey of 134 repos with a `docs/` folder found the
+canonical set in real use: TASK_COMPLETED (52), ARCHITECTURE (46), GUIDES (43), RESEARCH (34),
+ARCHIVED (26), FEATURES (25), JOURNAL (20). That is why doctos stays opinionated by default. The
+same survey is why the declaration exists: a folder for a product or integration recurred in 6
+repos with no slot in the taxonomy, and two code repos run a fully Spanish one
+(`DOMINIO/PRODUCTO/OPERACION`). Neither is a mess to be renamed; both are structures to be
+declared.
+
 **Precedence.** The published-site guard still wins over everything (moves break live URLs). A
 declaration beats the content-repo heuristic, since it is explicit where the heuristic guesses.
 The default applies only when there is no file. `/doctos init` writes the file with the default
@@ -138,8 +160,8 @@ These are non-negotiable **for code / docs repos**. Consistency across projects 
 | The only exception | `docs/README.md` | Standard convention for index files |
 
 **Renaming rules:**
-- `archived/` or `Archived/` or `ARCHIVE/` → `ARCHIVED/`
-- `tasks_completed/` or `COMPLETED_TASK/` → `TASK_COMPLETED/`
+- `archived/` or `Archived/` or `ARCHIVE/` or `archives/` → `ARCHIVED/`
+- `tasks_completed/` or `COMPLETED_TASK/` or `TASKS_COMPLETED/` → `TASK_COMPLETED/`
 - `features/` → `FEATURES/`
 - `task_todo.md` or `TODO.md` → `TASK_TODO.md`
 - `agents.md` (lowercase) → `AGENTS.md`
@@ -358,6 +380,10 @@ Same as CLEAN mode but more aggressive:
 - Create any missing standard folders
 
 3. **Write `.doctos.yml`** with the default values (or the structure agreed for this repo), so the layout is declared, versioned and visible in diffs instead of living only inside this skill.
+
+3b. **Add the Documentation block to the root `README.md`** (two lines pointing at `.doctos.yml`
+and `docs/README.md`, see "The declared structure"), so a contributor finds the convention
+without knowing the skill exists. Skip it if an equivalent pointer is already there.
 
 4. **Write docs/README.md** with documentation index and writing rules, using the **INIT docs/README.md template** in `references/report-templates.md` (structure table, root-level files, and the seven writing rules). For a content repo, adapt it per the note there.
 
