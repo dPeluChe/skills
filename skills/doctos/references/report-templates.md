@@ -105,6 +105,8 @@ Proceed? (y/n)
 
 ## Structure
 
+> Derived from `.doctos.yml` at the repo root. Edit that file, not this table.
+
 | Folder | Contents |
 |--------|----------|
 | `ARCHITECTURE/` | Technical architecture, decisions, schemas |
@@ -129,5 +131,9 @@ README.md, CLAUDE.md, AGENTS.md, CONTRIBUTING.md, CHANGELOG.md, LICENSE
 6. **Archive, don't delete**: obsolete docs go to `ARCHIVED/` with a note, not to the trash
 7. **Feature specs move to ARCHIVED/** when the feature ships: the code is now the source of truth
 ```
+
+The rows come from the `folders:` block of `.doctos.yml`, and the naming rules from its
+`naming:` key. Do not hand-write a table that disagrees with the file: it drifts, and then
+neither one is trusted.
 
 For a content repo (see `SKILL.md`, "Repo type"), adapt this template: the structure table reflects the domain folders that fit the material, not the technical taxonomy, and the folder names match the audience's language (`archivo/`, `guias/`), not UPPERCASE English.
