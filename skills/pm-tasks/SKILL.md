@@ -71,6 +71,21 @@ Not every `- [ ]` is a project task. Two kinds share the checkbox syntax and mus
 | `/pm-tasks scan` | Scan | Find TODO/FIXME in code, detect non-standard task files |
 | `/pm-tasks init` | Init | Create structure from scratch OR standardize existing one |
 
+**Picking the mode from prose.** The user almost never types the slash, so the request itself
+decides. Read the verb, not the topic:
+
+| The user says | Mode |
+|---|---|
+| "que falta", "que hay pendiente", "como va el backlog" | AUDIT |
+| "archiva lo completado", "mueve lo terminado", "cierra el mes" | ARCHIVE |
+| "busca los TODOs", "hay tareas regadas", "revisa el codigo" | SCAN |
+| "no hay backlog", "arma el TASK_TODO", "empieza a trackear" | INIT |
+
+**When the request is ambiguous ("tareas", "backlog"), run AUDIT.** It is the only read-only
+mode, and it ends by naming what the other three would do, so the user picks with the report in
+front of them. ARCHIVE writes to a permanent monthly record and INIT creates structure: neither
+is a good guess.
+
 ## Scoped invocation (routed findings)
 
 When pm-tasks is invoked right after `/kickoff` or `/standup` handed it routed findings ("these 2 tasks were completed by this change", "TODO.md at root"), don't run the full audit. **Verify the routed list and act on it only**: confirm each finding against TASK_TODO.md and the code (the router saw a diff-scoped partial picture), execute the confirmed ones (archive, add, rename) with the usual confirmations, and report with the standard status line. The full audit remains the periodic health check.
