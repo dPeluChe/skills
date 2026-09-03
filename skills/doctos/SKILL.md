@@ -48,6 +48,50 @@ Before applying the layout and naming rules below, detect the repo type. Those r
 
 This is the same spirit as the published-site guard and the "respect documented conventions" rule: when a repo has its own working structure, doctos reports hygiene findings but never imposes the default layout on top of it.
 
+## The declared structure: `.doctos.yml`
+
+The layout below is the DEFAULT, not a law. A repo declares its own in `.doctos.yml` at the
+root, and doctos audits against what is declared instead of against the default. This is what
+lets projects with different shapes (ADRs, Diataxis, a team convention in lowercase, a docs
+folder that is not `docs/`) use the skill without being told to rename everything.
+
+```yaml
+docs_root: docs                 # where documentation lives
+naming: UPPERCASE_SNAKE         # or kebab-case, or lowercase
+folders:                        # folder: what belongs in it
+  ARCHITECTURE: architecture, schemas, decisions, technical trade-offs
+  GUIDES: setup, deploy, onboarding, conventions
+  ARCHIVED: obsolete docs, each with an archival note
+root_allowed: [CONTRIBUTING.md] # extra .md tolerated at the repo root
+```
+
+**The descriptions are not decoration: they are the routing table.** Classifying a stray file
+means matching its content against what each folder is for, so a declared taxonomy works with
+the existing logic and needs no special case.
+
+**Why the root and not `docs/`.** The file says WHERE documentation lives, so it cannot live
+inside it: a repo with `documentation/` or `website/docs/` would need doctos to guess the
+location of the file that tells it the location. At the root it sits with the other tooling
+config (`.gitignore`, `lefthook.yml`), it is found in one look, and it is **committed, never
+gitignored**: the structure has to travel with the clone and a change to it has to show up in a
+PR like any other decision.
+
+**Verify it, do not obey it.** A config that lies is worse than none, because it makes a mess
+look sanctioned. Before using a declared structure, check it against reality and report the
+drift as findings: folders declared that do not exist, folders that exist and are not declared,
+a `docs_root` that is absent. Then audit against the declaration.
+
+**`docs/README.md` stays the human door, and it is DERIVED.** Its structure table is generated
+from this file and carries a line saying so, because the same list kept by hand in two places
+drifts and then nobody knows which one is true. When the two disagree, `.doctos.yml` wins and
+the difference is a finding.
+
+**Precedence.** The published-site guard still wins over everything (moves break live URLs). A
+declaration beats the content-repo heuristic, since it is explicit where the heuristic guesses.
+The default applies only when there is no file. `/doctos init` writes the file with the default
+values, and CLEAN offers to add it when it is missing, always as one more confirmed line in the
+plan, never silently.
+
 ## The standard structure
 
 Every project should converge to this layout:
@@ -203,6 +247,7 @@ Full scan of the project's documentation health.
 ### Steps
 
 0. **Detect repo type first** (see "Repo type" above): check for a root dependency manifest and the document-to-file ratio. If it is a content repo, do NOT propose the default layout or UPPERCASE English folders; report hygiene findings against the repo's own domain structure and use readable localized names. State "content repo: findings against its own structure, default layout not imposed" in the header so CLEAN inherits it.
+0a. **Read `.doctos.yml` if it exists** (see "The declared structure"): run the drift check first (declared folders missing, existing folders undeclared, absent `docs_root`) and report it, then audit against the declaration instead of the default layout. State "declared structure: auditing against .doctos.yml" in the header so CLEAN inherits it. When the file is absent, note it once and offer to write it with the defaults.
 1. **List all .md files at project root**: identify which are allowed vs violations
 1a. **Published-site guard**: if `docs/` contains `CNAME`, `index.html`, or `_config.yml`, or `.github/workflows/` has a Pages deploy workflow (`configure-pages`, `deploy-pages`, `jekyll`, `github-pages`, `mkdocs gh-deploy`), then `docs/` is a **published site**: the whole run degrades to **findings only: do NOT reorganize; fix in place**. Report every issue as usual, but never move, rename, or restructure anything under `docs/` (moves break live URLs). Mark the audit header with "docs/ is a published site: findings only" so CLEAN mode inherits the restriction. **Report this ONLY when the guard fires.** When `docs/` is a normal documentation folder, say nothing about it: a "docs/ is not a published site" line is noise, it states the default and confuses the reader into thinking it means something. This guard applies to full AUDIT too, not just scoped runs.
 2. **Scan docs/ folder**: check subfolder names, file names, structure
@@ -312,9 +357,11 @@ Same as CLEAN mode but more aggressive:
 - Execute after confirmation
 - Create any missing standard folders
 
-3. **Write docs/README.md** with documentation index and writing rules, using the **INIT docs/README.md template** in `references/report-templates.md` (structure table, root-level files, and the seven writing rules). For a content repo, adapt it per the note there.
+3. **Write `.doctos.yml`** with the default values (or the structure agreed for this repo), so the layout is declared, versioned and visible in diffs instead of living only inside this skill.
 
-4. **If task structure is missing**, suggest: "No task tracking found. Run `/pm-tasks init` to set up TASK_TODO.md and TASK_COMPLETED/."
+4. **Write docs/README.md** with documentation index and writing rules, using the **INIT docs/README.md template** in `references/report-templates.md` (structure table, root-level files, and the seven writing rules). For a content repo, adapt it per the note there.
+
+5. **If task structure is missing**, suggest: "No task tracking found. Run `/pm-tasks init` to set up TASK_TODO.md and TASK_COMPLETED/."
 
 ---
 
