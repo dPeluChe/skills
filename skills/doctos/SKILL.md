@@ -249,6 +249,20 @@ Managed exclusively by pm-tasks. Doctos only renames the folder if it uses a non
 | `/doctos clean` | Clean | Execute fixes: move, rename, archive |
 | `/doctos init` | Init | Create docs/ structure from scratch |
 
+**Picking the mode from prose.** The user almost never types the slash, so the request itself
+decides. Read the verb, not the topic:
+
+| The user says | Mode |
+|---|---|
+| "revisa los docs", "como estan los md", "audita", any question about the state | AUDIT |
+| "limpia", "ordena", "organiza", "muevelos", "arregla la estructura" | CLEAN |
+| "no hay docs", "arma la estructura", "empieza la documentacion" | INIT |
+
+**When the request is ambiguous ("estructura", "docs"), run AUDIT.** It is the only read-only
+mode: it costs the user one extra sentence to then ask for the clean, while guessing CLEAN moves
+files nobody agreed to move. CLEAN still shows its plan and waits for confirmation, so the
+inference decides which report you produce, never whether something gets written.
+
 ## Scoped invocation (routed findings)
 
 When doctos is invoked right after `/kickoff` or `/standup` handed it routed findings ("README claim X went stale", "3 loose .md at root"), don't run the full project audit: **verify the routed list and act on it only**:
