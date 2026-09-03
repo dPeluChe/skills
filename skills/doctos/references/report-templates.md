@@ -31,6 +31,7 @@ always-loaded skill stays lean. Load this file at the report/output step of a mo
 > After renaming, run `/pm-tasks` to audit task content
 
 ### Missing structure
+- README.md: no Documentation block pointing at `.doctos.yml` and `docs/README.md`
 - docs/README.md: no documentation index
 - docs/GUIDES/: no guides folder (5 guide-like files sit directly in `docs/`, not in a subfolder: SETUP.md, DEPLOY.md, TESTING.md, …)
 - docs/ARCHIVED/: no archive folder (obsolete files mixed with active ones)
