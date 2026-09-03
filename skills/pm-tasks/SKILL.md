@@ -168,6 +168,7 @@ Full health check of the task backlog and project structure. This should surface
 | **Code blocks in archive** | Archive files contain ``` code fences | "Remove code blocks, use file/function references" |
 | **Empty sections** | Priority groups in TASK_TODO.md with no tasks | "Clean up empty sections" |
 | **Stale completed tasks** | Tasks marked [x] sitting in TASK_TODO.md | "Archive with /pm-tasks archive" |
+| **Unevidenced completion** | A task marked done that no commit or journal entry backs (checked only for tasks about to be archived) | "Confirm it shipped before archiving: YYMM.md is a permanent record" |
 | **No cross-reference** | TASK_TODO.md doesn't link to TASK_COMPLETED/ | "Add reference header" |
 | **Missing README** | TASK_COMPLETED/ exists but no README.md | "Create README.md with format rules" |
 | **README contamination** | README.md contains task checklists or progress tracking | "Extract tasks, clean README, add reference link" |
@@ -228,6 +229,22 @@ Moves completed tasks from TASK_TODO.md into monthly archive files.
 ### Steps
 
 1. **Run audit logic**: identify all completed tasks. **Exclude process activities** (see "Project task vs process activity"): a completed errand ("called 071", "collected the signatures") is NOT archived to `YYMM.md`, because the monthly file answers "what was built this month". Mark it done where it lives, next to its record.
+1b. **Evidence check (the mark is a claim, not a fact).** For each task about to be archived,
+   look for evidence it actually happened: a `STANDUP_*` entry in `docs/JOURNAL/` covering it, or
+   a related commit in `git log --oneline -30`. This is the SAME skim step 2 of "Enriching
+   entries" already does for Notes, read as a check instead of only as context. Three outcomes:
+   **evidenced** (archive normally, cite the commit or entry), **no evidence found** (archive
+   only after the user confirms, and say so plainly: "claimed done, no commit or journal entry
+   found"), **contradicted** (the repo shows the opposite: the file, command or folder the task
+   claims to have created is absent). A contradicted task is NOT archived; report it and let the
+   user decide whether it goes back to pending.
+
+   Why this is worth a step: `YYMM.md` answers "what was built this month" and is never revisited.
+   A `[x]` that was optimistic becomes a permanent false record the moment it is archived, and
+   nobody rereads the archive to catch it. Field case: a backlog line read "companion skill in the
+   skills repo ✓ done" for a month while the file had never entered the repo. The check costs one
+   git skim that the archive step already runs.
+
 2. **Show the user** what will be archived and ask for confirmation
 3. **Determine target file**: `docs/TASK_COMPLETED/YYMM.md` using today's date
 4. **Create infrastructure if missing**:

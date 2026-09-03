@@ -20,6 +20,9 @@ Full example reports for AUDIT and SCAN modes. Match this structure and level of
 - [x] KB-004: Cross-domain search implementation
 - [x] PERF-002: SQL index optimization
 
+### Claimed done, no evidence found: (ask before archiving)
+- [x] BUS-002: companion skill shipped to the skills repo, no commit or journal entry found
+
 ### Stale tasks:
 - ⚠️ UI-003: Change login button style `added: 2026-02-15` (49 days old)
 - 🔴 SYNC-001: Implement real-time sync `added: 2025-12-20` (106 days, dormant)
