@@ -1,0 +1,306 @@
+# Git hooks: lefthook + gitleaks
+
+> Moved out of the README: it is reference, not a landing page. Wiring a repo takes one command (`flowkit hooks`, see the [README](../../README.md)); this file is what that command sets up and why.
+
+## Hooks (lefthook + gitleaks)
+
+Centralized git hooks served FROM this repo via lefthook `remotes` (refetched at most every
+24h): every wired repo gets the same pre-commit/pre-push guarantees without copying config.
+
+```bash
+flowkit hooks [--team] [--include-parent]   # from inside the target repo (wires $PWD)
+# equivalents from this repo's clone:
+make hooks REPO=/path/to/repo           # solo repo → writes lefthook.yml
+make hooks REPO=/path/to/repo TEAM=1    # team repo → lefthook-local.yml (globally ignored)
+./scripts/install.sh --repo /path/to/repo [--team]
+```
+
+The installer checks minimum versions (lefthook ≥ 1.10, gitleaks ≥ 8.19), chains after an
+existing husky setup instead of replacing it, builds a one-time gitleaks baseline
+(`.gitleaks-baseline.json`) with a findings summary, links `FLOW_CLAUDE.md` into the target
+repo's CLAUDE.md, and stamps a `## ship config` template (the block where each repo declares
+its own `lint:` / `typecheck:` commands) if missing. The template is **stack-aware**: if the
+repo has `.github/workflows/*.yml`, real lint/typecheck/build/test commands are extracted and
+pre-filled (each marked `# from <workflow> -- verify`); otherwise the TODO examples match the
+detected stack (Cargo.toml → cargo, package.json → npm, pyproject.toml → ruff/pytest,
+go.mod → go). It also counts embedded code fences in
+CLAUDE.md/AGENTS.md (agent instruction files reference paths, they don't embed code, the
+ship config yaml fence is the one canonical exception) and recommends `/doctos` to clean up;
+detection only, never blocks. If `docs/` looks like a **published site** (CNAME, index.html,
+_config.yml, or a Pages workflow), that recommendation degrades to *findings only, do NOT
+reorganize; fix in place*, and the same guard is a rule inside the doctos skill itself.
+
+Baseline findings get **context labels**: a finding inside a `test`/`fixture`/`spec` file, or
+whose line reads like a regex literal (`\b`, `[0-9A-Z]{`…), is tagged `[likely
+detector/fixture]` and shows its REAL line in the report, everything else stays redacted.
+The closing agent copy-block carries full detail per item: fence counts per file, baseline
+`file:line` + label, and the stack's suggested ship-config commands ready to paste.
+
+**What a baseline cannot see (field lesson).** A clean baseline means "no secret in THIS
+repo's history", not "no secret to rotate". A real leak that lived in a *base* repo you
+forked or split from never appears here, so scanning this repo forever marks it resolved. If
+a credential was ever exposed anywhere, rotating it at the provider console stays a human
+action; gitleaks green is not a rotation receipt.
+
+**Verify a repo-local `.gitleaks.toml` actually loads.** A malformed local config (e.g. an
+`AllowList` as a list where gitleaks expects a map) makes gitleaks fail to load and the scan
+pass **green without checking anything**: a false green worse than no rule. After adding or
+editing a repo-local config, run `flowkit hooks --verify`: the canary stages a synthetic
+secret and confirms the effective hook actually blocks it. A rule you have not watched go red
+is not verified.
+
+**Writing ABOUT a secret-shaped string** (documenting why a finding is benign, a false
+positive, or public-by-design) trips the same scan that flagged it, you cannot record the
+"why" without re-triggering. Append an inline `gitleaks:allow` comment to that specific line
+(`# gitleaks:allow`, `// gitleaks:allow`, `<!-- gitleaks:allow -->`): gitleaks skips exactly
+that line, so the explanation can live next to the value. For the harness `secret-guard`
+(which runs on Edit/Write before a file exists), the same inline marker on the line is
+honored via `hooks/.gitleaks.toml`. Do NOT weaken a rule to document one string.
+
+### Repo-local gitleaks rules (`.gitleaks.toml`)
+
+The central `hooks/.gitleaks.toml` covers the token shapes that circulate across these repos
+(dpat_/GitHub-PAT/AWS/Sentry/Postgres/ITERIS) plus the gitleaks defaults and a docs allowlist.
+**Most repos need no repo-local config**: if yours only consumes standard tokens (JWT, BYO
+keys the user types and never commits), the central rules already cover it; adding a local
+file would only *remove* coverage. Add one **only** when your project mints its OWN format
+that none of the central rules match (field case: 40-char alphanumeric CSPRNG tokens sail
+through a central scan as "no leaks found"). When present, the repo-local `.gitleaks.toml`
+**replaces** the central one for the pre-commit scan, the install baseline and the verify
+canary, so it must carry its own coverage forward. Recommended pattern:
+
+```toml
+title = "my-project rules"
+
+[extend]
+useDefault = true          # keep the full gitleaks default ruleset
+
+[[rules]]
+id = "my-project-token"
+description = "my-project 40-char CSPRNG token"
+regex = '''\b[a-f0-9]{40}\b'''
+```
+
+Honest note on precedence: the repo-local file **replaces** the central config. gitleaks
+`[extend]` can also chain to a `path`, but the central file lives in a per-machine lefthook
+cache (`.git/info/lefthook-remotes/…`), so extending it by path is **NOT portable**: a
+repo-local config should either redeclare the central rules it cares about or accept
+defaults + its own rules. When a repo has no `.gitleaks.toml`, `flowkit hooks` adds a
+one-line nudge to the agent copy-block; the file is never stamped automatically, whether a
+generic fixed-length regex is worth its false positives is the project's decision.
+
+**The install ends with an honest verification** (`flowkit hooks --verify`) that measures
+**efficacy, not just wiring**: config present; the hooks git will *actually run* (the
+effective `core.hooksPath`) invoke lefthook for pre-commit, pre-push AND commit-msg; the
+**merged config resolves real jobs** (`lefthook dump`: a repo with only the personal
+`lefthook-local.yml` overlay merges ZERO jobs and the gate is silently inert: verify names
+exactly that state); which gitleaks config is in use (repo-local `.gitleaks.toml` vs
+central); and a **canary probe**: a synthetic AWS-style key is staged in an *isolated*
+temporary index (`GIT_INDEX_FILE`: the real index is never touched, the temp index is
+removed) and the **effective pre-commit hook**: the exact file git executes
+(`core.hooksPath` local > global > `.git/hooks`), is run against it. The verdict is the
+hook's: exit ≠ 0 **plus** explicit "leaks found" evidence (a crash without evidence is not a
+working gate; exit 0 means the commit would have sailed through). One pass covers
+config → hooksPath → lefthook → merged jobs → gitleaks, so a placebo state (stubs wired,
+zero jobs merged) fails by canary, not just by the jobs diagnostic, which stays, because it
+*names* the cause the canary only detects. No effective pre-commit hook at all is its own
+FAIL. In particular, a repo whose LOCAL `core.hooksPath` points at a tracked
+hooks dir (e.g. a versioned `.githooks/`) gets a plain **"hooks NOT active in this repo"**
+with the two ways out: PR the exact lefthook delegation line into the project's own hooks,
+or skip consciously. No false "wired ok". `--verify` also flags **orphan stubs** (lefthook
+hooks with no resolvable config, they break every push) and points to `flowkit unhook`.
+
+A deliberate gap is a decision, not a permanent failure: declare it inside the
+`## ship config` block of CLAUDE.md as a nested map,
+
+```yaml
+hooks_skip:
+  pre-push: "CI runs the same lint on every push"
+```
+
+The hook then reports `ok pre-push (skipped: reason)` instead of failing forever on a
+hook the project consciously does not run (the canary is skipped too when pre-commit itself
+is the declared gap). The one-line `hooks_skip: pre-push: "reason"` form is also accepted;
+any *other* shape (e.g. a flow list) gets a loud `hooks_skip present but unparseable --
+declaration ignored` warning, a security declaration is never dropped in silence.
+
+`flowkit unhook` is the clean exit: removes the lefthook stubs from the effective hooksPath
+and `.git/hooks`, deletes OUR config files (`lefthook.yml`/`lefthook-local.yml` referencing
+this repo, a tracked or foreign one is respected with a notice), clears our
+`.git/info/exclude` entries, and reports a table of everything removed.
+
+**Team repos (`--team`) stay portable**: the `FLOW_CLAUDE.md` import references a
+machine-local path, so it goes to `CLAUDE.local.md` (supported by Claude Code, added to
+`.git/info/exclude`), the committed CLAUDE.md only receives the portable `## ship config`
+block. The baseline asks *"share baseline with team (commit) or keep personal (git
+exclude)? [s/P]"*, default personal (`.git/info/exclude`); answer `s` to commit
+`.gitleaks-baseline.json` so the whole team grandfathers the same findings. Solo mode keeps
+today's behavior (import in CLAUDE.md, baseline committable).
+
+Pointing `--repo` at a **workspace** (a git repo whose 1st-level children are git repos
+themselves) wires every child instead, same solo/team logic per child, closing with a
+child → result table. The parent is skipped by default (workspace roots carry their own
+no-commit locks); add `--include-parent` to wire it too.
+
+A global `core.hooksPath` is not a blocker when it holds **chain wrappers** (files that
+delegate to `$(git rev-parse --git-dir)/hooks/<hook>`): the installer verifies pre-commit
+and pre-push wrappers and installs the lefthook stubs into the repo's local `.git/hooks`,
+where the chain picks them up. Missing wrappers fail the install with the culprit named.
+
+`make upgrade` (or `./scripts/install.sh --upgrade`) reports installed lefthook/gitleaks
+versions against the required minimums (plus `brew outdated` when brew exists) and how many
+commits your clone sits behind `origin/main`: exit 0 all fresh, 1 something pending. It
+never pulls for you; when behind it suggests `git pull && make install`. Run from inside a
+**wired** repo, it additionally runs `lefthook install` there to refresh that repo's remotes
+cache ("remotes refreshed") so a just-merged hooks change lands now instead of after the 24h
+refetch window.
+
+Four layers, increasing cost:
+
+| Layer | Budget | What runs |
+|---|---|---|
+| commit-msg | <1s | strips agent attribution trailers (Co-authored-by / Generated with / 🤖 footers), authorship stays human: the person is the author, agents are tools |
+| pre-commit | <2s | gitleaks on staged (repo-local `.gitleaks.toml` wins over the central config) · hard block on staged `.env*` (except `.env.example`) · loc-warning: files THIS commit grows past `loc_limit` (ship config, default 500; never blocks) · lint-health advisory on the staged diff, a blanket eslint-disable or a newly-off config rule (never blocks) |
+| pre-push | <30s | the repo's own `lint:` / `typecheck:` read from its `## ship config` block, fail-soft warning if absent; docs-only and deletion-only pushes skip · docs nudge when code is pushed with zero `.md` touched (never blocks) |
+| `/ship` | minutes | full gate ritual: lint 0 warnings, build/tests, LOC, secret scan on the diff, quality pass, evidence table |
+| CI | async | whatever the repo's pipeline adds on top, hooks complement CI, never replace it |
+
+**Known gap, pre-push scope is staged/pushed, CI scope is the whole tree.** The pre-push
+`lint:` runs the repo's own command as declared; if that command is staged-scoped (only the
+files in the push), a warning that a change *propagates* into a file the commit didn't touch
+(e.g. a type edit whose inference ripples) passes the hook and fails a full-scope CI. This is
+structural, not a bug: the hook is first-line defense over *what you push*, never a substitute
+for CI's full-tree pass. Two honest options per repo: (a) declare a full-scope `lint:` in
+`## ship config` and accept the extra seconds, or (b) keep it staged-fast and let CI be the
+backstop. flowkit does not choose for you, it runs what the block declares.
+
+**CI backstop (planned, not yet generated).** The one layer flowkit does not wire yet is the
+CI pass. When it lands it will be **generated from the same `## ship config` block** the hooks
+read, never hand-written in a separate `ci.yml`. Rationale from a field report: a repo whose
+gate list was duplicated across `pre-commit` and `ci.yml` drifted, and a fixer step (`prettier
+--write`) that exits 0 without converging shipped a file CI then rejected. One source the hooks
+and CI both consume is the only structure that cannot diverge, the same anti-divergence
+principle behind reading commands from `## ship config` instead of copying them.
+
+`merge_policy` (read by `/ship`) binds only the ship skill, a web merge or `gh pr merge`
+bypasses it entirely. It is the reminder, not the lock; the lock is server-side branch
+protection (require PR + approval), worth enabling once per supervised repo. Enforcement
+scale: memory < tool-read config < server-side protection < compiler invariant.
+
+Hook output is pinned compact (`output: [summary, execution_out, failure]` in
+`hooks/lefthook-base.yml`): jobs print only their real output plus the short summary, no
+ASCII banner burying the one error that matters when stdout is redirected. lefthook cannot
+condition output on TTY from config, so compact is the permanent mode; humans read it
+faster too.
+
+On agent attribution: the first line of defense is `includeCoAuthoredBy: false` in Claude
+Code settings; the commit-msg hook is the net for configs that drift or agents that ignore
+it. If stripping would empty the whole message, the original is kept untouched.
+
+### Lint health (JS/TS/React)
+
+A green lint run proves nothing if the gate was quietly turned off. Same doctrine as
+`gitleaks:allow`: a **scoped, reasoned** suppression is fine, a **blanket or unreasoned** one
+is a false green, a gate that stopped checking. `flowkit lint-health [path]` audits an eslint
+repo (flat `eslint.config.*`, legacy `.eslintrc.*`, or `package.json` `"eslintConfig"`) and
+ALERTS, it never edits and never blocks (advisory, always exit 0):
+
+```bash
+flowkit lint-health                 # audit $PWD (or a path)
+flowkit lint-health --measure 'no-unused-vars'   # how much would that rule reveal?
+```
+
+What it flags:
+
+- **Blanket disables (headline)**: `/* eslint-disable */`, `// eslint-disable-next-line` with
+  no rule after it: these turn off **all** lint for a file/scope. Reported with `file:line`. A
+  scoped `/* eslint-disable @typescript-eslint/no-explicit-any -- vendor types */` is NOT
+  flagged, that is the correct shape.
+- **Rules off in config**: `"<rule>": "off"` / `: 0` in the eslint config. A text grep finds
+  the candidates; when eslint is installed, **`eslint --print-config` on a representative source
+  file is the authoritative check**: it distinguishes a genuinely repo-wide `off` from a scoped
+  `files:` override (which is fine, and reported separately). The text read alone CANNOT see
+  flat-config scope, so without eslint the finding is flagged as a text candidate to verify
+  (field bug: a rule `error` repo-wide but `off` in 3 migration scripts read as repo-wide off).
+- **Unreasoned disables** (info), directives with no `-- reason`; reasoned ones are fine.
+- **Ignored source paths**: `.eslintignore` / `globalIgnores([...])` / `ignorePatterns`
+  entries that cover something other than the usual `dist`/`build`/`node_modules`/`_generated`/
+  `coverage` (source hidden from the linter).
+
+`--measure '<rule>'` forces one rule to `error` using the repo's OWN eslint + config (so
+plugins load), **mutates nothing**, and counts what turning it on would surface
+(`no-unused-vars forced on: 47 findings across 12 files (via extended config)`). Under **flat
+config** the CLI `--rule` flag silently fails to enforce *plugin* rules, reporting `0` for a
+rule it never ran, a false green, so `--measure` instead writes a temp config in `/tmp` that
+imports the repo's config by absolute path and overrides only that rule (legacy `.eslintrc`
+uses `--rule`, which works there). If eslint isn't installed, the rule is unknown to the config,
+or the report can't be produced, it says **inconclusive** and exits 0, never a bare `0`.
+
+**`--canary`: does the linter actually REACH the files it claims to cover?** The rest of
+lint-health asks *"is a rule off?"*; the canary asks *"does the repo's lint CATCH a real
+violation in each extension present?"*, the read-vs-verify gap the gitleaks canary already
+closes for secrets. It runs the repo's **own** lint command (from `package.json`), plants one
+blatant violation per source extension **next to a real file of that extension**, and classifies
+each: **caught** (that extension is genuinely linted), **BLIND** (a violation went uncaught, so
+those files are not really linted, only asserted when a rule that would trip it is confirmed
+ON, never a false accusation), or **PARSE ERROR** (the linter chokes on that extension, its own
+finding, not a pass). Both failure modes are real. The **noisy** one is the common case, a
+dependency bump unscopes `tseslint.configs.recommended`, clobbers the `.astro` parser, and the
+lint fills with parse errors, which is exactly why the parse-error classification matters: a
+naive canary reads that error output as *"the linter ran"* and passes a broken gate. The
+**silent** one (a violation genuinely uncaught) is rarer but real, and the reason the whole
+check exists: a green lint proves nothing if the linter never reached those files.
+
+```bash
+flowkit lint-health --canary        # $PWD (or a path); advisory, exit 0, probes cleaned up
+```
+
+**Where it fires.** Three surfaces, same doctrine, widening scope:
+
+- **pre-commit hook** (job `d`, every wired repo), scoped to the **staged diff**: alerts the
+  moment a commit *introduces* a blanket disable or turns a config rule off, so you catch the
+  weakening as you write it, not weeks later. Advisory, never blocks. Self-contained POSIX sh
+  (no flowkit dependency), so it works even where the CLI isn't installed.
+- **`ship`** quality pass, runs the check on the **diff** of the whole change being shipped: a
+  NEW blanket disable or newly-off rule is a finding; a reasoned scoped disable is not.
+- **`flowkit lint-health`**: the **full repo audit** on demand (the whole config + tree, not
+  just a diff).
+
+The pre-commit and CLI paths share the two disable/off regexes; the diff-scoped hook version
+lives inline in `hooks/lefthook-base.yml`, the repo-wide audit in `scripts/lib/lint-health.sh`.
+
+### File size (loc-health)
+
+The team's development rules (reuse-before-write, anti-N+1, materialize-over-recompute) are
+judgment calls that live in a doc. **File size, 400-500 LOC max per file, is the one that's
+mechanical and verifiable, so it's the one worth automating** (a rule that only lives in a doc is
+ignored in three weeks). Language-agnostic; the limit is `loc_limit` in the CLAUDE.md ship config
+block (default 500). Two surfaces, both advisory (never block):
+
+- **pre-commit hook**: warns about files **THIS commit grows past the limit**. Diff-aware on
+  purpose: a legacy file already over the limit that the commit merely touches or *shrinks* is
+  not the concern, the file the diff is *growing* is. So splitting a big file is never nagged;
+  growing one past the line is.
+- **`flowkit loc-health [path]`** repo-wide audit: every tracked file over the limit, largest
+  first. Skips what isn't code-to-split (lockfiles, generated, minified, maps, docs, long docs
+  are doctos' concern, not a design smell).
+
+```bash
+flowkit loc-health                  # audit $PWD against loc_limit (or a path)
+```
+
+### Harness hooks (Claude Code)
+
+Git hooks catch bad commits; these two PreToolUse guards catch the agent's tool call
+before it runs. `git-guard.sh` (matcher `Bash`) blocks destructive git, `push --force`
+(`--force-with-lease` passes), `reset --hard`, `clean -f`, `branch -D`, `filter-branch`,
+`stash drop/clear`, `checkout -- .`, `update-ref -d`: plus our own bypasses `--no-verify`
+and `LEFTHOOK=0` (detected only in ASSIGNMENT position on the command, a prose mention in
+a PR body or echo is data, never a trigger); escape hatch for a human-approved case:
+`FLOWKIT_GIT_GUARD=off` (from the environment or assigned on the command itself).
+`secret-guard.sh` (matcher `Edit|Write`) runs the content through gitleaks with
+`hooks/.gitleaks.toml` (regex fallback when gitleaks is absent) and refuses `.env*`
+targets outright. `make harness` symlinks `~/.agents/hooks-harness` and merges both
+entries into `~/.claude/settings.json` (idempotent; backup to `settings.json.bak` first);
+`make check` validates them once installed.
+

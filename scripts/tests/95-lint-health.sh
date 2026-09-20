@@ -7,13 +7,17 @@
 # off in flat config) + ligamx (blanket /* eslint-disable */ vs one good scoped one).
 # All code-with-disable fixtures are assembled AT RUNTIME (source stays clean).
 
-# README: the doctrine + the --measure use must be documented
-if grep -q "Lint health" "$REPO_DIR/README.md" \
-   && grep -q "false green" "$REPO_DIR/README.md" \
-   && grep -q "lint-health --measure" "$REPO_DIR/README.md"; then
-  ok "README: lint-health doctrine (scoped-vs-blanket) + --measure documented"
+# The doctrine + the --measure use must be documented, and reachable from the README.
+# It moved out of the README (which is a landing page, not a hooks manual), so the test
+# follows it: content in the guide, AND a link from the README, or the split orphans it.
+LH_DOC="$REPO_DIR/docs/GUIDES/HOOKS.md"
+if grep -q "Lint health" "$LH_DOC" \
+   && grep -q "false green" "$LH_DOC" \
+   && grep -q "lint-health --measure" "$LH_DOC" \
+   && grep -q "docs/GUIDES/HOOKS.md" "$REPO_DIR/README.md"; then
+  ok "docs: lint-health doctrine (scoped-vs-blanket) + --measure documented, linked from the README"
 else
-  nope "README: lint-health section missing (doctrine or --measure)"
+  nope "docs: lint-health section missing from docs/GUIDES/HOOKS.md, or the README no longer links it"
 fi
 
 # ship SKILL.md: quality pass runs lint-health on the DIFF

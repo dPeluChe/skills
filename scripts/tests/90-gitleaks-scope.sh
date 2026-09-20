@@ -11,12 +11,16 @@
 
 # README: the repo-local pattern, the portability note and hooks_skip must be
 # documented (no tools required for this check)
-if grep -q "useDefault = true" "$REPO_DIR/README.md" \
-   && grep -q "NOT portable" "$REPO_DIR/README.md" \
-   && grep -q "hooks_skip" "$REPO_DIR/README.md"; then
-  ok "README: repo-local gitleaks pattern + portability note + hooks_skip documented"
+# Moved with the rest of the hooks reference out of the README (a landing page, not a
+# manual); the test follows the content and still demands a path to it from the README.
+HK_DOC="$REPO_DIR/docs/GUIDES/HOOKS.md"
+if grep -q "useDefault = true" "$HK_DOC" \
+   && grep -q "NOT portable" "$HK_DOC" \
+   && grep -q "hooks_skip" "$HK_DOC" \
+   && grep -q "docs/GUIDES/HOOKS.md" "$REPO_DIR/README.md"; then
+  ok "docs: repo-local gitleaks pattern + portability note + hooks_skip documented"
 else
-  nope "README: repo-local gitleaks / hooks_skip documentation missing"
+  nope "docs: repo-local gitleaks / hooks_skip missing from docs/GUIDES/HOOKS.md, or unlinked from the README"
 fi
 
 if command -v lefthook >/dev/null 2>&1 && command -v gitleaks >/dev/null 2>&1; then
