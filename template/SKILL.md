@@ -1,6 +1,6 @@
 ---
 name: my-skill-name
-description: One paragraph saying WHAT this does and WHEN to use it. Include the exact trigger phrases a user would say ("clean up X", "organize Y", "que tareas faltan"). The agent decides whether to load this skill from the description alone — make it earn the trigger.
+description: One paragraph saying WHAT this does and WHEN to use it. Include the exact trigger phrases a user would say ("clean up X", "organize Y", "que tareas faltan"). The agent decides whether to load this skill from the description alone, so make it earn the trigger.
 ---
 
 # My Skill Name
@@ -10,7 +10,7 @@ One-line summary of the skill's job.
 ## The standard / convention it enforces
 
 Describe the opinionated structure or process this skill encodes. Show it,
-don't describe it — file trees, tables, exact naming rules.
+don't describe it: file trees, tables, exact naming rules.
 
 ## Modes
 
