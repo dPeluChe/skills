@@ -25,6 +25,7 @@ Manages the flow of tasks from code TODOs to TASK_TODO.md to monthly completion 
 |---|---|
 | `references/report-formats.md` | Producing a report or plan for the user: the AUDIT report, the SCAN report, the duplicate/mergeable groups, or the INIT standardization plan |
 | `references/templates.md` | Writing a file: the `TASK_TODO.md` and `TASK_COMPLETED/README.md` scaffolds, an archive entry, or the rich session-based archive format |
+| `references/external-trackers.md` | The repo also tracks work in GitHub Issues or another tracker: how to detect one, the cross-check duties, and the per-tracker listing commands |
 
 ## The standard structure
 
@@ -92,22 +93,15 @@ When pm-tasks is invoked right after `/kickoff` or `/standup` handed it routed f
 
 ---
 
-## Tasky MCP: repos that use it
+## Trackers outside the doc
 
-If `mcp__tasky__*` tools are available AND the project tracks work in Tasky
-(ask once if unsure), `TASK_TODO.md` and Tasky must not diverge. Today the
-user dictates both by hand. Two duties:
-
-- **AUDIT cross-check**: pull the project's open tasks (`list_tasks`) and
-  compare against TASK_TODO.md both ways. Report "in Tasky but not in the
-  doc" and "in the doc but not in Tasky" as findings. Never auto-create on
-  either side without confirmation.
-- **Duplicate detection on create** (any mode that writes a new task, and
-  a rule the user explicitly asked of Tasky itself): before adding, check
-  for near-duplicates by title/topic in BOTH TASK_TODO.md and Tasky; if a
-  likely match exists, show it and ask merge-or-create.
-
-Without Tasky in the repo this section doesn't apply. TASK_TODO.md rules.
+Some repos also track work in GitHub Issues or a dedicated tracker. When one is in play, the
+doc and the tracker must not quietly diverge: AUDIT cross-checks both ways and reports the
+differences, and any mode that creates a task checks for near-duplicates in BOTH places first.
+Neither side is ever auto-created without confirmation. Detection, the per-tracker commands and
+the full rule live in `references/external-trackers.md`; load it only when a tracker is
+actually present. With no tracker, `TASK_TODO.md` is the source of truth and none of this
+applies.
 
 ## Step 0: Locate and assess project state
 
