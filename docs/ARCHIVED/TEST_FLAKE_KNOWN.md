@@ -1,3 +1,10 @@
+> **ARCHIVED** 2026-09-20
+> The flake it describes was resolved in 0.1.17 and the fixtures no longer clone the
+> public repo, so this is a record, not current guidance. A different canary flake was
+> root-caused later; that one lives in [CANARY_DETERMINISM.md](../FEATURES/CANARY_DETERMINISM.md).
+
+---
+
 # RESOLVED (0.1.17): canary/verify test flake
 
 Was: `bash scripts/test-hooks.sh` intermittently failed (~1 in 6, then

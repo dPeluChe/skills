@@ -1,0 +1,18 @@
+# This repo's declared documentation structure, read by the doctos skill.
+# It is the contract: doctos audits against THIS, not against its default layout,
+# and reports drift (declared folders that are missing, folders nobody declared).
+# docs/README.md's structure table is generated from here. Edit this file, not that table.
+
+docs_root: docs
+naming: UPPERCASE_SNAKE
+
+folders:
+  GUIDES: how the tooling works and why, for a human reading it on purpose (flowkit, hooks, doctrine)
+  FEATURES: design notes on one mechanism, written while it was decided
+  JOURNAL: dated logbook, append-only, born historical (kickoff and standup write it)
+  ARCHIVED: docs that stopped being current, each with an archival note
+  TASK_COMPLETED: monthly archive of finished work (managed by pm-tasks)
+
+# FLOW_CLAUDE.md is not documentation ABOUT the repo: it is a payload the installer
+# links into every wired repo's CLAUDE.md. Moving it into docs/ would break that link.
+root_allowed: [FLOW_CLAUDE.md]
