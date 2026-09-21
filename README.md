@@ -94,6 +94,8 @@ What it sets up and why: [docs/GUIDES/HOOKS.md](./docs/GUIDES/HOOKS.md).
 
 ## Documentation
 
+Structure declared in [`.doctos.yml`](./.doctos.yml), index in [docs/README.md](./docs/README.md).
+
 | Where | What |
 |---|---|
 | [`docs/GUIDES/FLOWKIT.md`](./docs/GUIDES/FLOWKIT.md) | The CLI: every subcommand, the manual `make` and script equivalents, versioning |
