@@ -2,7 +2,7 @@
 
 @~/.agents/skills/FLOW_CLAUDE.md
 
-## ship config
+## preship config
 
 ```yaml
 lint: shellcheck scripts/install.sh scripts/test-hooks.sh bin/flowkit scripts/lib/*.sh scripts/tests/*.sh hooks/harness/*.sh

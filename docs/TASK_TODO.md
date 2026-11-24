@@ -9,6 +9,15 @@
 
 - [ ] **`lint-health --measure`: simular el gate REAL del repo**: además del conteo de hallazgos, leer el comando de gate de `package.json` (ej. `lint:strict --max-warnings 0`) y reportar si esas N violaciones **romperían el gate**, no solo cuántas hay. Origen: field-test dev tennispro: el `--max-warnings 0` solo apareció al EJECUTAR el cambio, no al leer la config (`warn` ahí == `error`); un `--measure` que simule el efecto lo cazaría solo. Prioridad: valioso pero puntual (solo al decidir encender una regla en repo con gate estricto), esperar más field-tests. `added: 2026-07-31`
 
+## preship y el /ship nativo
+
+- [ ] **Estampar `.claude/skills/steward/SKILL.md` desde el `## preship config`**: el watch del `/ship` nativo empuja con los hooks apagados (`core.hooksPath=/dev/null`) y lee ese archivo para saber qué checks importan. flowkit podría generarlo con los mismos `lint`/`typecheck`/`test` para que el watch corra los gates del repo. Verificar antes cómo lo lee el watch (docs: code.claude.com/docs/en/ship-command). `added: 2026-11-24`
+- [ ] **Migrar repos ya conectados a `## preship config`**: el encabezado viejo se sigue leyendo, así que no urge; `flowkit hooks` podría ofrecer renombrarlo. `added: 2026-11-24`
+
+## Research en pausa
+
+- [ ] **Decidir la propuesta de `docs/RESEARCH/SKILLS_ECOSYSTEM_2611.md`** (evals, loop estilo `/correct`, anti-slop de UI, auditoría de seguridad, guard freeze). `added: 2026-11-24`
+
 ## Deuda técnica (no bloqueante)
 
 - [ ] **Scope-check del script de lint**: detectar un `eslint app/**` que deja carpetas (`convex/`, `scripts/`) sin lintear, señal para `flowkit lint-health`. Nice-to-have. `added: 2026-07-31`

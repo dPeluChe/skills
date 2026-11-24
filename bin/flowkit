@@ -52,7 +52,7 @@ Usage: flowkit <subcommand>
                        it would reveal; --list prints each finding so the number is checkable
              --canary: plant a violation per extension present + prove the repo's lint CATCHES it
                        (a green lint proves nothing if the linter never reached those files)
-  loc-health [path]  audit file sizes repo-wide against the loc_limit rule (ship config,
+  loc-health [path]  audit file sizes repo-wide against the loc_limit rule (preship config,
              default 500); advisory, exit 0. The pre-commit hook warns per-diff too
   about      what flowkit is + this repo's detected flow status (for agents landing cold)
   version    print flowkit version + repo short sha

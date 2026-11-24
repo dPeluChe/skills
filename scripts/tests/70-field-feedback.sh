@@ -102,7 +102,7 @@ if command -v lefthook >/dev/null 2>&1 && command -v gitleaks >/dev/null 2>&1; t
     else
       nope "--team: FLOW import leaked into CLAUDE.md or exclude entry missing"
     fi
-    if grep -q "^## ship config" "$FFTEAM/CLAUDE.md"; then
+    if grep -q "^## preship config" "$FFTEAM/CLAUDE.md"; then
       ok "--team: committed CLAUDE.md still gets the portable '## ship config' block"
     else
       nope "--team: ship config block missing from CLAUDE.md"

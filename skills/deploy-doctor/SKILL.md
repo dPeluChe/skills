@@ -9,7 +9,7 @@ description: >
   in use", "el server no levanta", "revisa si hay algo raro", pasted deploy/startup logs,
   "/deploy-doctor". The user almost never types the slash: trigger from informal prose and
   typos, and from raw logs pasted with frustration. Disambiguation: this is for INFRA/runtime
-  (deploys, ports, env, services, stale builds). Plain code bugs follow normal debugging; ship
+  (deploys, ports, env, services, stale builds). Plain code bugs follow normal debugging; preship
   invokes deploy-doctor when a post-merge release fails its verification.
 allowed-tools: Read, Glob, Grep, Bash, Edit
 ---

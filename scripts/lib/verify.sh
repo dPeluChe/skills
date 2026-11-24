@@ -201,7 +201,7 @@ verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification: config
   # present + the hooks git actually runs invoke lefthook + the merged config
   # resolves REAL jobs + gitleaks accessible (and which config it uses) + a
   # canary secret is actually flagged + no orphan stubs. A hook consciously
-  # skipped via `hooks_skip: <hook>: reason` in the ship config block reports
+  # skipped via `hooks_skip: <hook>: reason` in the preship config block reports
   # ok-skipped instead of failing. Prints a report; returns 0 active / 1 not.
   local target="$1" rc=0 cfg="" ehp gitdir hook f stubs=0 resolvable=0 canary_scope
   local skip_reason jobs
@@ -222,7 +222,7 @@ verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification: config
   for hook in pre-commit pre-push commit-msg; do
     skip_reason="$(ship_hooks_skip_reason "$target" "$hook")"
     if [[ -n "$skip_reason" ]]; then
-      echo "ok $hook (skipped: $skip_reason) -- conscious skip declared in ship config hooks_skip"
+      echo "ok $hook (skipped: $skip_reason) -- conscious skip declared in preship config hooks_skip"
       continue
     fi
     if hook_invokes_lefthook "$target" "$hook"; then
@@ -315,7 +315,7 @@ verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification: config
     if ! grep -qF "$hk.old" "$gitdir/hooks/$hk" 2>/dev/null; then
       echo "x displaced hook: a pre-existing $hk was replaced by wiring and no longer runs"
       echo "  (backed up at .git/hooks/$hk.old, NOT chained). Restore delegation (chain it) or"
-      echo "  migrate its logic into lefthook / the ## ship config -- don't leave it silently dead."
+      echo "  migrate its logic into lefthook / the ## preship config -- don't leave it silently dead."
       rc=1
     fi
   done

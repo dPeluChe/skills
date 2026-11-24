@@ -81,8 +81,8 @@ warn_displaced_hooks() { # $1 = target. `lefthook install` backs a pre-existing
   done
   if [[ -n "$found" ]]; then
     note "!! pre-existing hook(s) displaced by lefthook:${found} -- backed up to .git/hooks/<hook>.old but NOT run"
-    note "   migrate the logic into lefthook.yml / the '## ship config', or record a conscious skip. Auto-chaining is unsafe (an old hook's exit 0 would mask a blocked secret)."
-    agent_action "Pre-existing git hook(s) displaced by lefthook (${found# }): each is backed up at .git/hooks/<hook>.old but no longer runs. Migrate its logic into lefthook.yml or the '## ship config', then delete the .old. flowkit does NOT auto-chain it -- an old hook exiting 0 would mask a lefthook secret-block. flowkit hooks --verify FAILs until resolved."
+    note "   migrate the logic into lefthook.yml / the '## preship config', or record a conscious skip. Auto-chaining is unsafe (an old hook's exit 0 would mask a blocked secret)."
+    agent_action "Pre-existing git hook(s) displaced by lefthook (${found# }): each is backed up at .git/hooks/<hook>.old but no longer runs. Migrate its logic into lefthook.yml or the '## preship config', then delete the .old. flowkit does NOT auto-chain it -- an old hook exiting 0 would mask a lefthook secret-block. flowkit hooks --verify FAILs until resolved."
   fi
 }
 

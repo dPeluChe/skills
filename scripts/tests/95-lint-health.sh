@@ -21,11 +21,11 @@ else
 fi
 
 # ship SKILL.md: quality pass runs lint-health on the DIFF
-if grep -q "Lint health on the diff" "$REPO_DIR/skills/ship/SKILL.md" \
-   && grep -q "flowkit lint-health" "$REPO_DIR/skills/ship/SKILL.md"; then
-  ok "ship SKILL.md: Step 2 runs lint-health on the diff (new blanket/off = finding)"
+if grep -q "Lint health on the diff" "$REPO_DIR/skills/preship/SKILL.md" \
+   && grep -q "flowkit lint-health" "$REPO_DIR/skills/preship/SKILL.md"; then
+  ok "preship SKILL.md: Step 2 runs lint-health on the diff (new blanket/off = finding)"
 else
-  nope "ship SKILL.md: lint-health-on-diff step missing"
+  nope "preship SKILL.md: lint-health-on-diff step missing"
 fi
 
 # flowkit help lists the subcommand

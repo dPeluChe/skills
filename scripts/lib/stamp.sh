@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2154  # globals (REPO_DIR, ...) come from install.sh
-# ── stamp: per-repo stamps -- gitleaks baseline, FLOW import, ship config ──
+# ── stamp: per-repo stamps -- gitleaks baseline, FLOW import, preship config ──
 # Sourced by scripts/install.sh (the entrypoint); never executed directly.
 
 gitleaks_config_label() { # $1 = target repo; prints the label of the config the
@@ -219,14 +219,14 @@ ensure_flow_import() { # $1 = target repo, $2 = team (0/1): @import FLOW.
 
 check_agent_docs_fences() { # $1 = target repo: agent instruction files must
   # reference paths, never embed code. Count ``` fences in CLAUDE.md/AGENTS.md,
-  # excluding the canonical yaml fence of the "## ship config" section.
+  # excluding the canonical yaml fence of the "## preship config" section.
   # Detect + recommend only — the agent running the install launches /doctos.
   local target="$1" file count=0 n detail=""
   for file in CLAUDE.md AGENTS.md; do
     [[ -f "$target/$file" ]] || continue
     n="$(awk '
-      /^## ship config$/ { ship = 1 }
-      ship && /^## / && !/^## ship config$/ { ship = 0 }
+      /^## (pre)?ship config$/ { ship = 1 }
+      ship && /^## / && !/^## (pre)?ship config$/ { ship = 0 }
       /^```/ {
         if (open) { open = 0; next }
         open = 1

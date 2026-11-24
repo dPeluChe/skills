@@ -1,11 +1,11 @@
 # CI backstop: planned
 
-The one layer of the 4 (harness / git hooks / ship / **CI**) flowkit does not
+The one layer of the 4 (harness / git hooks / preship / **CI**) flowkit does not
 wire yet. Status: designed, not built. Deferred by decision, not oversight.
 
 ## The invariant it must preserve
 
-Generated FROM the repo's `## ship config` block, the same source the git
+Generated FROM the repo's `## preship config` block, the same source the git
 hooks read, never hand-written in a separate `ci.yml`. A field report
 (29 jul 2026) showed why: a repo whose gate list was duplicated across
 `pre-commit` and `ci.yml` drifted, and a `prettier --write` fixer that exits 0
@@ -16,7 +16,7 @@ CI consume is the only structure that cannot diverge.
 
 - `flowkit ci` (or an install-time stamp) emits a workflow file for the repo's
   forge (GitHub Actions first) that runs the SAME `lint:` / `typecheck:` /
-  `test:` / `build:` declared in `## ship config`, at FULL tree scope.
+  `test:` / `build:` declared in `## preship config`, at FULL tree scope.
 - Plus gitleaks as the org-wide secret backstop for team repos, the layer the
   local hooks cannot provide (they only protect installers).
 - Regenerated, never edited: editing the ci.yml by hand reintroduces the drift.
@@ -38,7 +38,7 @@ for the generated CI is not "format checks are expensive" but "checking the
 format of generated/versioned data payloads is expensive and low-value,
 scope those gates to source, let the data pass". Any repo that versions large
 data catalogs (research dumps, fixtures, seed JSON) will hit this; the
-generated workflow should let `## ship config` express a path scope, not run
+generated workflow should let `## preship config` express a path scope, not run
 every gate over every byte.
 
 ## Structural gap this backstop does NOT close on its own

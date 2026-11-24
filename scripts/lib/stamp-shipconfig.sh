@@ -1,22 +1,22 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2154  # globals (REPO_DIR, note, agent_action, ...) come from util.sh
-# ── stamp-shipconfig: the ## ship config block -- stack detection, CI
+# ── stamp-shipconfig: the ## preship config block -- stack detection, CI
 #    extraction, loc_limit, hooks_skip parsing. Split out of stamp.sh (LOC).
 #    Sourced by scripts/install.sh; never executed directly.
 
-ship_config_has_todos() { # $1 = CLAUDE.md path: TODOs left in the ship config block?
-  awk '/^## ship config$/ { s = 1; next } s && /^## / { s = 0 } s' "$1" 2>/dev/null \
+ship_config_has_todos() { # $1 = CLAUDE.md path: TODOs left in the preship config block?
+  awk '/^## (pre)?ship config$/ { s = 1; next } s && /^## / { s = 0 } s' "$1" 2>/dev/null \
     | grep -q 'TODO'
 }
 
-ship_config_block() { # $1 = target repo; prints the ship config yaml fence body
+ship_config_block() { # $1 = target repo; prints the preship config yaml fence body
   # shellcheck disable=SC2016  # backtick fences are literal, not expansions
-  sed -n '/^## ship config$/,/^## /p' "$1/CLAUDE.md" 2>/dev/null \
+  sed -nE '/^## (pre)?ship config$/,/^## /p' "$1/CLAUDE.md" 2>/dev/null \
     | sed -n '/^```yaml$/,/^```$/p' | sed '1d;$d'
 }
 
 ship_hooks_skip_reason() { # $1 = target repo, $2 = hook name; prints the reason
-  # a hook is consciously skipped, declared inside the ship config yaml fence
+  # a hook is consciously skipped, declared inside the preship config yaml fence
   # of CLAUDE.md -- empty when the hook is not skipped. BOTH forms are read:
   #   hooks_skip: pre-push: "reason"     (historical one-liner)
   #   hooks_skip:                        (nested map -- plain YAML)
@@ -130,7 +130,7 @@ PY
 
 detect_typecheck_cmd() { # $1 = package.json; prints the framework-CORRECT typecheck
   # command. `tsc --noEmit` does NOT understand .astro/.vue/.svelte component files
-  # -- suggesting it for those stacks is the exact false green /ship warns about
+  # -- suggesting it for those stacks is the exact false green /preship warns about
   # (field feedback: an Astro repo got `tsc --noEmit`, which checks none of it).
   [[ -f "$1" ]] || { echo "npx tsc --noEmit"; return 0; }
   python3 - "$1" 2>/dev/null <<'PY' || echo "npx tsc --noEmit"
@@ -242,10 +242,10 @@ ensure_ship_config_template() { # $1 = target repo: stamp the block if missing.
   local target="$1" cmd="$1/CLAUDE.md" stack suggest fill_action hit from
   stack="$(detect_stack_name "$target")"
   suggest="$(stack_suggested_cmds "$stack")"
-  fill_action="Fill the TODOs in the '## ship config' block of CLAUDE.md (lint/build/test commands for this stack)."
+  fill_action="Fill the TODOs in the '## preship config' block of CLAUDE.md (lint/build/test commands for this stack)."
   [[ -n "$suggest" ]] && fill_action="$fill_action Suggested ($stack): $suggest -- paste and verify."
-  if grep -q '^## ship config' "$cmd" 2>/dev/null; then
-    note "-> CLAUDE.md already has a '## ship config' block"
+  if grep -qE '^## (pre)?ship config' "$cmd" 2>/dev/null; then
+    note "-> CLAUDE.md already has a '## preship config' block"
     ship_config_has_todos "$cmd" && agent_action "$fill_action"
     return 0
   fi
@@ -319,13 +319,13 @@ ensure_ship_config_template() { # $1 = target repo: stamp the block if missing.
     if [[ -n "$found" ]]; then
       loc_limit="$found"
       loc_note="   # from CLAUDE.md's documented convention"
-      note "-> ship config loc_limit=$found taken from CLAUDE.md convention (not the 500 default)"
+      note "-> preship config loc_limit=$found taken from CLAUDE.md convention (not the 500 default)"
     fi
   fi
 
   cat >> "$cmd" <<EOF
 
-## ship config
+## preship config
 
 \`\`\`yaml
 $lint_line
@@ -338,12 +338,12 @@ simplify: 500 # run /simplify only if changed LOC > N (off = only on request)
 \`\`\`
 EOF
   if [[ "$ci_used" == 1 ]]; then
-    note "-> stamped '## ship config' template in CLAUDE.md ($stack stack; commands pre-filled from CI workflows -- verify them)"
-    agent_action "Verify the CI-derived commands in the '## ship config' block of CLAUDE.md (marked '# from <workflow> -- verify')."
+    note "-> stamped '## preship config' template in CLAUDE.md ($stack stack; commands pre-filled from CI workflows -- verify them)"
+    agent_action "Verify the CI-derived commands in the '## preship config' block of CLAUDE.md (marked '# from <workflow> -- verify')."
     ship_config_has_todos "$cmd" && agent_action "$fill_action"
     return 0
   else
-    note "-> stamped '## ship config' template in CLAUDE.md ($stack stack detected -- fill the TODOs)"
+    note "-> stamped '## preship config' template in CLAUDE.md ($stack stack detected -- fill the TODOs)"
     agent_action "$fill_action"
   fi
 }

@@ -12,13 +12,13 @@
 # limit (in hooks/lefthook-base.yml, diff-scoped); `flowkit loc-health` audits
 # the whole repo on demand (here).
 
-# loc_limit from the repo's CLAUDE.md "## ship config" block; default 500. Same
+# loc_limit from the repo's CLAUDE.md "## preship config" block; default 500. Same
 # block the pre-push gate reads for lint/typecheck -- one per-repo source.
 _loc_limit() { # $1 = repo root; prints the numeric limit
   local root="$1" raw=""
   if [[ -f "$root/CLAUDE.md" ]]; then
     # shellcheck disable=SC2016  # backtick fences in the yaml block are literal, not expansions
-    raw="$(sed -n '/^## ship config$/,/^## /p' "$root/CLAUDE.md" 2>/dev/null \
+    raw="$(sed -nE '/^## (pre)?ship config$/,/^## /p' "$root/CLAUDE.md" 2>/dev/null \
       | sed -n '/^```yaml$/,/^```$/p' | sed -n 's/^loc_limit:[[:space:]]*//p' \
       | sed 's/[[:space:]]*#.*$//' | tr -d '[:space:]' | head -1)"
   fi
@@ -64,7 +64,7 @@ run_loc_health() {
     done
     echo "--"
     echo "ALERT: files above the $limit-LOC rule -- consider splitting the largest."
-    echo "  Advisory only -- this never blocks. Per-repo limit: loc_limit in CLAUDE.md ship config."
+    echo "  Advisory only -- this never blocks. Per-repo limit: loc_limit in CLAUDE.md preship config."
   else
     echo "  ok no files over $limit LOC"
     echo "--"

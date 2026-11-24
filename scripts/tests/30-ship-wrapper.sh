@@ -15,13 +15,13 @@ make_fixture() { # $1 = dir; CLAUDE.md content on stdin
 }
 
 if [[ -n "$WRAPPER" ]]; then
-  # fixture A: valid "## ship config" block — commands must be extracted and run
+  # fixture A: valid "## preship config" block — commands must be extracted and run
   MARKER="$TMP/marker.txt"
   export MARKER
   make_fixture "$TMP/fix-valid" <<EOF
 # Test repo
 
-## ship config
+## preship config
 
 \`\`\`yaml
 lint: echo LINT-OK >> "\$MARKER"
@@ -34,7 +34,7 @@ EOF
   : > "$MARKER"
   if run_wrapper "$TMP/fix-valid" "src/app.ts src/lib.ts"; then
     if grep -q "LINT-OK" "$MARKER" && grep -q "TYPECHECK-OK" "$MARKER"; then
-      ok "fixture A: ship config parsed, lint + typecheck executed, exit 0"
+      ok "fixture A: preship config parsed, lint + typecheck executed, exit 0"
     else
       nope "fixture A: exit 0 but commands did not run (marker: $(cat "$MARKER"))"
     fi
@@ -42,7 +42,8 @@ EOF
     nope "fixture A: wrapper exited non-zero on a valid ship config"
   fi
 
-  # fixture A2: failing lint must block the push (exit 1)
+  # fixture A2: failing lint must block the push (exit 1), under the LEGACY
+  # "## ship config" heading: repos wired before the rename keep their gate
   make_fixture "$TMP/fix-failing" <<'EOF'
 # Test repo
 
@@ -55,7 +56,7 @@ EOF
   if run_wrapper "$TMP/fix-failing" "src/app.ts"; then
     nope "fixture A2: failing lint did NOT block (expected exit 1)"
   else
-    ok "fixture A2: failing lint blocks the push (exit 1)"
+    ok "fixture A2: failing lint blocks the push (exit 1, legacy heading)"
   fi
 
   # fixture B: no ship config block — fail-soft, loud warning, exit 0
@@ -63,7 +64,7 @@ EOF
 # Test repo — no ship config here
 EOF
   if run_wrapper "$TMP/fix-none" "src/app.ts"; then
-    if grep -q "no ship config block" "$TMP/err.log"; then
+    if grep -q "no preship config block" "$TMP/err.log"; then
       ok "fixture B: no block → fail-soft warning + exit 0"
     else
       nope "fixture B: exit 0 but the loud warning is missing"

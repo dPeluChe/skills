@@ -191,7 +191,7 @@ Only these files are allowed at the project root:
 Allowed at root, but with their own hygiene rules: these files load into EVERY agent session, so every extra line is a recurring token cost, and agents trust them blindly:
 
 - **Lean**: instructions only. Long walkthroughs and background belong in `docs/GUIDES/` or `docs/ARCHITECTURE/` with a one-line pointer.
-- **No embedded code blocks**: reference scripts by path (`scripts/deploy.sh`) instead of pasting their content: pasted copies go stale silently and nobody notices until an agent follows the wrong version. **Exception: the `## ship config` yaml fence is REQUIRED by flowkit** (the git hooks and `/ship` parse it from CLAUDE.md): never flag it as embedded code; it is structured config, not a pasted walkthrough.
+- **No embedded code blocks**: reference scripts by path (`scripts/deploy.sh`) instead of pasting their content: pasted copies go stale silently and nobody notices until an agent follows the wrong version. **Exception: the `## preship config` yaml fence is REQUIRED by flowkit** (the git hooks and `/preship` parse it from CLAUDE.md): never flag it as embedded code; it is structured config, not a pasted walkthrough.
 - **No stale claims**: the stack, commands and structure they describe must match reality. Audit them with the same stale-claims check as any doc: a CLAUDE.md that names the wrong auth library actively sabotages every session.
 - **No task tracking**: pending/completed lists belong in `docs/TASK_TODO.md` (pm-tasks' protected-zone rule covers these files too).
 

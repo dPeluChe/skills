@@ -13,7 +13,7 @@
 # `scripts/install.sh --repo <path>` writes that for you.
 #
 # Layers: pre-commit (<2s, universal, always runs) · pre-push (<30s, runs the
-# repo's OWN lint/typecheck declared in its CLAUDE.md "## ship config" block)
+# repo's OWN lint/typecheck declared in its CLAUDE.md "## preship config" block)
 # · commit-msg (strips agent attribution — authorship stays human).
 # Scripts are POSIX sh (lefthook runs commands through `sh -c`).
 
@@ -81,7 +81,7 @@ pre-commit:
         fi
 
     # (c) LOC check: WARN about files THIS commit GROWS past loc_limit (from
-    # CLAUDE.md ship config, default 500). Diff-aware on purpose -- a legacy file
+    # CLAUDE.md preship config, default 500). Diff-aware on purpose -- a legacy file
     # already over the limit that the commit merely touches or SHRINKS is not the
     # concern; the file the diff is growing is. Never blocks. Repo-wide audit:
     # flowkit loc-health.
@@ -92,7 +92,7 @@ pre-commit:
         limit=500
         if [ -f "$root/CLAUDE.md" ]; then
           # shellcheck disable=SC2016
-          v="$(sed -n '/^## ship config$/,/^## /p' "$root/CLAUDE.md" 2>/dev/null \
+          v="$(sed -nE '/^## (pre)?ship config$/,/^## /p' "$root/CLAUDE.md" 2>/dev/null \
             | sed -n '/^```yaml$/,/^```$/p' | sed -n 's/^loc_limit:[[:space:]]*//p' \
             | sed 's/[[:space:]]*#.*$//' | tr -d '[:space:]' | head -1)"
           case "$v" in ''|*[!0-9]*) ;; *) limit="$v" ;; esac
@@ -188,7 +188,7 @@ pre-commit:
     # master) is usually not intended for agentic work -- most repos here use
     # feature branches + PRs. WARN, never block (some repos legitimately work on
     # main). Field feedback: an agent committed to main twice despite the repo's
-    # instructions and no hook chirped. Opt out per repo with a '## ship config'
+    # instructions and no hook chirped. Opt out per repo with a '## preship config'
     # line `default_branch_ok: true`.
     - name: default-branch-nudge
       run: |
@@ -203,13 +203,13 @@ pre-commit:
         fi
         root="$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
         # shellcheck disable=SC2016
-        ok="$(sed -n '/^## ship config$/,/^## /p' "$root/CLAUDE.md" 2>/dev/null \
+        ok="$(sed -nE '/^## (pre)?ship config$/,/^## /p' "$root/CLAUDE.md" 2>/dev/null \
           | sed -n '/^```yaml$/,/^```$/p' | sed -n 's/^default_branch_ok:[[:space:]]*//p' \
           | tr -d '[:space:]' | head -1)"
         if [ "$ok" != "true" ] && [ -n "$branch" ] && [ "$branch" = "$def" ]; then
           echo "[hooks] committing directly to '$branch' (the default branch) -- most repos here use a feature branch + PR." >&2
           echo "[hooks]   If that's wrong: git branch <name> && git reset --soft origin/$branch. Does not block." >&2
-          echo "[hooks]   (opt out: add 'default_branch_ok: true' to the '## ship config' block.)" >&2
+          echo "[hooks]   (opt out: add 'default_branch_ok: true' to the '## preship config' block.)" >&2
         fi
         exit 0
 
@@ -221,7 +221,7 @@ pre-push:
     # crash anywhere inside (missing command, bad substitution, stray 127)
     # degrades to exit 0 instead of killing the push — the no-block contract
     # must not depend on reaching the last line. Real judgment happens in
-    # ship Step 3 / standup.
+    # preship Step 3 / standup.
     - name: docs-nudge
       run: |
         {
@@ -244,14 +244,14 @@ pre-push:
         } || true
         exit 0
 
-    # Runs the repo's own lint/typecheck, declared in the "## ship config"
+    # Runs the repo's own lint/typecheck, declared in the "## preship config"
     # block (exact heading + yaml fence) of the repo's CLAUDE.md. Blocks BY
     # DESIGN when lint/typecheck fail; everything else is fail-soft BY
     # CONSTRUCTION: the config-reading machinery is guarded, so a crash there
     # (parse error, missing command) leaves the commands empty and falls
     # through to the loud warning + exit 0 — never a stray 127 blocking.
-    # Completed tasks left in the backlog: ship DELEGATES archiving to pm-tasks,
-    # but a cycle that closes WITHOUT a formal /ship leaves the [x] items sitting
+    # Completed tasks left in the backlog: preship DELEGATES archiving to pm-tasks,
+    # but a cycle that closes WITHOUT a formal /preship leaves the [x] items sitting
     # in TASK_TODO.md, and the monthly archive silently stops answering "what was
     # built this month". Field feedback: a whole session's [x] items were only
     # caught by hand. Advisory, never blocks: the whole body is one guarded group.
@@ -304,12 +304,12 @@ pre-push:
             fi
           fi
 
-          # parse the "## ship config" block from the local CLAUDE.md
+          # parse the "## preship config" block from the local CLAUDE.md
           root="$(git rev-parse --show-toplevel)"
           block=""
           if [ -n "$root" ] && [ -f "$root/CLAUDE.md" ]; then
             # shellcheck disable=SC2016  # backtick fences are literal, not expansions
-            block="$(sed -n '/^## ship config$/,/^## /p' "$root/CLAUDE.md" \
+            block="$(sed -nE '/^## (pre)?ship config$/,/^## /p' "$root/CLAUDE.md" \
               | sed -n '/^```yaml$/,/^```$/p' | sed '1d;$d')"
           fi
           if [ -n "$block" ]; then
@@ -326,8 +326,8 @@ pre-push:
         fi
         if [ -z "$lint_cmd" ] && [ -z "$type_cmd" ]; then
           warn "=============================================================="
-          warn "no ship config block -- pre-push runs without lint"
-          warn "add a '## ship config' block (yaml fence with lint:/typecheck:)"
+          warn "no preship config block -- pre-push runs without lint"
+          warn "add a '## preship config' block (yaml fence with lint:/typecheck:)"
           warn "to CLAUDE.md — this push goes through UNCHECKED."
           warn "=============================================================="
           exit 0
@@ -338,13 +338,13 @@ pre-push:
           warn "lint: $lint_cmd"
           ( cd "$root" && eval "$lint_cmd" ) || rc=1
         else
-          warn "ship config has no lint: key — lint skipped"
+          warn "preship config has no lint: key — lint skipped"
         fi
         if [ -n "$type_cmd" ]; then
           warn "typecheck: $type_cmd"
           ( cd "$root" && eval "$type_cmd" ) || rc=1
         else
-          warn "ship config has no typecheck: key — typecheck skipped"
+          warn "preship config has no typecheck: key — typecheck skipped"
         fi
         if [ "$rc" -ne 0 ]; then
           warn "pre-push FAILED — fix and push again (never --no-verify / LEFTHOOK=0)"

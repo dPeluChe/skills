@@ -72,11 +72,11 @@ EOF
      && grep -q "This repo (fk-about-repo)" "$TMP/fk-about-dyn.log" \
      && grep -q "hooks mode:      lefthook-local.yml (personal)" "$TMP/fk-about-dyn.log" \
      && grep -q "baseline:        present, 0 findings grandfathered" "$TMP/fk-about-dyn.log" \
-     && grep -q "ship config:     present (TODOs pending)" "$TMP/fk-about-dyn.log" \
+     && grep -q "preship config:  present (TODOs pending)" "$TMP/fk-about-dyn.log" \
      && grep -q "FLOW import:     yes" "$TMP/fk-about-dyn.log" \
      && grep -q "harness guards:  not installed" "$TMP/fk-about-dyn.log" \
      && grep -q "Suggested next (read-only" "$TMP/fk-about-dyn.log" \
-     && grep -q "fill the '## ship config' TODOs" "$TMP/fk-about-dyn.log" \
+     && grep -q "fill the '## preship config' TODOs" "$TMP/fk-about-dyn.log" \
      && [[ -z "$(git -C "$FK_ABOUT" status --porcelain --untracked-files=no)" ]]; then
     ok "flowkit about (inside a repo): dynamic status + read-only 'Suggested next' advice, writes nothing"
   else

@@ -305,7 +305,7 @@ EOF
        && python3 -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if (len(d)==1 and 'classification' in d[0] and 'note' in d[0]) else 1)" "$LEAKY/.gitleaks-baseline.json" 2>/dev/null \
        && grep -q "Baseline grandfathered 1 historical finding(s) in historic.txt" "$TMP/out.log" \
        && grep -q "CLASSIFY each" "$TMP/out.log" \
-       && grep -q "Fill the TODOs in the '## ship config' block" "$TMP/out.log"; then
+       && grep -q "Fill the TODOs in the '## preship config' block" "$TMP/out.log"; then
       ok "baseline: findings reported + classify prompt (real/public-by-design/false-positive)"
     else
       nope "baseline: findings/agent action lines missing (see $TMP/out.log)"

@@ -44,7 +44,7 @@ EOF
   inject_crash "$TMP/gate80-sub.sh" "$TMP/gate80-crash.sh" '  sed() { return 127; }'
   if ( cd "$TMP/fix80-valid" && sh -e "$TMP/gate80-crash.sh" ) \
        > "$TMP/out.log" 2> "$TMP/err.log"; then
-    if grep -q "no ship config block" "$TMP/err.log"; then
+    if grep -q "no preship config block" "$TMP/err.log"; then
       ok "ship-config-gate: wrapper crash (sed sabotaged, sh -e) degrades to warning + exit 0"
     else
       nope "ship-config-gate: crash degraded but the loud warning is missing"
