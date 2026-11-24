@@ -90,10 +90,10 @@ run_about() {
 Four layers keep agent-driven work consistent and safe:
   1. harness guards    Claude Code PreToolUse hooks (git-guard, secret-guard)
   2. git hooks         centralized lefthook config fetched from this repo
-  3. ship skill gates  lint/build/test read from '## ship config' in CLAUDE.md
+  3. preship gates    lint/build/test read from '## preship config' in CLAUDE.md
   4. CI backstop       the same checks re-run server-side
 
-Each repo's commands live in the '## ship config' block of its CLAUDE.md.
+Each repo's commands live in the '## preship config' block of its CLAUDE.md.
 EOF
   git rev-parse --show-toplevel >/dev/null 2>&1 || exit 0
 
@@ -113,7 +113,7 @@ EOF
       "$root/.gitleaks-baseline.json" 2>/dev/null || echo "?")"
     baseline="present, $n findings grandfathered"
   fi
-  if grep -q '^## ship config' "$root/CLAUDE.md" 2>/dev/null; then
+  if grep -qE '^## (pre)?ship config' "$root/CLAUDE.md" 2>/dev/null; then
     if ship_config_has_todos "$root/CLAUDE.md"; then
       ship="present (TODOs pending)"
     else
@@ -138,7 +138,7 @@ EOF
   echo "This repo ($name):"
   echo "  hooks mode:      $hooks_mode"
   echo "  baseline:        $baseline"
-  echo "  ship config:     $ship"
+  echo "  preship config:  $ship"
   echo "  FLOW import:     $flow"
   echo "  harness guards:  $guards"
   if [[ "$orphan" == 1 ]]; then
@@ -149,8 +149,8 @@ EOF
   # hooks` just to see the "copy below" block, which wires + builds a baseline.
   local -a nxt=(); local item
   [[ "$hooks_mode" == "none" && "$orphan" != 1 ]] && nxt+=("hooks not wired -- run: flowkit hooks")
-  [[ "$ship" == "absent" ]] && nxt+=("no '## ship config' in CLAUDE.md -- flowkit hooks stamps a lint/typecheck/build/test template to fill")
-  [[ "$ship" == "present (TODOs pending)" ]] && nxt+=("fill the '## ship config' TODOs in CLAUDE.md (lint/typecheck/build/test)")
+  [[ "$ship" == "absent" ]] && nxt+=("no '## preship config' in CLAUDE.md -- flowkit hooks stamps a lint/typecheck/build/test template to fill")
+  [[ "$ship" == "present (TODOs pending)" ]] && nxt+=("fill the '## preship config' TODOs in CLAUDE.md (lint/typecheck/build/test)")
   [[ "$flow" == "no" ]] && nxt+=("FLOW import missing -- flowkit hooks adds '@~/.agents/skills/FLOW_CLAUDE.md'")
   [[ "$guards" == "not installed" ]] && nxt+=("harness guards off -- run: flowkit --harness")
   if [[ "${#nxt[@]}" -gt 0 ]]; then

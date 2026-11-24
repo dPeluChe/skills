@@ -17,7 +17,7 @@ them), and the **git hooks** flowkit serves to every repo you point it at.
 | [`doctos`](./skills/doctos/) | Documentation hygiene: audits `.md` files, enforces root rules, archives obsolete docs, standardizes `docs/` structure or the one your repo declares |
 | [`pm-tasks`](./skills/pm-tasks/) | Task lifecycle: audits `TASK_TODO.md`, archives completed work to monthly files, scans code and markdown for stray tasks, checks a completed task really shipped before archiving it |
 | [`standup`](./skills/standup/) | Recent progress: what shipped, what is in flight, new pendings. Two cadences, closing a session and the weekly or client report |
-| [`ship`](./skills/ship/) | Close one PR cycle with gates and evidence: identity check, lint, build, LOC and secret gates, quality pass, bookkeeping, merge per repo policy, evidence table |
+| [`preship`](./skills/preship/) | The gates before a PR: identity check, lint, build, LOC and secret gates, quality pass, bookkeeping, evidence table. Then hands off to Claude Code's built-in `/ship` (opens, reviews, watches the PR) or, where that is not available, opens the PR and merges per repo policy. Named `preship` because the built-in reserves `ship` |
 | [`deploy-doctor`](./skills/deploy-doctor/) | Infra and deploy diagnosis: state checklist before any fix (what actually runs, ports, env, logs, external services), one hypothesis at a time, stop after 3 failed fixes |
 | [`writer`](./skills/writer/) | Prose that sounds human: edits drafts to remove AI-slop patterns while keeping the author's voice, or audits without rewriting. Bilingual EN and ES. Derived from [no-ai-slop](https://github.com/petergyang/no-ai-slop) (MIT) |
 | [`social-posts`](./skills/social-posts/) | Announcements from things already built: launch, feature, progress and insight modes, per-channel voice, claims verified, writer as the final pass. Drafts only, never publishes |
@@ -50,7 +50,7 @@ standup, doctos and pm-tasks verify the routed list and act on that only. The fu
 for periodic hygiene passes. The journal is the shared bus.
 
 The pipeline is optional. Typical rhythm: `kickoff` when resuming, a micro `standup` closing
-each work session, `ship` to close a PR, the full `standup` at the end of the week.
+each work session, `preship` to close a PR, the full `standup` at the end of the week.
 
 **Accelerator.** `kickoff` and `standup` use [trs](https://usetrs.dev)
 (`npm i -g @dpeluche/trs`) when it is installed: `trs ingest` produces structure and
@@ -107,7 +107,7 @@ Structure declared in [`.doctos.yml`](./.doctos.yml), index in [docs/README.md](
 
 All skills are original writing (MIT, © Antonio Martinez Quintero / dPeluChe), distilled from
 real sessions. Two carry explicit lineage: `writer` derives from
-[no-ai-slop](https://github.com/petergyang/no-ai-slop) (MIT); `ship` and `deploy-doctor`
+[no-ai-slop](https://github.com/petergyang/no-ai-slop) (MIT); `preship` and `deploy-doctor`
 studied patterns from [git-workflow-skill](https://github.com/netresearch/git-workflow-skill),
 [claude-git-pr-skill](https://github.com/aidankinzett/claude-git-pr-skill),
 [superpowers](https://github.com/obra/superpowers) and the systematic-debugging methodology.

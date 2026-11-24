@@ -16,8 +16,8 @@ description: >
   debe retomar el agente" (that last one = micro-standup WITH handoff prompt).
   Disambiguation: use kickoff instead when the user is resuming work and needs full project state
   (standup covers only the recent delta); use pm-tasks to actually archive or modify tasks; use
-  ship to CLOSE one PR cycle with gates: ship's evidence table feeds standup's journal entry,
-  and "cierra el pr" is ship, while "cierra la sesión" is standup.
+  preship to CLOSE one PR cycle with gates: preship's evidence table feeds standup's journal entry,
+  and "cierra el pr" is preship, while "cierra la sesión" is standup.
 allowed-tools: Read, Glob, Grep, Bash, Write
 ---
 

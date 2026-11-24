@@ -10,6 +10,7 @@
 |--------|----------|
 | [`GUIDES/`](./GUIDES/) | How the tooling works and why, for a human reading it on purpose (flowkit, hooks, doctrine) |
 | [`FEATURES/`](./FEATURES/) | Design notes on one mechanism, written while it was decided |
+| [`RESEARCH/`](./RESEARCH/) | Surveys of outside tools and skills, with a proposal to decide on later |
 | [`JOURNAL/`](./JOURNAL/) | Dated logbook, append-only, born historical (kickoff and standup write it) |
 | [`ARCHIVED/`](./ARCHIVED/) | Docs that stopped being current, each with an archival note |
 | [`TASK_COMPLETED/`](./TASK_COMPLETED/) | Monthly archive of finished work (managed by pm-tasks) |

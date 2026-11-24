@@ -18,14 +18,14 @@ make hooks REPO=/path/to/repo TEAM=1    # team repo → lefthook-local.yml (glob
 The installer checks minimum versions (lefthook ≥ 1.10, gitleaks ≥ 8.19), chains after an
 existing husky setup instead of replacing it, builds a one-time gitleaks baseline
 (`.gitleaks-baseline.json`) with a findings summary, links `FLOW_CLAUDE.md` into the target
-repo's CLAUDE.md, and stamps a `## ship config` template (the block where each repo declares
+repo's CLAUDE.md, and stamps a `## preship config` template (the block where each repo declares
 its own `lint:` / `typecheck:` commands) if missing. The template is **stack-aware**: if the
 repo has `.github/workflows/*.yml`, real lint/typecheck/build/test commands are extracted and
 pre-filled (each marked `# from <workflow> -- verify`); otherwise the TODO examples match the
 detected stack (Cargo.toml → cargo, package.json → npm, pyproject.toml → ruff/pytest,
 go.mod → go). It also counts embedded code fences in
 CLAUDE.md/AGENTS.md (agent instruction files reference paths, they don't embed code, the
-ship config yaml fence is the one canonical exception) and recommends `/doctos` to clean up;
+preship config yaml fence is the one canonical exception) and recommends `/doctos` to clean up;
 detection only, never blocks. If `docs/` looks like a **published site** (CNAME, index.html,
 _config.yml, or a Pages workflow), that recommendation degrades to *findings only, do NOT
 reorganize; fix in place*, and the same guard is a rule inside the doctos skill itself.
@@ -34,7 +34,7 @@ Baseline findings get **context labels**: a finding inside a `test`/`fixture`/`s
 whose line reads like a regex literal (`\b`, `[0-9A-Z]{`…), is tagged `[likely
 detector/fixture]` and shows its REAL line in the report, everything else stays redacted.
 The closing agent copy-block carries full detail per item: fence counts per file, baseline
-`file:line` + label, and the stack's suggested ship-config commands ready to paste.
+`file:line` + label, and the stack's suggested preship-config commands ready to paste.
 
 **What a baseline cannot see (field lesson).** A clean baseline means "no secret in THIS
 repo's history", not "no secret to rotate". A real leak that lived in a *base* repo you
@@ -111,7 +111,7 @@ or skip consciously. No false "wired ok". `--verify` also flags **orphan stubs**
 hooks with no resolvable config, they break every push) and points to `flowkit unhook`.
 
 A deliberate gap is a decision, not a permanent failure: declare it inside the
-`## ship config` block of CLAUDE.md as a nested map,
+`## preship config` block of CLAUDE.md as a nested map,
 
 ```yaml
 hooks_skip:
@@ -131,7 +131,7 @@ this repo, a tracked or foreign one is respected with a notice), clears our
 
 **Team repos (`--team`) stay portable**: the `FLOW_CLAUDE.md` import references a
 machine-local path, so it goes to `CLAUDE.local.md` (supported by Claude Code, added to
-`.git/info/exclude`), the committed CLAUDE.md only receives the portable `## ship config`
+`.git/info/exclude`), the committed CLAUDE.md only receives the portable `## preship config`
 block. The baseline asks *"share baseline with team (commit) or keep personal (git
 exclude)? [s/P]"*, default personal (`.git/info/exclude`); answer `s` to commit
 `.gitleaks-baseline.json` so the whole team grandfathers the same findings. Solo mode keeps
@@ -160,9 +160,9 @@ Four layers, increasing cost:
 | Layer | Budget | What runs |
 |---|---|---|
 | commit-msg | <1s | strips agent attribution trailers (Co-authored-by / Generated with / 🤖 footers), authorship stays human: the person is the author, agents are tools |
-| pre-commit | <2s | gitleaks on staged (repo-local `.gitleaks.toml` wins over the central config) · hard block on staged `.env*` (except `.env.example`) · loc-warning: files THIS commit grows past `loc_limit` (ship config, default 500; never blocks) · lint-health advisory on the staged diff, a blanket eslint-disable or a newly-off config rule (never blocks) |
-| pre-push | <30s | the repo's own `lint:` / `typecheck:` read from its `## ship config` block, fail-soft warning if absent; docs-only and deletion-only pushes skip · docs nudge when code is pushed with zero `.md` touched (never blocks) |
-| `/ship` | minutes | full gate ritual: lint 0 warnings, build/tests, LOC, secret scan on the diff, quality pass, evidence table |
+| pre-commit | <2s | gitleaks on staged (repo-local `.gitleaks.toml` wins over the central config) · hard block on staged `.env*` (except `.env.example`) · loc-warning: files THIS commit grows past `loc_limit` (preship config, default 500; never blocks) · lint-health advisory on the staged diff, a blanket eslint-disable or a newly-off config rule (never blocks) |
+| pre-push | <30s | the repo's own `lint:` / `typecheck:` read from its `## preship config` block, fail-soft warning if absent; docs-only and deletion-only pushes skip · docs nudge when code is pushed with zero `.md` touched (never blocks) |
+| `/preship` | minutes | full gate ritual: lint 0 warnings, build/tests, LOC, secret scan on the diff, quality pass, evidence table |
 | CI | async | whatever the repo's pipeline adds on top, hooks complement CI, never replace it |
 
 **Known gap, pre-push scope is staged/pushed, CI scope is the whole tree.** The pre-push
@@ -171,18 +171,18 @@ files in the push), a warning that a change *propagates* into a file the commit 
 (e.g. a type edit whose inference ripples) passes the hook and fails a full-scope CI. This is
 structural, not a bug: the hook is first-line defense over *what you push*, never a substitute
 for CI's full-tree pass. Two honest options per repo: (a) declare a full-scope `lint:` in
-`## ship config` and accept the extra seconds, or (b) keep it staged-fast and let CI be the
+`## preship config` and accept the extra seconds, or (b) keep it staged-fast and let CI be the
 backstop. flowkit does not choose for you, it runs what the block declares.
 
 **CI backstop (planned, not yet generated).** The one layer flowkit does not wire yet is the
-CI pass. When it lands it will be **generated from the same `## ship config` block** the hooks
+CI pass. When it lands it will be **generated from the same `## preship config` block** the hooks
 read, never hand-written in a separate `ci.yml`. Rationale from a field report: a repo whose
 gate list was duplicated across `pre-commit` and `ci.yml` drifted, and a fixer step (`prettier
 --write`) that exits 0 without converging shipped a file CI then rejected. One source the hooks
 and CI both consume is the only structure that cannot diverge, the same anti-divergence
-principle behind reading commands from `## ship config` instead of copying them.
+principle behind reading commands from `## preship config` instead of copying them.
 
-`merge_policy` (read by `/ship`) binds only the ship skill, a web merge or `gh pr merge`
+`merge_policy` (read by `/preship`) binds only preship, a web merge or `gh pr merge`
 bypasses it entirely. It is the reminder, not the lock; the lock is server-side branch
 protection (require PR + approval), worth enabling once per supervised repo. Enforcement
 scale: memory < tool-read config < server-side protection < compiler invariant.
@@ -261,7 +261,7 @@ flowkit lint-health --canary        # $PWD (or a path); advisory, exit 0, probes
   moment a commit *introduces* a blanket disable or turns a config rule off, so you catch the
   weakening as you write it, not weeks later. Advisory, never blocks. Self-contained POSIX sh
   (no flowkit dependency), so it works even where the CLI isn't installed.
-- **`ship`** quality pass, runs the check on the **diff** of the whole change being shipped: a
+- **`preship`** quality pass, runs the check on the **diff** of the whole change being shipped: a
   NEW blanket disable or newly-off rule is a finding; a reasoned scoped disable is not.
 - **`flowkit lint-health`**: the **full repo audit** on demand (the whole config + tree, not
   just a diff).
@@ -274,7 +274,7 @@ lives inline in `hooks/lefthook-base.yml`, the repo-wide audit in `scripts/lib/l
 The team's development rules (reuse-before-write, anti-N+1, materialize-over-recompute) are
 judgment calls that live in a doc. **File size, 400-500 LOC max per file, is the one that's
 mechanical and verifiable, so it's the one worth automating** (a rule that only lives in a doc is
-ignored in three weeks). Language-agnostic; the limit is `loc_limit` in the CLAUDE.md ship config
+ignored in three weeks). Language-agnostic; the limit is `loc_limit` in the CLAUDE.md preship config
 block (default 500). Two surfaces, both advisory (never block):
 
 - **pre-commit hook**: warns about files **THIS commit grows past the limit**. Diff-aware on

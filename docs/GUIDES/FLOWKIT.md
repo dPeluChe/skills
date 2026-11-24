@@ -47,7 +47,7 @@ that touches the tooling, PRs touching `bin/` `scripts/` `hooks/` bump VERSION p
 
 ```bash
 cd skills && ./scripts/install.sh          # links all skills (chain: ~/.claude/skills → ~/.agents/skills → repo)
-./scripts/install.sh ship                  # or just one
+./scripts/install.sh preship                  # or just one
 ./scripts/install.sh --check               # doctor: validate every link without touching anything (exit 0/1)
 ./scripts/install.sh --prune               # also remove dead links left by renamed/deleted skills
 ./scripts/install.sh --copy doctos         # copy instead of link (editable, frozen)

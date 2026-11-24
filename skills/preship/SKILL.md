@@ -1,24 +1,27 @@
 ---
-name: ship
+name: preship
 description: >
-  Close a work cycle as a PR with mechanical gates and verifiable evidence: repo/branch identity
-  check, lint 0 warnings, build/tests, LOC limit, secret scan on the diff, quality pass, task
-  bookkeeping, PR on the CURRENT branch, and a merge step governed by the repo's merge policy
-  (auto | ask), ending with an evidence table (command + output, PR #, merge SHA). Use whenever
-  the user wants to close/ship work as a PR: "haz pr merge", "cerremos los prs", "hagamos
-  elmerge", "cierra este pr", "listo para merge?", "hay que hacer el pr", "valida lint y build y
-  haz el pr", "ship it", "/ship". The user almost never types the slash; trigger from informal
-  prose and typos. Disambiguation: standup closes a SESSION (journal delta across PRs); ship
-  closes ONE PR cycle with gates; ship's evidence table is input for standup's journal entry.
-  /simplify is a quality pass ship INVOKES; pm-tasks does the task archiving ship DELEGATES.
-  Request-only: fire ONLY when the user explicitly asks to close/ship work as a PR (the informal
-  phrasings above count). NEVER invoke on your own initiative just because a merge, a feature, or a
-  work session finished, and not every project has a PR/deploy flow, so do not assume one. When
-  work wraps and the user has not asked to ship, stop or offer standup, do not run ship.
+  Run the mechanical gates BEFORE a PR and produce verifiable evidence: repo/branch identity, a
+  tree holding only the intended files, lint 0 warnings, build/tests in a fresh clone, LOC limit,
+  secret scan on the diff, quality pass, task bookkeeping, ending with an evidence table
+  (command + output). Then hand off: where Claude Code's built-in /ship exists (CLI, GitHub repo)
+  it opens, reviews and watches the PR; otherwise preship opens the PR on the CURRENT branch and
+  merges per the repo's merge policy (auto | ask). Use whenever the user wants work validated or
+  closed as a PR: "valida lint y build", "preship", "listo para merge?", "haz pr merge", "cierra
+  este pr", "cerremos los prs", "hagamos elmerge", "hay que hacer el pr", "valida y haz el pr".
+  The user almost never types the slash; trigger from informal prose and typos. Disambiguation:
+  the built-in /ship commits, opens, reviews and watches a PR but runs none of the repo's own
+  gates, and its watch pushes with git hooks off; preship is the gate layer that runs first.
+  standup closes a SESSION (journal across PRs); preship closes ONE PR cycle and its evidence
+  table feeds standup. /simplify is a quality pass preship INVOKES; pm-tasks does the archiving
+  preship DELEGATES. Request-only: fire ONLY when the user explicitly asks to validate or close
+  work as a PR (the phrasings above count). NEVER invoke on your own initiative just because a
+  feature or session finished; not every project has a PR flow. When work wraps and the user has
+  not asked, stop or offer standup.
 allowed-tools: Read, Glob, Grep, Bash, Edit, Write, Skill
 ---
 
-# Ship: PR closing with gates and evidence
+# Preship: gates and evidence before the PR
 
 Turns the user's dictated ritual (lint → build → review → PR → merge → bookkeeping) into one
 mechanical flow. Every "done" claim carries its command and output; the report kills the
@@ -30,6 +33,30 @@ Corpus evidence (~250 sessions): the same ritual dictated in prose 5-8 messages 
 dozens of times; regressions shipped by skipping pre-push validation; branches created without
 being asked; PRs merged (or left open) against the user's standing instruction for that repo;
 real secrets (PATs, DB passwords, cloud keys) pasted into diffs and chats.
+
+## Preship and the built-in /ship
+
+Claude Code (CLI 2.1.330+) ships its own `/ship`: it commits ALL uncommitted files, pushes, opens
+the PR, reviews it with `/code-review`, then **watches** it (fixes failing checks, answers review
+threads, merges the base in) until you merge. It reserves the names `ship`, `ship-local` and
+`steward`, which is why this skill is `preship`. It is a good PR driver and runs none of the
+repo's own gates: lint 0 warnings, the real typecheck, required proofs, LOC, the evidence table.
+And during a watch it pushes with `core.hooksPath=/dev/null`, so the repo's pre-push hooks do
+not run on its fix commits.
+
+The split: **preship decides whether the change is fit to ship; `/ship` drives the PR.**
+
+- **Handoff (default when available)**: CLI session, repo on GitHub, user wants the review and
+  the watch. Preship runs Steps 0-3, prints the evidence table, and tells the user to type
+  `/ship` (a built-in command the user runs, not one preship invokes). Before handing off, the
+  tree must hold only the intended files: `/ship` commits everything, new files included.
+- **Before the merge, re-gate**: if the watch pushed commits, they skipped the hooks. Rerun
+  Step 1 on the final head (or confirm CI ran the same gates) before the user merges.
+- **Self-driven (fallback)**: no built-in `/ship` (cloud session, other host, older CLI,
+  disabled by policy) or the user asked preship to merge ("haz pr merge"). Preship runs Steps
+  4-6 itself under the repo's `merge_policy`.
+- A repo can give the watch its gates in `.claude/skills/steward/SKILL.md` (which checks matter,
+  how to run tests). That file is read by the built-in watch, not by preship.
 
 ## Step 0: Identity gate (before anything else)
 
@@ -52,11 +79,13 @@ git branch --show-current              # on the branch I think I'm on?
 
 ## Config per repo (read from CLAUDE.md, fail loud on gaps)
 
-Read the repo's CLAUDE.md for a `ship` config block. **Canonical format** (one schema so every
-repo writes it the same way; without it the skill falls back to detect-and-confirm):
+Read the repo's CLAUDE.md for a `## preship config` block. The legacy `## ship config` heading
+is read the same way (repos wired before the rename); flowkit stamps the new one. **Canonical
+format** (one schema so every repo writes it the same way; without it the skill falls back to
+detect-and-confirm):
 
 ```yaml
-# ship config
+# preship config
 lint: npm run lint
 build: NEXT_BUILD_DIR=.next-ci npm run build   # isolated variants welcome
 test: npm run test                              # omit if none
@@ -92,7 +121,7 @@ Key semantics, with defaults only where safe:
   required proofs pass (the user's standing instruction in some solo repos: "no dejes los prs
   abiertos"). `ask` = draft → show exactly what will run → explicit OK → execute. Team repos and
   supervised flows are `ask` even if the session feels fluid.
-  **Scope honesty**: merge_policy binds ONLY the ship skill when invoked; nothing stops a web
+  **Scope honesty**: merge_policy binds ONLY preship when invoked; nothing stops a web
   merge or `gh pr merge` outside it. It is the reminder, not the lock. The lock is server-side
   branch protection (Settings → Branches → require PR + approval); recommend it once per
   supervised repo. Enforcement scale in one line:
@@ -119,7 +148,7 @@ Key semantics, with defaults only where safe:
    validating meant hand-copying the template first. Fix the command, not the clone: point it
    at the committed template (`--env-file env.ejemplo`), or make the missing input explicit and
    fail with that message. When you hit one, say so and propose the corrected line for the
-   repo's `## ship config` instead of silently working around it.
+   repo's `## preship config` instead of silently working around it.
 3. **LOC**: a file over `loc_limit` that IS part of the current work → do the split RIGHT
    THERE, same branch, same cycle, before creating the PR (the split is part of the work, not
    a separate PR). A legacy file over the limit that was barely touched or only detected in
@@ -183,6 +212,9 @@ someone's code silently.
 
 ## Step 4: PR on the CURRENT branch
 
+On the handoff path this is where the user types `/ship`: stop after the evidence table, with
+the PR row reading "handed off to /ship". Steps 4-6 below are the self-driven path.
+
 - **Check whether the ground moved first.** In repos where the owner also pushes directly while
   an agent works, the spec you implemented against can be rewritten under you. Before opening the
   PR, fetch and diff the base against where this session started, scoped to the files the work
@@ -223,7 +255,7 @@ Close with a table, every row is a claim WITH its proof:
 | Build | `<cmd>` | exit 0 |
 | Proofs | `<smoke/e2e cmd>` | N/N pass |
 | Secrets | diff scan | clean |
-| PR | n/a | #N · URL · merged SHA `abc123` (or OPEN, awaiting OK) |
+| PR | n/a | #N · URL · merged SHA `abc123` (or OPEN, awaiting OK; or handed off to `/ship`) |
 | Tasks | n/a | moved: list (or none) |
 | Docs | n/a | touched: list (or none) |
 
@@ -235,5 +267,5 @@ micro-standup journal entry.
 - Never pushes directly to a protected default branch; everything goes through a PR.
 - Never merges under `ask` without explicit OK; never closes PRs on its own initiative.
 - A failed gate produces a report, not a workaround. Secrets found = hard stop.
-- Ship orchestrates; repo-level git hooks (pre-commit/pre-push) remain the guarantee layer;
+- Preship orchestrates; repo-level git hooks (pre-commit/pre-push) remain the guarantee layer;
   recommend them once where gates exist only as prose.

@@ -6,7 +6,7 @@
 #   lib/util.sh       output helpers, versions, constants, shared git plumbing
 #   lib/chain.sh      skills symlink chain (sync/check/prune) + FLOW + flowkit link
 #   lib/repo-wire.sh  --repo: wire centralized git hooks into target repos
-#   lib/stamp.sh      per-repo stamps: gitleaks baseline, FLOW import, ship config
+#   lib/stamp.sh      per-repo stamps: gitleaks baseline, FLOW import, preship config
 #   lib/verify.sh     --repo --verify: effective hook state + canary probe
 #   lib/lifecycle.sh  --unhook, --about, --harness, --upgrade
 #
