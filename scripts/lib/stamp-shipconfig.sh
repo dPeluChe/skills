@@ -166,7 +166,7 @@ npm_ship_lines() { # $1 = target repo; prints "key<TAB>ship-config-line" for
   scripts="$(pkg_scripts "$pkg")"
 
   if grep -qx 'lint' <<<"$scripts"; then
-    printf 'lint\tlint: npm run lint%s # from package.json scripts\n' "$fwc"
+    printf 'lint\tlint: npm run lint # from package.json scripts%s\n' "$fwc"
   else
     printf 'lint\tlint: # TODO no "lint" script in package.json%s -- add one or omit\n' "$fwc"
   fi
@@ -318,7 +318,7 @@ ensure_ship_config_template() { # $1 = target repo: stamp the block if missing.
       | grep -oE '[0-9]{3,4}' | sort -rn | head -1; } || true)"
     if [[ -n "$found" ]]; then
       loc_limit="$found"
-      loc_note="   # from CLAUDE.md's documented convention"
+      loc_note=" # from CLAUDE.md's documented convention"
       note "-> preship config loc_limit=$found taken from CLAUDE.md convention (not the 500 default)"
     fi
   fi

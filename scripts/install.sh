@@ -6,9 +6,11 @@
 #   lib/util.sh       output helpers, versions, constants, shared git plumbing
 #   lib/chain.sh      skills symlink chain (sync/check/prune) + FLOW + flowkit link
 #   lib/repo-wire.sh  --repo: wire centralized git hooks into target repos
-#   lib/stamp.sh      per-repo stamps: gitleaks baseline, FLOW import, preship config
+#   lib/stamp.sh      per-repo stamps: gitleaks baseline, FLOW import
+#   lib/stamp-shipconfig.sh  the '## preship config' block: stack detection, parsing
 #   lib/verify.sh     --repo --verify: effective hook state + canary probe
 #   lib/lifecycle.sh  --unhook, --about, --harness, --upgrade
+#   lib/lint-health.sh / lib/loc-health.sh  --lint-health, --loc-health audits
 #
 # Skills chain synced here:
 #   ~/.claude/skills/<name> -> ~/.agents/skills/<name> -> <repo>/skills/<name>
@@ -16,7 +18,7 @@
 #
 # Usage:
 #   ./scripts/install.sh              # sync ALL repo skills (create/fix missing links)
-#   ./scripts/install.sh ship         # sync one skill
+#   ./scripts/install.sh preship      # sync one skill
 #   ./scripts/install.sh --check      # doctor mode: validate everything, change nothing (exit 0/1)
 #   ./scripts/install.sh --prune      # sync + remove orphan links that point into this repo
 #   ./scripts/install.sh --copy X     # legacy: copy instead of link (single hop, discouraged)

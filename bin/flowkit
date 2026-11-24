@@ -43,6 +43,7 @@ Usage: flowkit <subcommand>
   hooks      wire centralized git hooks into the repo you are standing in ($PWD) [--team] [--include-parent]
              --verify: check the EFFECTIVE hook state (config + hooksPath + merged jobs
              + gitleaks config in use + canary secret probe), exit 0/1
+  harness    wire the Claude Code harness guards (git-guard, secret-guard) into ~/.claude/settings.json
   unhook     clean removal from $PWD: lefthook stubs, OUR config files, OUR exclude entries
   upgrade    report lefthook/gitleaks versions + clone freshness (exit 1 if pending);
              inside a wired repo it also refreshes that repo's lefthook remotes cache
@@ -78,6 +79,7 @@ case "$cmd" in
   prune)   exec bash "$INSTALL" --prune "$@" ;;
   hooks)   exec bash "$INSTALL" --repo "$PWD" "$@" ;;
   unhook)  exec bash "$INSTALL" --unhook "$PWD" "$@" ;;
+  harness) exec bash "$INSTALL" --harness "$@" ;;
   upgrade) exec bash "$INSTALL" --upgrade "$@" ;;
   lint-health) exec bash "$INSTALL" --lint-health "$@" ;;
   loc-health)  exec bash "$INSTALL" --loc-health "$@" ;;

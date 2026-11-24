@@ -185,6 +185,9 @@ wire_repo_hooks() { # $1 = target repo (absolute); full wiring of ONE repo, no e
     echo "      ref: main"
     echo "      refetch_frequency: 24h"
     echo "      configs: [hooks/lefthook-base.yml]"
+  elif [[ -f "$cfg_file" ]]; then
+    # already wired: keep the file, it may hold the repo's own migrated jobs
+    note "-> $(basename "$cfg_file") already references the central hooks -- left as is"
   else
     write_remotes_config "$cfg_file"
   fi

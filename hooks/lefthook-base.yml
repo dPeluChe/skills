@@ -145,7 +145,7 @@ pre-commit:
           case "$f" in
             *eslint.config.*|*.eslintrc|*.eslintrc.*|*package.json)
               o="$(printf '%s\n' "$add" \
-                | grep -E "['\"][@A-Za-z0-9_/.-]+['\"][[:space:]]*:[[:space:]]*(['\"]off['\"]|\[[[:space:]]*['\"]off['\"])" \
+                | grep -E "['\"][@A-Za-z0-9_/.-]+['\"][[:space:]]*:[[:space:]]*(['\"]off['\"]|\[[[:space:]]*['\"]off['\"]|0([^0-9.]|$))" \
                 | sed "s|^[[:space:]]*|  $f: |" || true)"
               [ -n "$o" ] && offrules="$offrules$o$nl"
               ;;
@@ -204,7 +204,7 @@ pre-commit:
         root="$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
         # shellcheck disable=SC2016
         ok="$(sed -nE '/^## (pre)?ship config$/,/^## /p' "$root/CLAUDE.md" 2>/dev/null \
-          | sed -n '/^```yaml$/,/^```$/p' | sed -n 's/^default_branch_ok:[[:space:]]*//p' \
+          | sed -n '/^```yaml$/,/^```$/p' | sed -n 's/^default_branch_ok:[[:space:]]*//p' | sed 's/#.*$//' \
           | tr -d '[:space:]' | head -1)"
         if [ "$ok" != "true" ] && [ -n "$branch" ] && [ "$branch" = "$def" ]; then
           echo "[hooks] committing directly to '$branch' (the default branch) -- most repos here use a feature branch + PR." >&2
@@ -263,7 +263,7 @@ pre-push:
             [ -f "$f" ] && { todo="$f"; break; }
           done
           if [ -n "$todo" ]; then
-            n="$(grep -cE '^[[:space:]]*[-*][[:space:]]+\[[xX]\]' "$todo" 2>/dev/null || echo 0)"
+            n="$(grep -cE '^[[:space:]]*[-*][[:space:]]+\[[xX]\]' "$todo" 2>/dev/null || true)"
             if [ "${n:-0}" -gt 0 ]; then
               echo "[hooks] $n completed task(s) still in $todo -- run: /pm-tasks archive"
               echo "[hooks]   (they belong in docs/TASK_COMPLETED/YYMM.md; the monthly file"

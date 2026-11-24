@@ -24,6 +24,16 @@ fi
 # a bypass/destructive form on line 2+ must anchor like it does after a ';'. The
 # regex `^` in bash =~ matches start of STRING only, so without this a
 # `true<newline>LEFTHOOK=0 git push` slipped the guard (field report).
+# heredoc bodies are data (a commit message file, a doc), not commands, unless
+# the heredoc feeds a shell: then the body IS the command and stays scanned
+CMD="$(printf '%s\n' "$CMD" | awk '
+  skip { t = $0; if (dash) sub(/^\t+/, "", t); if (t == word) skip = 0; next }
+  { print }
+  match($0, /<<-?[ \t]*["\047]?[A-Za-z_][A-Za-z0-9_]*["\047]?/) {
+    if ($0 ~ /(^|[ \t|;&(])(ba|z|da|k)?sh([ \t]|$)/) next
+    h = substr($0, RSTART, RLENGTH); dash = (h ~ /^<<-/)
+    sub(/^<<-?[ \t]*/, "", h); gsub(/["\047]/, "", h); word = h; skip = 1
+  }')"
 CMD="$(printf '%s' "$CMD" | tr '\n\r' ';;')"
 
 # Bypass-var detection runs on the command with QUOTED SPANS STRIPPED: an
@@ -91,8 +101,13 @@ G='(^|[;&|[:space:]()])git([[:space:]]+(-[cC][[:space:]]+[^[:space:]]+|--[^[:spa
 [[ "$CMD_NOQ" =~ $re_lefthook0 ]] && block "LEFTHOOK= assignment (hook bypass)" \
   "Do not disable lefthook; let the hooks run and fix what they flag. A legitimate exception is made by the HOOK deciding on a condition it reads (a declared env flag it honors), never by bypassing it -- a skipped hook protects nothing."
 re_no_verify=${G}'[^;&|]*--no-verify'
-[[ "$CMD" =~ $re_no_verify ]] && block "--no-verify (hook bypass)" \
+[[ "$CMD_NOQ" =~ $re_no_verify ]] && block "--no-verify (hook bypass)" \
   "Do not skip commit/push hooks; let them run and fix what they flag. If you genuinely need to proceed (e.g. legitimate index maintenance), make the hook DECIDE via a condition it reads -- an env flag it honors, or the '## preship config' hooks_skip -- don't bypass it. A bypassed hook protects nothing."
+
+# -n is commit's short --no-verify (push -n is --dry-run, so commit only)
+re_commit_n=${G}'commit([[:space:]]+[^;&|[:space:]]+)*[[:space:]]+-[[:alnum:]]*n[[:alnum:]]*([[:space:]]|$)'
+[[ "$CMD_NOQ" =~ $re_commit_n ]] && block "git commit -n (short --no-verify, hook bypass)" \
+  "Do not skip commit hooks: -n is --no-verify. Let them run and fix what they flag, or make the hook DECIDE via a condition it reads (the '## preship config' hooks_skip)."
 
 # ── destructive git ────────────────────────────────────────────────────────
 # --force-with-lease is the sanctioned alternative: strip it before probing

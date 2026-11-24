@@ -152,7 +152,7 @@ EOF
   [[ "$ship" == "absent" ]] && nxt+=("no '## preship config' in CLAUDE.md -- flowkit hooks stamps a lint/typecheck/build/test template to fill")
   [[ "$ship" == "present (TODOs pending)" ]] && nxt+=("fill the '## preship config' TODOs in CLAUDE.md (lint/typecheck/build/test)")
   [[ "$flow" == "no" ]] && nxt+=("FLOW import missing -- flowkit hooks adds '@~/.agents/skills/FLOW_CLAUDE.md'")
-  [[ "$guards" == "not installed" ]] && nxt+=("harness guards off -- run: flowkit --harness")
+  [[ "$guards" == "not installed" ]] && nxt+=("harness guards off -- run: flowkit harness")
   if [[ "${#nxt[@]}" -gt 0 ]]; then
     echo ""
     echo "Suggested next (read-only -- this command never writes):"
@@ -265,7 +265,7 @@ check_harness() { # --check: validate link + settings entries once installed;
   local link_ok=0
   [[ -L "$link" && "$(readlink "$link")" == "$src" ]] && link_ok=1
   if [[ "$link_ok" -eq 0 && ! -e "$link" ]] && ! grep -q '^PRESENT' <<<"$out"; then
-    note "- harness hooks not installed (optional -- run: make harness)"
+    note "- harness hooks not installed (optional -- run: flowkit harness)"
     return 0
   fi
   [[ "$link_ok" -eq 1 ]] || bad "harness link missing/wrong ($link)"
@@ -319,9 +319,13 @@ run_upgrade() {
     # same trap as repo-wire: lefthook 2.x ignores a GIT_CONFIG_* scope override
     # and installs into the GLOBAL hooksPath, clobbering the chain wrappers. Pin
     # a LOCAL hooksPath first, but never over a hooksPath the project set itself.
-    [[ -n "$(git -C "$cwd_root" config --local --get core.hooksPath 2>/dev/null)" ]] \
-      || git -C "$cwd_root" config core.hooksPath "$cwd_gitdir/hooks"
-    if ( cd "$cwd_root" && lefthook install --force >/dev/null 2>&1 ); then
+    if local_tracked_hookspath "$cwd_root" >/dev/null; then
+      # versioned hooks dir: install --force would rewrite tracked files
+      echo "-- $(basename "$cwd_root"): tracked core.hooksPath -- remotes not refreshed here; run: flowkit hooks"
+    elif { [[ -n "$(git -C "$cwd_root" config --local --get core.hooksPath 2>/dev/null)" ]] \
+           || [[ -z "$(git config --global --get core.hooksPath 2>/dev/null)" ]] \
+           || git -C "$cwd_root" config core.hooksPath "$cwd_gitdir/hooks"; } \
+         && ( cd "$cwd_root" && lefthook install --force >/dev/null 2>&1 ); then
       echo "ok $(basename "$cwd_root"): remotes refreshed (lefthook install re-synced this repo's cache)"
     else
       echo "x $(basename "$cwd_root"): lefthook install failed -- remotes NOT refreshed"

@@ -24,6 +24,10 @@ if [[ -x "$GG" ]]; then
     "git update-ref -d refs/heads/x"
     "git filter-branch --tree-filter true HEAD"
     "git commit --no-verify -m wip"
+    "git commit -n -m wip"
+    "git commit -anm wip"
+    $'bash <<EOF\ngit commit --no-verify -m x\nEOF'
+    $'cat <<EOF\nx\nEOF\ngit commit -n -m wip'
     "LEFTHOOK=0 git commit -m wip"
   )
   gg_bad=0
@@ -39,6 +43,12 @@ if [[ -x "$GG" ]]; then
   GG_PASS=(
     "git push --force-with-lease origin main"
     "git push origin main"
+    "git push -n origin main"
+    "git commit -m \"fix the -n flag\""
+    "git commit --no-edit"
+    "git commit -m \"mention --no-verify in prose\""
+    $'cat > m.txt <<\'EOF\'\ngit commit -n is the short form\nEOF\ngit commit -F m.txt'
+    $'cat <<-EOF\n\tgit push --force\n\tEOF\ngit status'
     "git status"
     "git checkout -- src/app.ts"
     "ls -la"
