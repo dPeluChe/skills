@@ -5,7 +5,7 @@
 #   00-helpers.sh          shared state ($TMP, counters, ok/nope, fixtures)
 #   10-chain.sh            skills symlink chain + FLOW + flowkit link (sync/check/prune)
 #   20-lefthook-blocks.sh  run-block extraction + shellcheck of every .sh
-#   30-ship-wrapper.sh     ship-config wrapper fixtures + gitleaks config + nudge/commit-msg
+#   30-ship-wrapper.sh     preship-config wrapper fixtures + gitleaks config + nudge/commit-msg
 #   40-install-repo.sh     install.sh --repo (workspace, hooksPath, --team, baseline, --upgrade)
 #   50-harness.sh          Claude Code PreToolUse guards + settings merge
 #   60-flowkit.sh          flowkit CLI dispatch, symlink resolution, about, version
@@ -20,6 +20,9 @@
 #                          flowkit hooks --help)
 #   95-lint-health.sh      lint-health: blanket eslint-disable vs scoped-reasoned,
 #                          config off-rules, ignored source, --measure, dispatch
+#   96-lint-health-hook.sh pre-commit lint-health-staged + default-branch nudge
+#   97-loc-health.sh       loc-health audit + diff-aware loc-warning hook
+#   98-rewire-safety.sh    re-wire keeps baseline classifications and lefthook.yml jobs
 #
 # Modules are sourced here in lexical order, in ONE shell, so they share the
 # helpers and accumulate into the same counters. Output contract (consumed by

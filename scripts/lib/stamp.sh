@@ -24,10 +24,15 @@ run_gitleaks_baseline() { # $1 = target repo, $2 = team (0/1)
     cfg="$REPO_DIR/hooks/.gitleaks.toml"
   fi
   note "-> building gitleaks baseline (full history scan, one-time; config: $(gitleaks_config_label "$target"))..."
+  # scan to a temp file: a re-wire merges into the reviewed baseline, never
+  # overwrites it (field: re-running flowkit hooks wiped every classification)
+  local fresh
+  fresh="$(mktemp "${TMPDIR:-/tmp}/flowkit-baseline.XXXXXX")"
   ( cd "$target" && gitleaks "$scan" --config "$cfg" \
-      --report-path "$report" --report-format json --redact \
+      --report-path "$fresh" --report-format json --redact \
       --exit-code 0 >/dev/null 2>&1 ) || true
-  if [[ ! -f "$report" ]]; then
+  if [[ ! -s "$fresh" ]]; then
+    rm -f "$fresh"
     bad "gitleaks baseline scan produced no report -- run it manually"
     return 0
   fi
@@ -36,21 +41,29 @@ run_gitleaks_baseline() { # $1 = target repo, $2 = team (0/1)
   # it, so the FILE itself carried duplicates (field: one DSN twice); (b) add
   # empty classification/note fields so the review PERSISTS in the baseline
   # instead of evaporating each session (field: the classify demand was one-shot).
-  n="$(python3 - "$report" <<'PY' 2>/dev/null || grep -c '"RuleID"' "$report" || echo "?"
-import json, sys
-p = sys.argv[1]
+  n="$(python3 - "$fresh" "$report" <<'PY' 2>/dev/null || { [[ -f "$report" ]] || cp "$fresh" "$report"; grep -c '"RuleID"' "$report"; } || echo "?"
+import json, os, sys
+fresh, p = sys.argv[1], sys.argv[2]
 try:
-    data = json.load(open(p))
+    data = json.load(open(fresh))
 except Exception:
     raise SystemExit(1)
+key = lambda x: (x.get("File"), x.get("StartLine"), x.get("RuleID"))
+prior = {}
+if os.path.exists(p):
+    try:
+        prior = {key(x): x for x in json.load(open(p))}
+    except Exception:
+        prior = {}
 seen, out = set(), []
 for x in data:
-    k = (x.get("File"), x.get("StartLine"), x.get("RuleID"))
+    k = key(x)
     if k in seen:
         continue
     seen.add(k)
-    x.setdefault("classification", "")   # real-rotate | public-by-design | false-positive
-    x.setdefault("note", "")
+    old = prior.get(k, {})
+    x["classification"] = old.get("classification", "")   # real-rotate | public-by-design | false-positive
+    x["note"] = old.get("note", "")
     out.append(x)
 # trailing newline: without it a TRACKED baseline shows as modified on every
 # re-wire even when the findings are identical, which is exactly the kind of
@@ -61,6 +74,7 @@ with open(p, "w") as fh:
 print(len(out))
 PY
 )"
+  rm -f "$fresh"
   # these are HISTORICAL (full-history scan). Check whether the CURRENT working
   # tree is clean, so nobody "re-fixes" already-fixed/annotated code (field: 4
   # calls lost realising gitleaks detect --no-git finds nothing in the tree).

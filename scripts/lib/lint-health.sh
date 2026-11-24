@@ -440,6 +440,8 @@ run_lint_canary() {
   if [[ "${#exts[@]}" -eq 0 ]]; then echo "  no source files to probe. N/A"; exit 0; fi
 
   local planted="" ext sample canary
+  # Ctrl-C mid-lint must not leave probes in the repo's source dirs
+  trap 'printf "%s" "$planted" | cut -d"|" -f2 | while IFS= read -r c; do rm -f "$c"; done' EXIT INT TERM
   for ext in "${exts[@]}"; do
     sample="$(_lh_sample_of_ext "$target" "$ext")"
     [[ -n "$sample" ]] || continue

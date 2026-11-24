@@ -142,7 +142,7 @@ git -C "$DBREPO" checkout -q -b feature
 ( cd "$DBREPO" && sh "$DB_HOOK" ) > "$TMP/db-feat.log" 2>&1
 git -C "$DBREPO" checkout -q main
 # shellcheck disable=SC2016  # backtick yaml fence is literal, not a subshell
-printf '# t\n\n## ship config\n\n```yaml\ndefault_branch_ok: true\n```\n' > "$DBREPO/CLAUDE.md"
+printf '# t\n\n## ship config\n\n```yaml\ndefault_branch_ok: true # solo repo, direct commits are the norm\n```\n' > "$DBREPO/CLAUDE.md"
 ( cd "$DBREPO" && sh "$DB_HOOK" ) > "$TMP/db-optout.log" 2>&1
 if grep -q "committing directly to 'main' (the default branch)" "$TMP/db-main.log" \
    && [[ ! -s "$TMP/db-feat.log" ]] \

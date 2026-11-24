@@ -193,7 +193,7 @@ EOF
 }
 EOF
   if run_ff --repo "$FFNPM"; then
-    if grep -q 'lint: npm run lint \[Vite\] # from package.json scripts' "$FFNPM/CLAUDE.md" \
+    if grep -q 'lint: npm run lint # from package.json scripts \[Vite\]' "$FFNPM/CLAUDE.md" \
        && grep -q 'build: npm run build # from package.json scripts' "$FFNPM/CLAUDE.md" \
        && grep -q 'test:.*no "test" script in package.json -- add one or omit' "$FFNPM/CLAUDE.md" \
        && ! grep -q '^test: npm test' "$FFNPM/CLAUDE.md"; then
