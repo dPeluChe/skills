@@ -29,6 +29,18 @@ else
   nope "skill meta: rules did not fire on the bad fixture: $probs"
 fi
 
+# reference routing: a dangling pointer and an orphan file are both reported
+RF="$TMP/skills-meta/ref-skill"
+mkdir -p "$RF/references"
+printf -- '---\nname: ref-skill\ndescription: x\nallowed-tools: Read\n---\nLoad references/gone.md.\n' > "$RF/SKILL.md"
+: > "$RF/references/orphan.md"
+probs="$(skill_meta_problems "$RF")"
+if grep -q 'gone.md, which does not exist' <<<"$probs" && grep -q 'orphan.md is not named' <<<"$probs"; then
+  ok "skill meta: dangling and orphan references are reported"
+else
+  nope "skill meta: reference checks did not fire: $probs"
+fi
+
 # every skill has a behavior case and a negative-trigger case, and is in the suite-wide
 # no-skill guard; social-posts is exempt
 tags="$(grep -hE '^tags:' "$REPO_DIR"/evals/*/case.yaml 2>/dev/null)"

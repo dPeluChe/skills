@@ -34,3 +34,11 @@ Added `pm-tasks-not-on-docs`, `writer-not-on-config` ("revisa" on a config file 
 `deploy-doctor-not-on-preship` ("valida lint y build" is preship, not runtime) and
 `no-skill-on-bugfix` (a plain bug fires none of the skills). 2 runs each, all 1.00, about $1.
 The suite now requires a negative case per skill, not only a behavior case.
+
+## doctos and pm-tasks split into references, official checklist
+
+doctos (445 to 296 lines, ~7.1k to ~5.5k tokens) and pm-tasks (457 to 341, ~7.1k to ~5.6k) moved
+per-mode detail into references/; load-bearing rules stayed in the body. Their 7 eval cases pass
+after the split (2 runs, then 1 after simplify). skill_meta_problems now fails on a dangling or
+orphan reference. The official best practices, checked against the repo, live in
+docs/GUIDES/SKILL_AUTHORING.md with the known gaps.

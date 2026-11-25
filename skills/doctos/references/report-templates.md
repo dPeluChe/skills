@@ -3,6 +3,13 @@
 The reasoning for each mode lives in `SKILL.md`. These are the output formats, kept here so the
 always-loaded skill stays lean. Load this file at the report/output step of a mode, not before.
 
+## Contents
+
+- AUDIT report format
+- CLEAN plan format
+- CLEAN post-clean report format
+- INIT docs/README.md template
+
 ## AUDIT report format
 
 ```

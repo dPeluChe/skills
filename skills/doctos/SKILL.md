@@ -16,11 +16,16 @@ allowed-tools: Read, Glob, Grep, Bash, Edit, Write
 
 Enforces a clean, consistent documentation structure across any project. Moves stray files into `docs/`, renames to standard conventions, archives obsolete content, and delegates task-related work to pm-tasks.
 
-**Reference routing.** This file is the always-loaded core: the rules and the mode logic. The output formats load on demand:
+**Reference routing.** This file is the always-loaded core: the rules and the mode logic. The details load on demand, per mode or step:
 
 | Load | When |
 |---|---|
-| `references/report-templates.md` | Producing an AUDIT report, showing a CLEAN plan or its post-clean report, or writing the `docs/README.md` that INIT creates |
+| `references/report-templates.md` | Writing any report or plan, or the `docs/README.md` INIT creates |
+| `references/subfolders.md` | The classification table does not decide a file, or archiving (the archival note) |
+| `references/clean.md` / `references/init.md` | Running that mode: its full steps and edge cases |
+| `references/obsolete-signals.md` | AUDIT step 4: detecting obsolete documents |
+| `references/content-repos.md` | The repo-type check finds a content repo |
+| `references/doctos-yml.md` | The repo has `.doctos.yml`, or INIT/CLEAN writes one |
 
 ## The value-to-reread bar (what deserves to exist)
 
@@ -34,82 +39,29 @@ This is a judgement call, so doctos **flags** low-value docs as findings ("low r
 
 ## Repo type: is the content the product?
 
-Before applying the layout and naming rules below, detect the repo type. Those rules assume `.md` files are documentation ABOUT a system (code). Some repos are the opposite: the documents ARE the product (a bylaw / reglamento, contracts, a research corpus, a book). Moving a content file into `docs/GUIDES/` is like moving `src/` into `docs/`.
-
-**Detection (cheap):** no dependency manifest at root (`package.json`, `Cargo.toml`, `pyproject.toml`, `go.mod`, `Gemfile`, and the like) AND more than half the files are documents (`.md`, `.pdf`, `.docx`, `.odt`) means a **content repo**. Otherwise treat it as a code/docs repo, the default this skill was written for.
-
-**In a content repo, the default layout does not apply. Instead:**
-- **Do not move the content into `docs/`.** `docs/` holds only META about the repo (how the material is organized, how to contribute, a changelog). The content itself lives organized **by domain**: by area, topic, or the material's own structure, never folded into the technical taxonomy.
-- **The technical taxonomy has no slot for content.** ARCHITECTURE / FEATURES / GUIDES / RESEARCH all describe documentation about a system; a bylaw or a contract fits none of them. Do not force content into them. Use domain folders that fit the material and that a reader of that material would expect.
-- **Match the audience's language and literacy in folder names.** These repos get opened by non-technical readers (neighbors, older people, clients), often in Spanish. `archivo/` is understood; `ARCHIVED/` is not. Use readable, localized names (`archivo/`, `guias/`, `borradores/`), not UPPERCASE English. The UPPERCASE English convention below is for technical / code repos.
-
-This is the same spirit as the published-site guard and the "respect documented conventions" rule: when a repo has its own working structure, doctos reports hygiene findings but never imposes the default layout on top of it.
+Detect it first. **No dependency manifest at the root AND more than half the files are
+documents** (`.md`, `.pdf`, `.docx`, `.odt`) means a **content repo** (a bylaw, contracts, a
+corpus, a book): the documents ARE the product. There the default layout does not apply:
+content stays organized by domain, `docs/` holds only meta, and folder names follow the
+audience's language (`archivo/`, not `ARCHIVED/`). Details: `references/content-repos.md`.
+Load it whenever the check says content repo.
 
 ## The declared structure: `.doctos.yml`
 
-The layout below is the DEFAULT, not a law. A repo declares its own in `.doctos.yml` at the
-root, and doctos audits against what is declared instead of against the default. This is what
-lets projects with different shapes (ADRs, Diataxis, a team convention in lowercase, a docs
-folder that is not `docs/`) use the skill without being told to rename everything.
+The layout below is the DEFAULT, not a law. A repo declares its own in a committed
+`.doctos.yml` at the root (`docs_root`, `naming`, `folders` with one line of purpose each,
+`root_allowed`), and doctos audits against the declaration instead of the default. Core rules:
 
-```yaml
-docs_root: docs                 # where documentation lives
-naming: UPPERCASE_SNAKE         # or kebab-case, or lowercase
-folders:                        # folder: what belongs in it
-  ARCHITECTURE: architecture, schemas, decisions, technical trade-offs
-  GUIDES: setup, deploy, onboarding, conventions
-  ARCHIVED: obsolete docs, each with an archival note
-root_allowed: [CONTRIBUTING.md] # extra .md tolerated at the repo root
-```
+- **Verify it, do not obey it.** Report drift first: declared folders missing, existing folders
+  undeclared, an absent `docs_root`. A config that lies makes a mess look sanctioned.
+- **The folder descriptions are the routing table** for classifying stray files.
+- **`docs/README.md` is derived** from it; when they disagree, `.doctos.yml` wins and the
+  difference is a finding. The root `README.md` carries a two-line pointer block.
+- **Precedence:** published-site guard > `.doctos.yml` > content-repo heuristic > default.
+  Writing or adding the file is always one more confirmed line in a plan, never silent.
 
-**The descriptions are not decoration: they are the routing table.** Classifying a stray file
-means matching its content against what each folder is for, so a declared taxonomy works with
-the existing logic and needs no special case.
-
-**Why the root and not `docs/`.** The file says WHERE documentation lives, so it cannot live
-inside it: a repo with `documentation/` or `website/docs/` would need doctos to guess the
-location of the file that tells it the location. At the root it sits with the other tooling
-config (`.gitignore`, `lefthook.yml`), it is found in one look, and it is **committed, never
-gitignored**: the structure has to travel with the clone and a change to it has to show up in a
-PR like any other decision.
-
-**Verify it, do not obey it.** A config that lies is worse than none, because it makes a mess
-look sanctioned. Before using a declared structure, check it against reality and report the
-drift as findings: folders declared that do not exist, folders that exist and are not declared,
-a `docs_root` that is absent. Then audit against the declaration.
-
-**`docs/README.md` stays the human door, and it is DERIVED.** Its structure table is generated
-from this file and carries a line saying so, because the same list kept by hand in two places
-drifts and then nobody knows which one is true. When the two disagree, `.doctos.yml` wins and
-the difference is a finding.
-
-**The project README announces it.** A contributor who opens the repo has no reason to guess
-that documentation follows a convention or where it is written down, and a config nobody can
-find gets edited around instead of edited. INIT adds one short block to the root `README.md`,
-and AUDIT reports its absence as a finding:
-
-```markdown
-## Documentation
-
-Structure declared in [`.doctos.yml`](./.doctos.yml), index in [docs/README.md](./docs/README.md).
-```
-
-Two lines, no more: the README is an overview, not a manual. This is a pointer, never a copy of
-the structure, for the same reason the `docs/README.md` table is derived.
-
-**The default is measured, not invented.** A survey of 134 repos with a `docs/` folder found the
-canonical set in real use: TASK_COMPLETED (52), ARCHITECTURE (46), GUIDES (43), RESEARCH (34),
-ARCHIVED (26), FEATURES (25), JOURNAL (20). That is why doctos stays opinionated by default. The
-same survey is why the declaration exists: a folder for a product or integration recurred in 6
-repos with no slot in the taxonomy, and two code repos run a fully Spanish one
-(`DOMINIO/PRODUCTO/OPERACION`). Neither is a mess to be renamed; both are structures to be
-declared.
-
-**Precedence.** The published-site guard still wins over everything (moves break live URLs). A
-declaration beats the content-repo heuristic, since it is explicit where the heuristic guesses.
-The default applies only when there is no file. `/doctos init` writes the file with the default
-values, and CLEAN offers to add it when it is missing, always as one more confirmed line in the
-plan, never silently.
+The schema, the README block, why it lives at the root and the survey behind the default:
+`references/doctos-yml.md`. Load it when the file exists, or when INIT or CLEAN writes it.
 
 ## The standard structure
 
@@ -194,49 +146,10 @@ Allowed at root, but with their own hygiene rules: these files load into EVERY a
 
 ## Subfolder purposes
 
-Understanding what goes where prevents misclassification:
-
-### ARCHITECTURE/
-Technical architecture, system design, data flow, schema docs, ADRs (Architecture Decision Records), technical decisions, stack choices.
-
-**Examples:** `ARCHITECTURE.md`, `DATABASE_SCHEMA.md`, `API_DESIGN.md`, `DECISIONS.md`, `STACK.md`, `DESIGN_PATTERNS.md`
-
-### FEATURES/
-Active feature specs for current or upcoming work. These describe *how something will be built* before it's built. Once the feature ships, the spec moves to `ARCHIVED/` (the implementation is now the source of truth, not the spec).
-
-**Examples:** `26_APRIL_AGENTS.md`, `VOICE_INTEGRATION_SPEC.md`, `PRD_PHASE_2.md`
-
-### GUIDES/
-How-to documentation for humans, but only the NON-OBVIOUS kind (see the value-to-reread bar). Setup/deployment/onboarding/conventions that differ from just running the standard commands. A deployment guide earns its place when the deploy has real steps beyond `npm run deploy`; a "how to register a user" guide does not: that is a README line at most. Cut the generic, keep the surprising.
-
-**Examples:** `DEPLOYMENT_GUIDE.md` (when non-trivial), `CODING_RULES.md`, `TESTING.md`, `CSS_CONVENTIONS.md`, each only if it says something the code/commands don't already show.
-
-### RESEARCH/
-Investigation, analysis, benchmarks, competitor research, technology evaluations. Content that informed decisions but isn't prescriptive.
-
-**Examples:** `KNOWLEDGE_TOOLS.md`, `COMPETITOR_ANALYSIS.md`, `MODEL_BENCHMARKS.md`, `TECH_EVALUATION.md`
-
-### JOURNAL/
-The project's dated logbook: state-in-time reports, append-only, never edited after the fact. `KICKOFF_<YYMMDD>.md` (how the project was found when resuming, written by /kickoff) and `STANDUP_<YYMMDD>.md` (what happened, written by /standup, which may append several timestamped sections to the same day's file as work sessions close). One file per day per type; past days are closed records. Unlike RESEARCH/ (timeless investigations) or ARCHIVED/ (obsolete docs), JOURNAL/ entries are *born historical*: they describe a moment and stay valid as a record of it. Doctos never archives JOURNAL/ files by age; their age is the point.
-
-**Examples:** `KICKOFF_260718.md`, `STANDUP_260725.md`
-
-### ARCHIVED/
-Documents that are no longer current but worth keeping for historical context. Every archived file must have an archival note at the top explaining why it was archived and what replaced it.
-
-**Archival note format:**
-```markdown
-> **ARCHIVED**: 2026-04-05
-> This document is no longer current. [Reason: replaced by X / feature shipped / approach changed / no longer relevant].
-> Current reference: [link to replacement if any]
-
----
-
-[original content below unchanged]
-```
-
-### TASK_COMPLETED/
-Managed exclusively by pm-tasks. Doctos only renames the folder if it uses a non-standard name (`tasks_completed/`, `COMPLETED_TASK/`, etc.) but never touches the content inside.
+What belongs in each folder, with examples, the JOURNAL rules and the **archival note format**
+every ARCHIVED/ file needs: `references/subfolders.md`. The classification table under AUDIT
+decides most moves; load the reference when it does not, or before archiving (CLEAN). Two rules that hold without loading it: JOURNAL/ entries are never
+archived by age, and TASK_COMPLETED/ content belongs to pm-tasks (doctos may only rename the folder).
 
 ## Modes
 
@@ -285,13 +198,11 @@ Full scan of the project's documentation health.
 1a. **Published-site guard**: if `docs/` contains `CNAME`, `index.html`, or `_config.yml`, or `.github/workflows/` has a Pages deploy workflow (`configure-pages`, `deploy-pages`, `jekyll`, `github-pages`, `mkdocs gh-deploy`), then `docs/` is a **published site**: the whole run degrades to **findings only: do NOT reorganize; fix in place**. Report every issue as usual, but never move, rename, or restructure anything under `docs/` (moves break live URLs). Mark the audit header with "docs/ is a published site: findings only" so CLEAN mode inherits the restriction. **Report this ONLY when the guard fires.** When `docs/` is a normal documentation folder, say nothing about it: a "docs/ is not a published site" line is noise, it states the default and confuses the reader into thinking it means something. This guard applies to full AUDIT too, not just scoped runs.
 2. **Scan docs/ folder**: check subfolder names, file names, structure
 3. **Check naming conventions**: find lowercase folders, inconsistent file names, .txt docs
-4. **Detect obsolete documents**, signals:
-   - **Age**: files not modified in 90+ days (`git log -1 --format=%as -- <file>`). Exclude `docs/JOURNAL/`: dated logbook entries are meant to age
-   - **Low reread value** (the value-to-reread bar above): a guide that restates what the obvious command already teaches (generic login/CRUD/register how-tos), a walkthrough that would collapse to a one-line README pointer, or a doc nobody would reopen. Flag as "low reread value: [generic how-to / restates the command / never reopened], consider README one-liner or ARCHIVED/". Keep decision records, hard-won fixes, and non-obvious setup regardless of length: those are exactly what justifies a doc.
-   - **Stale claims**: content that contradicts the project's reality: tech mentioned that is absent from package.json/Cargo.toml/deps, referenced files or routes that no longer exist, counts that no longer match ("22 prototypes" when 3 remain). Spot-check each doc's boldest claims against the codebase; a doc describing the wrong stack misleads every future reader (human or agent) and is worse than no doc
-   - **Derived artifact vs its source** (applies to code AND content repos, often the highest-value finding): a file that is an export of a source drifts silently when the source changes and the export is not regenerated. Detection is cheap: same base name, different extension; compare mtime and size. In a content repo the source is the `.md` and the derived files are the exported `.pdf` / `.docx`; in a code repo the source is the `.ts` and the derived files are the generated `.d.ts` / OpenAPI / snapshots. Flag any derived file older than or materially diverging from its source ("`X.pdf` is 13 months older than `X.md`: stale export, readers may be trusting the old version"). Field case: three generations of a bylaw's PDF/DOCX lagged the Markdown source for 13 months with nobody noticing. This is not a doc-repo special case; it is the general form of the stale-claims check.
-   - **Coverage gaps** (the inverse check): recent shipped work (new modules, features, commands visible in the last ~20 commits) that no doc mentions. Missing docs are findings too, not just misplaced ones. Report as "undocumented: X" with a suggested destination
-   - **Prioritize via the journal**: if `docs/JOURNAL/` has recent `KICKOFF_*`/`STANDUP_*` entries, read the latest ones first and start the stale-claims and coverage checks on the files/features they mention: recently-moved areas are where docs lie first. The journal doesn't change what you detect, it changes where you look first
+4. **Detect obsolete documents.** Load `references/obsolete-signals.md` for how to detect and
+   word each signal: **age** (90+ days, `docs/JOURNAL/` excluded), **low reread value**,
+   **stale claims** (spot-check each doc's boldest claim against the code), **derived artifact
+   older than its source** (`X.pdf` vs `X.md`, generated vs source), **coverage gaps** (recent
+   shipped work no doc mentions). Start where the latest `docs/JOURNAL/` entries point.
 5. **Check for task-related issues**: if task folders/files use non-standard names, flag for renaming and suggest running `/pm-tasks` after
 6. **Check docs/README.md**: does it exist? does it have documentation rules?
 7. **Audit agent instruction files**: apply the CLAUDE.md / AGENTS.md hygiene rules (see "Agent instruction files" section): flag embedded code blocks, stale tech claims, and task tracking inside them
@@ -320,85 +231,25 @@ When a .md file at root needs to move, classify it into the right subfolder:
 
 ## Mode: CLEAN (`/doctos clean`)
 
-Executes all fixes identified in the audit.
+Executes the audit's fixes. Load `references/clean.md` before planning: it has the steps, the
+freshness verdict per moved file, inbound-reference repair and the edge cases. Rules that hold
+without loading it:
 
-### Steps
-
-1. **Run audit first**: build the full list of issues
-1b. **Freshness verdict per file being moved.** Structure and content rot together: a file worth relocating is a file worth 30 seconds of scrutiny, and moving a stale doc to a tidy folder just gives the lie a better address. For every file in the move plan, check `git log -1 --format=%as -- <file>` and spot-check its boldest claim against the codebase. Attach a verdict to each plan line: ✅ vigente · 🟡 revisar (old but spot-check passed: add a review task) · 🔴 deprecated (contradicts reality: goes to ARCHIVED/ with note instead of its planned destination, plus a task to replace it). Real case that motivated this: a `project_definition.md` moved during a cleanup turned out to describe a *different project entirely* (copied from another repo, never adapted). Structure-only cleaning would have promoted it to ARCHITECTURE/.
-2. **Show the execution plan** to the user and ask for confirmation, using the **CLEAN plan format** in `references/report-templates.md` (grouped into Will move / Will rename / Will rename task-related / Will create / Will archive, ending in "Proceed? (y/n)").
-
-3. **After confirmation, execute:**
-   - Use `git mv` where possible to preserve history
-   - Create missing folders
-   - Rename files/folders to standard convention
-   - Add archival notes to files moved to ARCHIVED/
-   - Convert .txt files to .md
-   - Rename hyphens to underscores in file names (`DEV-WORKFLOW.md` → `DEV_WORKFLOW.md`)
-   - **Repair inbound references**: after every move or rename, search the whole project for the old path/filename (other docs, CLAUDE.md pointers, code comments) and update each reference to the new location. Moving a file without fixing its inbound links converts organization into breakage: this step is what makes the clean safe
-   - Create docs/README.md with documentation index and writing rules
-   - If task-related files were renamed, remind user: "Task folders renamed. Run `/pm-tasks` to audit task content."
-
-4. **Post-clean report:** use the **CLEAN post-clean report format** in `references/report-templates.md` (counts of moved / renamed / created / archived, plus the pm-tasks reminder).
-
-### Handling edge cases
-
-**File name conflicts:** If moving `ARCHITECTURE.md` from root to `docs/ARCHITECTURE/` but `docs/ARCHITECTURE/ARCHITECTURE.md` already exists: ask the user whether to merge, rename, or skip.
-
-**Published docs sites:** if the audit flagged `docs/` as a published site (CNAME / index.html / _config.yml / Pages workflow), CLEAN must refuse every move or rename under `docs/`: only in-place content fixes (stale claims, archival notes prepended without moving the file) are allowed. Say so explicitly in the plan.
-
-**Non-markdown files in docs/:** Shell scripts (`.sh`), config files, images: these are fine. Only audit `.md` and `.txt` files.
-
-**Nested project structures:** For workspaces with sub-projects (e.g., a monorepo with `backend_api/` and `browser_extension/`), audit each sub-project independently. Don't move sub-project docs to the workspace root.
+- **Nothing moves before the user confirms the plan** (CLEAN plan format in
+  `references/report-templates.md`, ending in "Proceed? (y/n)").
+- **Published docs site** (CNAME / index.html / _config.yml / Pages workflow under `docs/`):
+  refuse every move or rename there; only in-place content fixes. Say so in the plan.
+- **Every move repairs its inbound references** (other docs, CLAUDE.md pointers, comments).
+- `git mv` to keep history; on a name conflict, ask (merge, rename or skip).
 
 ---
 
 ## Mode: INIT (`/doctos init`)
 
-Creates the standard docs structure. Like pm-tasks init, this both creates from scratch and standardizes existing setups.
-
-### Steps
-
-1. **Scan what exists** (same as audit detection)
-2. **Branch:**
-
-#### A) Nothing exists: fresh setup
-
-Create the full structure:
-```
-docs/
-├── README.md
-├── ARCHITECTURE/
-├── FEATURES/
-├── GUIDES/
-├── RESEARCH/
-└── ARCHIVED/
-```
-
-Only create subfolders that the project likely needs. A small utility doesn't need `RESEARCH/`. Detect project size/type from:
-- Number of source files
-- package.json / Cargo.toml dependencies
-- Existing documentation volume
-
-Minimum for any project: `docs/README.md` + `docs/GUIDES/`
-
-#### B) Existing non-standard setup: standardize
-
-Same as CLEAN mode but more aggressive:
-- Run the full audit
-- Show the migration plan
-- Execute after confirmation
-- Create any missing standard folders
-
-3. **Write `.doctos.yml`** with the default values (or the structure agreed for this repo), so the layout is declared, versioned and visible in diffs instead of living only inside this skill.
-
-3b. **Add the Documentation block to the root `README.md`** (two lines pointing at `.doctos.yml`
-and `docs/README.md`, see "The declared structure"), so a contributor finds the convention
-without knowing the skill exists. Skip it if an equivalent pointer is already there.
-
-4. **Write docs/README.md** with documentation index and writing rules, using the **INIT docs/README.md template** in `references/report-templates.md` (structure table, root-level files, and the seven writing rules). For a content repo, adapt it per the note there.
-
-5. **If task structure is missing**, suggest: "No task tracking found. Run `/pm-tasks init` to set up TASK_TODO.md and TASK_COMPLETED/."
+Creates the structure from scratch, or standardizes an existing setup (CLEAN rules apply,
+confirmation first). It writes only the folders the project needs (minimum `docs/README.md` +
+`docs/GUIDES/`), `.doctos.yml`, the two-line pointer in the root `README.md` and `docs/README.md`
+from its template. Steps: `references/init.md`. Load it before running INIT.
 
 ---
 

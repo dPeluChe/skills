@@ -21,6 +21,15 @@ skill_meta_problems() { # $1 = skill dir; prints one problem per line, nothing w
   fi
   grep -q '^allowed-tools:' <<<"$fm" || echo "no allowed-tools"
   if grep -q $'\xe2\x80\x94' <<<"$fm"; then echo "em dash in frontmatter"; fi
+  # progressive disclosure only works if every reference is routed from SKILL.md and exists
+  local r
+  while IFS= read -r r; do
+    [[ -f "$dir/$r" ]] || echo "SKILL.md names $r, which does not exist"
+  done < <(grep -oE 'references/[A-Za-z0-9_.-]+\.md' "$dir/SKILL.md" | sort -u)
+  for r in "$dir"/references/*.md; do
+    [[ -f "$r" ]] || continue
+    grep -q "references/$(basename "$r")" "$dir/SKILL.md" || echo "references/$(basename "$r") is not named in SKILL.md"
+  done
 }
 
 # ── one skill: ensure (or verify) both hops ────────────────────────────────
