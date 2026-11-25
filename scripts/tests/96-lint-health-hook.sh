@@ -5,7 +5,7 @@
 # WEAKENS lint (a blanket eslint-disable, or a rule turned off in an eslint
 # config). Diff-scoped sibling of `flowkit lint-health`. ADVISORY: exit 0 always.
 # Field origin: tennispro "turn no-unused-vars on repo-wide" + newbase/polizahoy
-# scaffold with 6 rules off — the alert must fire the moment such a change is
+# scaffold with 6 rules off -- the alert must fire the moment such a change is
 # STAGED, not weeks later in a repo audit.
 
 # Locate the effective hook block (extracted by 20-lefthook-blocks.sh into $TMP).

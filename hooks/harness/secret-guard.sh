@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-# Claude Code PreToolUse hook (matcher: Edit|Write) — blocks writing secrets.
-# stdin: hook JSON; scans .tool_input.content / .new_string with gitleaks
-# (hooks/.gitleaks.toml, resolved relative to this script) or a regex fallback.
-# .env* file_path targets (except .env.example/.env.sample) block outright.
-# exit 2 + stderr = block, the model reads the reason.
+# PreToolUse hook (Edit|Write): blocks writing secrets via gitleaks (central config)
+# or a regex fallback, and .env* targets except templates. exit 2 + stderr = block.
 set -uo pipefail
 
 # pwd -P resolves the ~/.agents/hooks-harness directory symlink to the repo
@@ -42,8 +39,9 @@ fi
 base="$(basename "${FILE_PATH:-x}")"
 case "$base" in
   .env | .env.*)
-    if [[ "$base" != ".env.example" && "$base" != ".env.sample" ]]; then
-      echo "[secret-guard] blocked: writing to $FILE_PATH — agents never write .env files; put placeholders in .env.example and let a human fill the real one" >&2
+    # same template list as the pre-commit block-env-files job
+    if ! [[ "$base" =~ ^\.env\.(example|ejemplo|sample|template|dist)$ ]]; then
+      echo "[secret-guard] blocked: writing to $FILE_PATH -- agents never write .env files; put placeholders in .env.example and let a human fill the real one" >&2
       exit 2
     fi
     ;;
@@ -52,7 +50,7 @@ esac
 [[ -s "$TMP_CONTENT" ]] || exit 0
 
 deny() { # $1 = rule id
-  echo "[secret-guard] secret detected (rule $1) — do not write secrets to files; use env/config references (process.env.X, os.environ) and keep real values out of the repo" >&2
+  echo "[secret-guard] secret detected (rule $1) -- do not write secrets to files; use env/config references (process.env.X, os.environ) and keep real values out of the repo" >&2
   exit 2
 }
 

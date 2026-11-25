@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Test harness for the centralized hooks system — thin runner.
+# Test harness for the centralized hooks system -- thin runner.
 #
 # The tests live in scripts/tests/, one module per domain, each < 400 lines:
 #   00-helpers.sh          shared state ($TMP, counters, ok/nope, fixtures)
@@ -38,8 +38,10 @@ TESTS_DIR="$REPO_DIR/scripts/tests"
 source "$TESTS_DIR/00-helpers.sh"
 
 for module in "$TESTS_DIR"/[1-9]*.sh; do
+  _t0=$SECONDS
   # shellcheck disable=SC1090  # modules are enumerated at runtime
   source "$module"
+  [[ -z "${FLOWKIT_TIMINGS:-}" ]] || echo "[time] $((SECONDS - _t0))s $(basename "$module")"
 done
 
 # ── verdict ────────────────────────────────────────────────────────────────

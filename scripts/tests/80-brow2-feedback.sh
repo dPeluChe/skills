@@ -219,5 +219,5 @@ if command -v lefthook >/dev/null 2>&1; then
     nope "compact output live: clean pre-commit run should exit 0 (see $TMP/out.log)"
   fi
 else
-  echo "· lefthook not installed — compact-output live fixture skipped (non-fatal)"
+  echo "· lefthook not installed -- compact-output live fixture skipped (non-fatal)"
 fi

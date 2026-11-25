@@ -134,6 +134,11 @@ if [[ -x "$SG" ]]; then
   else
     nope "secret-guard: .env.example should pass"
   fi
+  if write_hook_json "config/.env.ejemplo" "API_KEY=tu-llave" | run_sg; then
+    ok "secret-guard: .env.ejemplo template passes, same list as the pre-commit hook"
+  else
+    nope "secret-guard: .env.ejemplo should pass like the pre-commit hook allows"
+  fi
 
   # fallback net: run with a PATH that has python3 but no gitleaks/jq
   run_sg_fb() { env PATH=/usr/bin:/bin /bin/bash "$SG" > "$TMP/out.log" 2> "$TMP/err.log"; }
@@ -151,7 +156,7 @@ if [[ -x "$SG" ]]; then
       nope "secret-guard fallback: placeholder/clean content should pass"
     fi
   else
-    echo "· /usr/bin/python3 unavailable — secret-guard fallback fixtures skipped (non-fatal)"
+    echo "· /usr/bin/python3 unavailable -- secret-guard fallback fixtures skipped (non-fatal)"
   fi
 else
   nope "hooks/harness/secret-guard.sh missing or not executable"

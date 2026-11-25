@@ -20,4 +20,5 @@
 ## Deuda técnica (no bloqueante)
 
 - [ ] **Scope-check del script de lint**: detectar un `eslint app/**` que deja carpetas (`convex/`, `scripts/`) sin lintear, señal para `flowkit lint-health`. Nice-to-have. `added: 2026-07-31`
+- [ ] **Suite en ~4.5 min**: `FLOWKIT_TIMINGS=1 bash scripts/test-hooks.sh` da 71s en 40-install-repo, 71s en 90-gitleaks-scope y 49s en 70-field-feedback. El costo es el canario de cada wiring (7 corridas de lefthook, ~4s). Opciones: módulos en paralelo con `$TMP` por módulo, o un canario opt-out solo en fixtures que no lo prueban. `added: 2026-11-24`
 - [ ] **Port de la suite a Linux/GNU**: `install`/`verify` fallan en Linux (el CI apunta a macOS por eso). Solo vale si algún consumer corre en Linux. `added: 2026-07-31`

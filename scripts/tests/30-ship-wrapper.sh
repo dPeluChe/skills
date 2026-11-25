@@ -15,7 +15,7 @@ make_fixture() { # $1 = dir; CLAUDE.md content on stdin
 }
 
 if [[ -n "$WRAPPER" ]]; then
-  # fixture A: valid "## preship config" block — commands must be extracted and run
+  # fixture A: valid "## preship config" block -- commands must be extracted and run
   MARKER="$TMP/marker.txt"
   export MARKER
   make_fixture "$TMP/fix-valid" <<EOF
@@ -59,9 +59,9 @@ EOF
     ok "fixture A2: failing lint blocks the push (exit 1, legacy heading)"
   fi
 
-  # fixture B: no ship config block — fail-soft, loud warning, exit 0
+  # fixture B: no ship config block -- fail-soft, loud warning, exit 0
   make_fixture "$TMP/fix-none" <<'EOF'
-# Test repo — no ship config here
+# Test repo -- no ship config here
 EOF
   if run_wrapper "$TMP/fix-none" "src/app.ts"; then
     if grep -q "no preship config block" "$TMP/err.log"; then
@@ -126,7 +126,7 @@ if command -v gitleaks >/dev/null 2>&1; then
     nope "gitleaks: placeholder example was flagged (allowlist broken)"
   fi
 else
-  echo "· gitleaks not installed — config fixtures skipped (non-fatal)"
+  echo "· gitleaks not installed -- config fixtures skipped (non-fatal)"
 fi
 
 # ── docs-nudge + commit-msg attribution-strip blocks ────────────────────────
