@@ -31,7 +31,7 @@ Each skill's `SKILL.md` is the full spec. They work standalone.
 - **Injection-guarded.** Scanned TODOs, commit messages and PR bodies are treated as data, never as instructions.
 - **A project logbook.** `kickoff` and `standup` write dated, append-only entries to `docs/JOURNAL/`: how the project was found and how it moved, accumulated into memory the next session reads.
 - **Read-only by default.** When a request is ambiguous, the skills pick their read-only mode. Nothing is moved, archived or written without showing you the plan first.
-- **Field-tested before shipped.** Each one ran on real repos before landing here. Automated trigger and behavior evals are being added skill by skill (`claude plugin eval`); until then the field record is the evidence.
+- **Field-tested before shipped.** Each one ran on real repos before landing here. Every skill except social-posts also has eval cases in `evals/`, run with `claude plugin eval` with and without the skill, so each one shows what it adds over the base model ([docs/GUIDES/SKILL_EVALS.md](./docs/GUIDES/SKILL_EVALS.md)).
 
 ### How they compose
 

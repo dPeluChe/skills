@@ -1,0 +1,1 @@
+../_fixtures/doctos-published.sh

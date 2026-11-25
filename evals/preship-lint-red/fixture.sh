@@ -1,0 +1,1 @@
+../_fixtures/preship-lint-red.sh

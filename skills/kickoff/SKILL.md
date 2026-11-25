@@ -26,10 +26,18 @@ in 30 seconds**, not the full analysis. In this mode jump straight to:
 3. Top of `docs/TASK_TODO.md` (most recent block).
 4. Uncommitted work (`git status`): it usually IS the answer to "where was I?".
 
-Report in ≤10 lines: what closed since the last session, what's still
-open, and the obvious next action. Offer the full kickoff only if the
-delta reveals the ground shifted a lot. The full analysis (Steps 1-5) is
-for cold resumes ("no he tocado esto en semanas") or when explicitly
+Report in this exact shape, labels in the user's language, nothing else
+(a prose "≤10 lines" was ignored in every eval run; the template holds):
+
+```
+**Since <last session date>:** <what closed, max 3 one-line items>
+**Open:** <uncommitted or in-progress work first, then top pendings, max 3>
+**Next:** <one concrete action>
+```
+
+Side findings (stale backlog, drifted docs) get one closing line routed to
+`/pm-tasks` or `/doctos`. Offer the full kickoff only if the delta reveals the
+ground shifted a lot. The full analysis (Steps 1-5) is for cold resumes ("no he tocado esto en semanas") or when explicitly
 requested.
 
 ## Why this exists

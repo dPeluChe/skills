@@ -1,0 +1,1 @@
+../../_graders/fired-doctos.md

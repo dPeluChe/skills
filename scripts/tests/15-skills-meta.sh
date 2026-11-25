@@ -28,3 +28,14 @@ if grep -q 'chars > 1024' <<<"$probs" && grep -q 'name must match' <<<"$probs" \
 else
   nope "skill meta: rules did not fire on the bad fixture: $probs"
 fi
+
+# every skill has a behavior case (a negative-trigger case alone does not count); social-posts is exempt
+for d in "$REPO_DIR"/skills/*/; do
+  s="$(basename "$d")"; [[ "$s" == social-posts ]] && continue
+  if grep -hE '^tags:' "$REPO_DIR"/evals/*/case.yaml 2>/dev/null | grep -v negative \
+     | grep -qE "[[ ,]${s}[],]"; then
+    ok "skill evals: $s"
+  else
+    nope "skill evals: $s has no behavior case in evals/ tagged with its name"
+  fi
+done

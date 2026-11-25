@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: standup-micro-journal
+tags: [standup]
+context:
+  scaffold_script: fixture.sh

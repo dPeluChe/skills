@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: preship-lint-red
+tags: [preship]
+context:
+  scaffold_script: fixture.sh

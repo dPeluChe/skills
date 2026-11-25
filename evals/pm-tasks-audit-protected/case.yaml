@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: pm-tasks-audit-protected
+tags: [pm-tasks]
+context:
+  scaffold_script: fixture.sh
