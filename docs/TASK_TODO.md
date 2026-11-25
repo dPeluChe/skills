@@ -7,11 +7,12 @@
 
 ## flowkit: mejoras de campo
 
+- [ ] **lefthook ≥ 2.0.5 en cada máquina (fuera de este repo)**: desde 0.1.38 la config central exige `min_version: 2.0.5`; una máquina con lefthook viejo ve fallar los hooks hasta `brew upgrade lefthook`. Se revisa por máquina (jakku, lego2max, colaboradores), no aquí. `added: 2026-11-25`
 - [ ] **`lint-health --measure`: simular el gate REAL del repo**: además del conteo de hallazgos, leer el comando de gate de `package.json` (ej. `lint:strict --max-warnings 0`) y reportar si esas N violaciones **romperían el gate**, no solo cuántas hay. Origen: field-test dev tennispro: el `--max-warnings 0` solo apareció al EJECUTAR el cambio, no al leer la config (`warn` ahí == `error`); un `--measure` que simule el efecto lo cazaría solo. Prioridad: valioso pero puntual (solo al decidir encender una regla en repo con gate estricto), esperar más field-tests. `added: 2026-07-31`
 
 ## preship y el /ship nativo
 
-- [ ] **Migrar repos ya conectados a `## preship config`**: el encabezado viejo se sigue leyendo, así que no urge; `flowkit hooks` podría ofrecer renombrarlo. `added: 2026-11-24`
+- [ ] **Migrar repos ya conectados a `## preship config`, de paso**: el encabezado viejo se sigue leyendo, así que no urge ni amerita una ronda por los ~55 repos. Que `flowkit hooks` / `flowkit upgrade` lo renombre cuando ya estén en ese repo por otra razón. `added: 2026-11-24`
 
 ## Research en pausa
 
