@@ -55,6 +55,11 @@ Usage: flowkit <subcommand>
                        (a green lint proves nothing if the linter never reached those files)
   loc-health [path]  audit file sizes repo-wide against the loc_limit rule (preship config,
              default 500); advisory, exit 0. The pre-commit hook warns per-diff too
+  gate       run this repo's gates in one command: secret scan over the commits since the
+             default branch + lint/typecheck from the preship config (--full adds build/test,
+             --range A..B, --secrets-only). For where git hooks do not run: /ship watch, CI
+  ci         stamp .github/workflows/flowkit-gate.yml in $PWD: the CI backstop that runs the
+             same gate on every PR (opt-in; commit it, then make the check required)
   about      what flowkit is + this repo's detected flow status (for agents landing cold)
   version    print flowkit version + repo short sha
   help       show this help
@@ -68,7 +73,7 @@ cmd="${1:-help}"
 
 # `flowkit <subcommand> --help` shows this help instead of leaking the flag
 # into the installer (which used to die with "unknown --repo option: --help")
-if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+if [[ "$cmd" != gate && ( "${1:-}" == "--help" || "${1:-}" == "-h" ) ]]; then
   usage
   exit 0
 fi
@@ -80,6 +85,8 @@ case "$cmd" in
   hooks)   exec bash "$INSTALL" --repo "$PWD" "$@" ;;
   unhook)  exec bash "$INSTALL" --unhook "$PWD" "$@" ;;
   harness) exec bash "$INSTALL" --harness "$@" ;;
+  gate)    exec bash "$REPO_DIR/scripts/gate.sh" "$@" ;;
+  ci)      exec bash "$INSTALL" --ci "$PWD" "$@" ;;
   upgrade) exec bash "$INSTALL" --upgrade "$@" ;;
   lint-health) exec bash "$INSTALL" --lint-health "$@" ;;
   loc-health)  exec bash "$INSTALL" --loc-health "$@" ;;

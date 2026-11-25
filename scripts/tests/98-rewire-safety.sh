@@ -19,6 +19,13 @@ if command -v lefthook >/dev/null 2>&1 && command -v gitleaks >/dev/null 2>&1 \
   git -C "$RW" add legacy.cfg && git -C "$RW" -c user.email=t@t.t -c user.name=t commit -qm "legacy key" --no-gpg-sign
 
   if run_rw --repo "$RW" && [[ -s "$RW/.gitleaks-baseline.json" ]]; then
+    sw="$RW/.claude/skills/steward/SKILL.md"
+    if grep -q 'stamped by flowkit' "$sw" 2>/dev/null && grep -q 'flowkit gate' "$sw" \
+       && grep -qxF '.claude/skills/steward/SKILL.md' "$RW/.git/info/exclude"; then
+      ok "wire: stamps the /ship watch instructions (runs flowkit gate), excluded from git"
+    else
+      nope "wire: steward SKILL.md missing, unmarked or not excluded"
+    fi
     python3 - "$RW/.gitleaks-baseline.json" <<'PY'
 import json, sys
 p = sys.argv[1]
@@ -49,6 +56,12 @@ PY
       fi
     else
       nope "re-wire: second flowkit hooks run exited non-zero (see $TMP/out.log)"
+    fi
+    if run_rw --unhook "$RW" && [[ ! -e "$RW/.claude/skills/steward/SKILL.md" ]] \
+       && ! grep -qxF '.claude/skills/steward/SKILL.md' "$RW/.git/info/exclude"; then
+      ok "unhook: removes our steward SKILL.md and its exclude entry"
+    else
+      nope "unhook: steward SKILL.md or its exclude entry left behind"
     fi
   else
     nope "re-wire: first wiring produced no baseline (see $TMP/out.log)"

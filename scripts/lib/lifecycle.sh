@@ -54,8 +54,15 @@ run_unhook() {
     fi
   done
 
-  # OUR .git/info/exclude entries (written by --team wiring).
-  for line in "CLAUDE.local.md" ".gitleaks-baseline.json"; do
+  f="$target/.claude/skills/steward/SKILL.md"
+  if [[ -f "$f" ]] && grep -qF "$STEWARD_MARK" "$f" \
+     && ! git -C "$target" ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+    rm -f "$f"; rmdir "$target/.claude/skills/steward" "$target/.claude/skills" "$target/.claude" 2>/dev/null || true
+    removed+=("our watch instructions|$f")
+  fi
+
+  # OUR .git/info/exclude entries (written by wiring).
+  for line in "CLAUDE.local.md" ".gitleaks-baseline.json" ".claude/skills/steward/SKILL.md"; do
     if exclude_remove "$target" "$line"; then
       removed+=("exclude entry|$line (.git/info/exclude)")
     fi

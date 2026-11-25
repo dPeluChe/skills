@@ -50,13 +50,13 @@ The split: **preship decides whether the change is fit to ship; `/ship` drives t
   the watch. Preship runs Steps 0-3, prints the evidence table, and tells the user to type
   `/ship` (a built-in command the user runs, not one preship invokes). Before handing off, the
   tree must hold only the intended files: `/ship` commits everything, new files included.
-- **Before the merge, re-gate**: if the watch pushed commits, they skipped the hooks. Rerun
-  Step 1 on the final head (or confirm CI ran the same gates) before the user merges.
+- **Before the merge, re-gate**: if the watch pushed commits, they skipped the hooks. Run
+  `flowkit gate` on the final head (or confirm the CI gate is green) before the user merges.
+  `flowkit hooks` stamps `.claude/skills/steward/SKILL.md` so the watch runs it before each push.
 - **Self-driven (fallback)**: no built-in `/ship` (cloud session, other host, older CLI,
   disabled by policy) or the user asked preship to merge ("haz pr merge"). Preship runs Steps
   4-6 itself under the repo's `merge_policy`.
-- A repo can give the watch its gates in `.claude/skills/steward/SKILL.md` (which checks matter,
-  how to run tests). That file is read by the built-in watch, not by preship.
+- `.claude/skills/steward/SKILL.md` is read by the built-in watch, not by preship.
 
 ## Step 0: Identity gate (before anything else)
 
@@ -137,6 +137,10 @@ Key semantics, with defaults only where safe:
   one-line `hooks_skip: pre-push: "reason"` form is also accepted.
 
 ## Step 1: Pre-gates (mechanical; any failure = stop with report)
+
+`flowkit gate --full` runs the secret scan over the branch's commits plus lint, typecheck,
+build and test from the config in one command; use it when flowkit is installed and read its
+lines into the evidence table. The checks below are what it must cover.
 
 1. **Lint**: repo's lint command, 0 errors AND 0 warnings; no new `eslint-disable` (or
    equivalent) introduced by the diff.
@@ -267,5 +271,6 @@ micro-standup journal entry.
 - Never pushes directly to a protected default branch; everything goes through a PR.
 - Never merges under `ask` without explicit OK; never closes PRs on its own initiative.
 - A failed gate produces a report, not a workaround. Secrets found = hard stop.
-- Preship orchestrates; repo-level git hooks (pre-commit/pre-push) remain the guarantee layer;
-  recommend them once where gates exist only as prose.
+- Preship orchestrates; git hooks catch most pushes but not ones made with hooks off (the
+  /ship watch). The layer that holds for every push is a required CI check (`flowkit ci`);
+  recommend it once per repo where merges matter.

@@ -263,6 +263,7 @@ wire_repo_hooks() { # $1 = target repo (absolute); full wiring of ONE repo, no e
   fi
   ensure_flow_import "$target" "$team"
   ensure_ship_config_template "$target"
+  ensure_steward_skill "$target"
   check_agent_docs_fences "$target"
   if docs_is_published_site "$target"; then
     # agent guidance travels attached to the fence finding itself (see

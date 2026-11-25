@@ -5,7 +5,7 @@
 ## Hooks (lefthook + gitleaks)
 
 Centralized git hooks served FROM this repo via lefthook `remotes` (refetched at most every
-24h): every wired repo gets the same pre-commit/pre-push guarantees without copying config.
+24h): every wired repo gets the same pre-commit/pre-push checks without copying config.
 
 ```bash
 flowkit hooks [--team] [--include-parent]   # from inside the target repo (wires $PWD)
@@ -161,9 +161,17 @@ Four layers, increasing cost:
 |---|---|---|
 | commit-msg | <1s | strips agent attribution trailers (Co-authored-by / Generated with / 🤖 footers), authorship stays human: the person is the author, agents are tools |
 | pre-commit | <2s | gitleaks on staged (repo-local `.gitleaks.toml` wins over the central config) · hard block on staged `.env*` (except `.env.example`) · loc-warning: files THIS commit grows past `loc_limit` (preship config, default 500; never blocks) · lint-health advisory on the staged diff, a blanket eslint-disable or a newly-off config rule (never blocks) |
-| pre-push | <30s | the repo's own `lint:` / `typecheck:` read from its `## preship config` block, fail-soft warning if absent; docs-only and deletion-only pushes skip · docs nudge when code is pushed with zero `.md` touched (never blocks) |
+| pre-push | <30s | gitleaks over every PUSHED commit (catches commits made with hooks off) · the repo's own `lint:` / `typecheck:` read from its `## preship config` block, fail-soft warning if absent; docs-only and deletion-only pushes skip · docs nudge when code is pushed with zero `.md` touched (never blocks) |
 | `/preship` | minutes | full gate ritual: lint 0 warnings, build/tests, LOC, secret scan on the diff, quality pass, evidence table |
-| CI | async | whatever the repo's pipeline adds on top, hooks complement CI, never replace it |
+| `flowkit gate` | seconds | the same gates as ONE command: gitleaks over the commits since the default branch + `lint:` / `typecheck:` (`--full` adds build/test). Called by the /ship watch (via the stamped `.claude/skills/steward/SKILL.md`) and by CI |
+| CI | async | opt-in `flowkit ci` stamps a caller of the reusable `flowkit-gate` workflow (runs `flowkit gate` on every PR); make it a required check. Whatever else the repo's pipeline adds sits on top |
+
+**Hooks do not run on every push.** Claude Code's built-in `/ship` watch pushes with
+`git -c core.hooksPath=/dev/null`, and so does anything else that skips hooks (GUI clients,
+a bypass). Three things cover that: the pre-push scan of every pushed commit catches those
+commits at the next normal push; the stamped `.claude/skills/steward/SKILL.md` tells the
+watch to run `flowkit gate` before each push; and the CI gate, made a required check, is the
+only layer that holds no matter who pushes.
 
 **Known gap, pre-push scope is staged/pushed, CI scope is the whole tree.** The pre-push
 `lint:` runs the repo's own command as declared; if that command is staged-scoped (only the

@@ -1,0 +1,72 @@
+name: flowkit-gate
+
+# Reusable CI backstop: the same `flowkit gate` the hooks and the /ship watch run,
+# so pushes made with hooks off still meet the gates. Callers: `flowkit ci`.
+on:
+  workflow_call:
+    inputs:
+      setup:
+        description: command that installs the toolchain the lint/typecheck need (e.g. npm ci)
+        type: string
+        default: ""
+      full:
+        description: also run build and test from the preship config
+        type: boolean
+        default: false
+      secrets-only:
+        description: only the secret scan (no toolchain needed)
+        type: boolean
+        default: false
+      flowkit-ref:
+        description: ref of dPeluChe/skills to run the gate from
+        type: string
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+          fetch-depth: 0
+
+      - uses: actions/checkout@v4
+        with:
+          repository: dPeluChe/skills
+          ref: ${{ inputs.flowkit-ref }}
+          path: .flowkit
+
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP/bin" gitleaks
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Setup toolchain
+        if: inputs.setup != '' && !inputs.secrets-only
+        working-directory: repo
+        env:
+          SETUP: ${{ inputs.setup }}
+        run: eval "$SETUP"
+
+      - name: Gate
+        working-directory: repo
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          FULL: ${{ inputs.full }}
+          SECRETS_ONLY: ${{ inputs.secrets-only }}
+        run: |
+          args=()
+          case "$BASE" in
+            *[!0]*) args+=(--range "$BASE..HEAD") ;;
+          esac
+          [ "$FULL" = true ] && args+=(--full)
+          [ "$SECRETS_ONLY" = true ] && args+=(--secrets-only)
+          bash ../.flowkit/scripts/gate.sh "${args[@]}"

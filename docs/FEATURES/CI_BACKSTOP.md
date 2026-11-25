@@ -1,7 +1,19 @@
-# CI backstop: planned
+# CI backstop: built (MVP)
 
-The one layer of the 4 (harness / git hooks / preship / **CI**) flowkit does not
-wire yet. Status: designed, not built. Deferred by decision, not oversight.
+The fourth layer (harness / git hooks / preship / **CI**). Built after Claude Code's
+`/ship` watch started pushing with git hooks off: from then on, a required CI check is
+the only gate that holds for every push.
+
+**What exists**: `.github/workflows/gate.yml` in this repo is a reusable workflow
+(`workflow_call`) that checks out the caller and this repo, installs gitleaks, runs an
+optional `setup:` command and then `scripts/gate.sh`, the same script behind
+`flowkit gate`. `flowkit ci` stamps the 3-line caller (`.github/workflows/flowkit-gate.yml`)
+with a setup command detected from the lockfile. This repo's own `ci.yml` calls it too,
+so every PR here exercises it on Linux.
+
+**Still open**: the commands still live only in `## preship config` (good, that is the
+invariant below), but nothing yet makes the check required automatically; that is a
+per-repo setting (Settings -> Rules).
 
 ## The invariant it must preserve
 
@@ -12,7 +24,7 @@ hooks read, never hand-written in a separate `ci.yml`. A field report
 without converging shipped a file CI then rejected. One source both hooks and
 CI consume is the only structure that cannot diverge.
 
-## Shape (when it lands)
+## Shape (as designed)
 
 - `flowkit ci` (or an install-time stamp) emits a workflow file for the repo's
   forge (GitHub Actions first) that runs the SAME `lint:` / `typecheck:` /

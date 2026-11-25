@@ -270,3 +270,44 @@ docs_is_published_site() { # $1 = target: docs/ serves a live website (GitHub
   grep -qsE 'actions/(configure-pages|deploy-pages|jekyll)|github-pages|mkdocs gh-deploy' \
     "$t"/.github/workflows/*.yml "$t"/.github/workflows/*.yaml 2>/dev/null
 }
+
+STEWARD_MARK="stamped by flowkit"
+
+ensure_steward_skill() { # $1 = target repo: instructions for Claude Code's /ship watch.
+  # The watch pushes with git hooks off, so it is told to run the gates itself.
+  # Local and excluded: it names a machine-local CLI, like the FLOW import.
+  local target="$1" f="$1/.claude/skills/steward/SKILL.md"
+  if [[ -f "$f" ]]; then
+    grep -qF "$STEWARD_MARK" "$f" || note "-> .claude/skills/steward/SKILL.md exists (project-owned) -- left as is; make sure it runs the gates before each push"
+    return 0
+  fi
+  mkdir -p "$(dirname "$f")"
+  cat > "$f" <<EOF
+---
+name: steward
+description: How to look after pull requests in this repo during a /ship or /steward watch ($STEWARD_MARK).
+user-invocable: false
+disable-model-invocation: true
+---
+
+# Watching pull requests in this repo
+
+Git hooks do not run during a watch, so this repo's pre-commit secret scan and
+pre-push lint are off for your commits. Before every push:
+
+1. Run \`flowkit gate\` from the repo root. It scans the commits since the base
+   branch for secrets and runs the lint and typecheck declared in the
+   \`## preship config\` block of CLAUDE.md. Without \`flowkit\` on PATH, run
+   those commands from that block yourself, plus
+   \`gitleaks git --redact --log-opts="origin/<base>..HEAD"\`.
+2. If it fails, fix the cause and rerun. Never push a red gate, never weaken a
+   lint rule or add a blanket eslint-disable to make it pass.
+
+Also:
+- Never commit .env files or anything that looks like a credential.
+- Regenerate lockfiles with the package manager, never edit them by hand.
+- Fix what is mechanical; leave design-level review comments to the author.
+EOF
+  exclude_add "$target" ".claude/skills/steward/SKILL.md"
+  note "-> stamped .claude/skills/steward/SKILL.md (the /ship watch runs flowkit gate before each push; excluded via .git/info/exclude)"
+}
