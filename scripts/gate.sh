@@ -46,22 +46,10 @@ default_range() {
   printf '%s..HEAD\n' "$(git rev-parse --short "$base")"
 }
 
-config_value() { # $1 = key; value from the preship config yaml fence, comment stripped
-  # shellcheck disable=SC2016  # backtick fences are literal
-  tr -d '\r' < CLAUDE.md 2>/dev/null \
-    | sed -nE '/^## (pre)?ship config$/,/^## /p' \
-    | sed -nE '/^```ya?ml$/,/^```$/p' \
-    | sed -n "s/^$1:[[:space:]]*//p" | sed 's/[[:space:]]#.*$//; s/^#.*$//' | head -1
-}
-
-gitleaks_config() { # same precedence as the hooks: repo-local, then central
-  if [[ -f .gitleaks.toml ]]; then echo ".gitleaks.toml"; return; fi
-  local c
-  c="$(find "$(git rev-parse --git-common-dir)/info/lefthook-remotes" \
-    -path '*/hooks/.gitleaks.toml' 2>/dev/null | head -1)"
-  [[ -n "$c" ]] || c="$SELF_DIR/../hooks/.gitleaks.toml"
-  [[ -f "$c" ]] && echo "$c"
-}
+# same parser and gitleaks lookup as the hooks
+FK_LIB_DIR="$SELF_DIR/../.lefthook/lib"
+# shellcheck source=.lefthook/lib/common.sh
+. "$FK_LIB_DIR/common.sh"
 
 FAILED=0
 report() { # $1 = ok|x|-, rest = message
@@ -82,7 +70,7 @@ elif [[ -z "$RANGE" ]]; then
   report - "secrets: no commits ahead of the default branch -- nothing to scan"
 else
   set -- git --redact --no-banner --verbose --log-opts="$RANGE"
-  cfg="$(gitleaks_config)"
+  cfg="$(fk_gitleaks_cfg)"
   [[ -n "$cfg" ]] && set -- "$@" --config "$cfg"
   [[ -f .gitleaks-baseline.json ]] && set -- "$@" --baseline-path .gitleaks-baseline.json
   if out="$(gitleaks "$@" 2>&1)"; then
@@ -95,7 +83,7 @@ fi
 
 run_key() { # $1 = config key
   local cmd
-  cmd="$(config_value "$1")"
+  cmd="$(fk_config_get "$1")"
   if [[ -z "$cmd" ]]; then
     report - "$1: not declared in the preship config"
   elif ( eval "$cmd" ) > "${TMPDIR:-/tmp}/flowkit-gate-$1.log" 2>&1; then

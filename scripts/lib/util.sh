@@ -23,7 +23,7 @@ flowkit_version() { # prints "flowkit <VERSION> (<short sha>)"
 }
 
 REMOTE_URL="${REMOTE_URL:-https://github.com/dPeluChe/skills}"
-MIN_LEFTHOOK="1.10"
+MIN_LEFTHOOK="2.0.5"  # script args; mirrors min_version in hooks/lefthook-base.yml
 MIN_GITLEAKS="8.19"   # 'gitleaks git' needs it
 
 die() { echo "x $*" >&2; exit 1; }

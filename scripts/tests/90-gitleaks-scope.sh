@@ -56,6 +56,7 @@ EOF
   GSBLIND="$TMP/gs-blind"
   make_repo "$GSBLIND"
   cp "$BASE_YML" "$GSBLIND/lefthook.yml"
+  cp -R "$REPO_DIR/.lefthook" "$GSBLIND/"
   printf 'access_token = "%s"\n' "$GS_TOK" > "$GSBLIND/service-config.txt"
   git -C "$GSBLIND" add service-config.txt
   if ( cd "$GSBLIND" && GIT_CONFIG_GLOBAL="$GS_GCFG" lefthook run pre-commit ) \
@@ -205,6 +206,7 @@ EOF
   GSNOHOOK="$TMP/gs-nohook"
   make_repo "$GSNOHOOK"
   cp "$BASE_YML" "$GSNOHOOK/lefthook.yml"   # config present, stubs never installed
+  cp -R "$REPO_DIR/.lefthook" "$GSNOHOOK/"
   if run_gs --repo "$GSNOHOOK" --verify; then
     nope "no-hook: repo without any pre-commit hook must FAIL --verify"
   elif grep -q "x canary: no effective pre-commit hook" "$TMP/out.log"; then

@@ -15,7 +15,14 @@ make hooks REPO=/path/to/repo TEAM=1    # team repo → lefthook-local.yml (glob
 ./scripts/install.sh --repo /path/to/repo [--team]
 ```
 
-The installer checks minimum versions (lefthook ≥ 1.10, gitleaks ≥ 8.19), chains after an
+**Where the hook code lives.** `hooks/lefthook-base.yml` only names the jobs; each job is a
+POSIX sh script in `.lefthook/<hook>/`, served from the same remote clone, and
+`.lefthook/lib/common.sh` holds the one preship-config parser and gitleaks-config lookup that
+the hooks and `flowkit gate` share. The base config declares `min_version: 2.0.5` (script
+`args`): an older lefthook stops with an error instead of running the pre-push gate without
+its file list. Fix: `brew upgrade lefthook`.
+
+The installer checks minimum versions (lefthook ≥ 2.0.5, gitleaks ≥ 8.19), chains after an
 existing husky setup instead of replacing it, builds a one-time gitleaks baseline
 (`.gitleaks-baseline.json`) with a findings summary, links `FLOW_CLAUDE.md` into the target
 repo's CLAUDE.md, and stamps a `## preship config` template (the block where each repo declares
@@ -275,7 +282,7 @@ flowkit lint-health --canary        # $PWD (or a path); advisory, exit 0, probes
   just a diff).
 
 The pre-commit and CLI paths share the two disable/off regexes; the diff-scoped hook version
-lives inline in `hooks/lefthook-base.yml`, the repo-wide audit in `scripts/lib/lint-health.sh`.
+lives in `.lefthook/pre-commit/lint-health-staged.sh`, the repo-wide audit in `scripts/lib/lint-health.sh`.
 
 ### File size (loc-health)
 

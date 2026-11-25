@@ -1,7 +1,7 @@
-# dPeluChe hooks — central lefthook config, consumed via lefthook `remotes`.
+# dPeluChe hooks: central lefthook config, consumed via lefthook `remotes`.
 #
 # Consumer repos point at this file from their lefthook.yml (or
-# lefthook-local.yml on team repos):
+# lefthook-local.yml on team repos); `flowkit hooks` writes that:
 #
 #   remotes:
 #     - git_url: https://github.com/dPeluChe/skills
@@ -10,398 +10,62 @@
 #       configs:
 #         - hooks/lefthook-base.yml
 #
-# `scripts/install.sh --repo <path>` writes that for you.
-#
-# Layers: pre-commit (<2s, universal, always runs) · pre-push (<30s, runs the
-# repo's OWN lint/typecheck declared in its CLAUDE.md "## preship config" block)
-# · commit-msg (strips agent attribution — authorship stays human).
-# Scripts are POSIX sh (lefthook runs commands through `sh -c`).
+# Every job is a POSIX sh script in .lefthook/<hook>/ of this repo, served from
+# the same remote clone; .lefthook/lib/common.sh holds the shared parsing.
+# Script `args` need lefthook >= 2.0.5: older versions would run the pre-push
+# gate with no files and skip it silently, so refuse them loudly instead.
+min_version: 2.0.5
 
-# Compact output, always (lefthook >= 1.10 `output:` allowlist): jobs print
-# only their REAL output plus the short summary — no meta banner, no
-# per-command decoration. The default ~20 lines of ANSI drawing bury the one
-# error that matters when stdout is redirected (agents, CI, `git push 2>&1`),
-# and humans read the compact form faster too. lefthook cannot condition this
-# on TTY from config, so compact is the permanent mode (documented in README).
+# Compact output: the default banner buries the one error that matters when
+# stdout is redirected (agents, CI, `git push 2>&1`).
 output:
   - summary
   - execution_out
   - failure
 
 pre-commit:
-  parallel: false
+  parallel: true
   jobs:
-    # (a) secret scan on staged changes — hard block on any leak.
-    # Config precedence: a repo-local .gitleaks.toml at the repo root WINS over
-    # the central hooks/.gitleaks.toml from the remotes cache — projects with
-    # their own secret formats (fixed-length CSPRNG tokens etc.) extend the
-    # gitleaks defaults ([extend] useDefault = true) plus their own rules.
-    # No repo-local file → central config, as before.
     - name: gitleaks-staged
-      run: |
-        set -u
-        if ! command -v gitleaks >/dev/null 2>&1; then
-          echo "[hooks] gitleaks not installed (brew install gitleaks) — secret scan SKIPPED" >&2
-          exit 0
-        fi
-        if [ -f .gitleaks.toml ]; then
-          cfg=".gitleaks.toml"
-        else
-          cfg="$(find "$(git rev-parse --git-common-dir)/info/lefthook-remotes" \
-            -path '*/hooks/.gitleaks.toml' 2>/dev/null | head -1)"
-        fi
-        set -- git --staged --redact
-        if [ -n "$cfg" ]; then
-          set -- "$@" --config "$cfg"
-        fi
-        if [ -f .gitleaks-baseline.json ]; then
-          set -- "$@" --baseline-path .gitleaks-baseline.json
-        fi
-        exec gitleaks "$@"
-
-    # (b) hard block: .env* files never enter a commit (.env.example is fine).
+      script: gitleaks-staged.sh
+      runner: sh
     - name: block-env-files
-      run: |
-        set -u
-        # TEMPLATE files are the documented exception: a repo's setup guide says
-        # `cp .env.ejemplo .env`, so the template must be committable. Blocking it
-        # pushed a real project to rename the file and edit its guide, and the
-        # template had already been missing from the repo for weeks (a .gitignore
-        # of .env.* hid it), so a fresh clone could not follow its own setup.
-        # Their content is still scanned: gitleaks-staged runs on the same commit.
-        bad="$(git diff --cached --name-only --diff-filter=ACMR \
-          | grep -E '(^|/)\.env(\..+)?$' \
-          | grep -Eiv '\.env\.(example|ejemplo|sample|template|dist)$' || true)"
-        if [ -n "$bad" ]; then
-          echo "[hooks] BLOCKED — .env files staged (secrets never enter a commit):" >&2
-          echo "$bad" >&2
-          echo "[hooks] unstage with: git restore --staged <file>" >&2
-          echo "[hooks] naming a TEMPLATE? .env.example/.ejemplo/.sample/.template/.dist are allowed" >&2
-          exit 1
-        fi
-
-    # (c) LOC check: WARN about files THIS commit GROWS past loc_limit (from
-    # CLAUDE.md preship config, default 500). Diff-aware on purpose -- a legacy file
-    # already over the limit that the commit merely touches or SHRINKS is not the
-    # concern; the file the diff is growing is. Never blocks. Repo-wide audit:
-    # flowkit loc-health.
+      script: block-env-files.sh
+      runner: sh
     - name: loc-warning
-      run: |
-        set -u
-        root="$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
-        limit=500
-        if [ -f "$root/CLAUDE.md" ]; then
-          # shellcheck disable=SC2016
-          v="$(sed -nE '/^## (pre)?ship config$/,/^## /p' "$root/CLAUDE.md" 2>/dev/null \
-            | sed -n '/^```yaml$/,/^```$/p' | sed -n 's/^loc_limit:[[:space:]]*//p' \
-            | sed 's/[[:space:]]*#.*$//' | tr -d '[:space:]' | head -1)"
-          case "$v" in ''|*[!0-9]*) ;; *) limit="$v" ;; esac
-        fi
-        git diff --cached --numstat --diff-filter=ACMR | while read -r add del f; do
-          case "$add" in ''|*[!0-9]*) continue ;; esac   # binary (-) or unparsable
-          case "$del" in ''|*[!0-9]*) del=0 ;; esac
-          # skip non-code-to-split noise (lockfiles/generated/minified/maps/docs)
-          case "$f" in
-            *.min.*|*.map|*.snap|*_generated*|*/generated/*|*.md|*.mdx|*.rst) continue ;;
-            package-lock.json|*/package-lock.json|yarn.lock|*/yarn.lock) continue ;;
-            pnpm-lock.yaml|*/pnpm-lock.yaml|*.lock) continue ;;
-          esac
-          [ -f "$f" ] || continue
-          n="$(wc -l < "$f" | tr -d ' ')"
-          if [ "$n" -gt "$limit" ] && [ "$add" -gt "$del" ]; then
-            echo "[hooks] WARNING: $f has $n lines (>$limit) and this commit grew it (+$((add - del))) — consider a split. Does not block." >&2
-          fi
-        done
-        exit 0
-
-    # (d) lint-health advisory: flag NEW lint-coverage holes THIS commit's staged
-    # diff introduces — a BLANKET eslint-disable (no rule named) or a rule turned
-    # OFF in an eslint config. ADDED lines only; ADVISORY, never blocks. This is
-    # the diff-scoped sibling of `flowkit lint-health` (the full repo audit lives
-    # in scripts/lib/lint-health.sh — keep the two disable/off regexes in sync).
-    # Scoped to the diff so it's SIGNAL (this change weakens lint) not the
-    # repo-wide report replayed on every commit.
+      script: loc-warning.sh
+      runner: sh
     - name: lint-health-staged
-      run: |
-        set -u
-        nl="$(printf '\nx')"; nl="${nl%x}"
-        files="$(git diff --cached --name-only --diff-filter=ACMR || true)"
-        [ -n "$files" ] || exit 0
-        blanket=""
-        offrules=""
-        for f in $files; do
-          case "$f" in
-            *.js|*.jsx|*.ts|*.tsx|*.mjs|*.cjs) ;;
-            *) continue ;;
-          esac
-          add="$(git diff --cached -U0 -- "$f" | grep '^+' | grep -v '^+++' | cut -c2- || true)"
-          [ -n "$add" ] || continue
-          # blanket disable: eslint-disable(-*) followed only by */ , -- , or EOL
-          b="$(printf '%s\n' "$add" \
-            | grep -E 'eslint-disable(-next-line|-line)?[[:space:]]*(\*/|--|$)' \
-            | sed "s|^[[:space:]]*|  $f: |" || true)"
-          [ -n "$b" ] && blanket="$blanket$b$nl"
-          # rule turned OFF — only meaningful inside an eslint config file
-          case "$f" in
-            *eslint.config.*|*.eslintrc|*.eslintrc.*|*package.json)
-              o="$(printf '%s\n' "$add" \
-                | grep -E "['\"][@A-Za-z0-9_/.-]+['\"][[:space:]]*:[[:space:]]*(['\"]off['\"]|\[[[:space:]]*['\"]off['\"]|0([^0-9.]|$))" \
-                | sed "s|^[[:space:]]*|  $f: |" || true)"
-              [ -n "$o" ] && offrules="$offrules$o$nl"
-              ;;
-          esac
-        done
-        if [ -n "$blanket" ] || [ -n "$offrules" ]; then
-          echo "[hooks] lint-health: this commit changes lint coverage (advisory, does not block):" >&2
-          if [ -n "$blanket" ]; then
-            echo "[hooks]   BLANKET disable(s) added — turn off ALL lint for a file/scope:" >&2
-            printf '%s' "$blanket" | sed 's/^/[hooks] /' >&2
-          fi
-          if [ -n "$offrules" ]; then
-            echo "[hooks]   rule(s) turned OFF in an eslint config:" >&2
-            printf '%s' "$offrules" | sed 's/^/[hooks] /' >&2
-          fi
-          echo "[hooks]   A scoped, reasoned disable is fine; a blanket one is a false green." >&2
-          echo "[hooks]   Full repo audit: flowkit lint-health" >&2
-        fi
-        exit 0
-
-    # (e) lockfile nudge: a dependency bump can silently shift lint/typecheck
-    # coverage with ZERO code or config in the diff -- an unscoped preset clobbers
-    # a parser and a whole extension stops being linted. The file that did it (a
-    # lockfile) is exactly what the code-scoped checks above skip, so this commit
-    # looks innocuous and isn't. When a lockfile is staged, nudge to VERIFY the
-    # gate still catches. Never blocks (field feedback, blueprint-landings).
+      script: lint-health-staged.sh
+      runner: sh
     - name: lockfile-canary-nudge
-      run: |
-        set -u
-        locks="$(git diff --cached --name-only --diff-filter=ACMR \
-          | grep -E '(^|/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb|npm-shrinkwrap\.json)$' || true)"
-        if [ -n "$locks" ]; then
-          echo "[hooks] lockfile changed -- a dependency bump can silently shift lint/typecheck coverage" >&2
-          echo "[hooks]   (e.g. an upgrade unscopes a preset and clobbers a parser -- a whole extension stops being linted)." >&2
-          echo "[hooks]   Verify the gate still catches: flowkit lint-health --canary. Does not block." >&2
-        fi
-        exit 0
-
-    # (f) default-branch nudge: committing straight to the default branch (main/
-    # master) is usually not intended for agentic work -- most repos here use
-    # feature branches + PRs. WARN, never block (some repos legitimately work on
-    # main). Field feedback: an agent committed to main twice despite the repo's
-    # instructions and no hook chirped. Opt out per repo with a '## preship config'
-    # line `default_branch_ok: true`.
+      script: lockfile-canary-nudge.sh
+      runner: sh
     - name: default-branch-nudge
-      run: |
-        set -u
-        branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo)"
-        # the repo's default branch: origin/HEAD if known, else main/master by name
-        def="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')"
-        if [ -z "$def" ]; then
-          for b in main master; do
-            git show-ref --verify --quiet "refs/heads/$b" && { def="$b"; break; }
-          done
-        fi
-        root="$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
-        # shellcheck disable=SC2016
-        ok="$(sed -nE '/^## (pre)?ship config$/,/^## /p' "$root/CLAUDE.md" 2>/dev/null \
-          | sed -n '/^```yaml$/,/^```$/p' | sed -n 's/^default_branch_ok:[[:space:]]*//p' | sed 's/#.*$//' \
-          | tr -d '[:space:]' | head -1)"
-        if [ "$ok" != "true" ] && [ -n "$branch" ] && [ "$branch" = "$def" ]; then
-          echo "[hooks] committing directly to '$branch' (the default branch) -- most repos here use a feature branch + PR." >&2
-          echo "[hooks]   If that's wrong: git branch <name> && git reset --soft origin/$branch. Does not block." >&2
-          echo "[hooks]   (opt out: add 'default_branch_ok: true' to the '## preship config' block.)" >&2
-        fi
-        exit 0
+      script: default-branch-nudge.sh
+      runner: sh
 
 pre-push:
   parallel: false
   jobs:
-    # Docs nudge: code files pushed but ZERO .md touched — print a reminder.
-    # Never blocks BY CONSTRUCTION: the whole body is one guarded group, so a
-    # crash anywhere inside (missing command, bad substitution, stray 127)
-    # degrades to exit 0 instead of killing the push — the no-block contract
-    # must not depend on reaching the last line. Real judgment happens in
-    # preship Step 3 / standup.
     - name: docs-nudge
-      run: |
-        {
-          # lefthook substitutes {push_files} as a PRE-QUOTED per-file list --
-          # consuming it positionally is the only correct parse (a string
-          # assignment executes the second file as a command)
-          # shellcheck disable=SC1083
-          set -- {push_files}
-          code=0
-          docs=0
-          for f in "$@"; do
-            case "$f" in
-              *.md) docs=1 ;;
-              src/*|convex/*|app/*|*.ts|*.tsx|*.rs|*.py|*.go) code=1 ;;
-            esac
-          done
-          if [ "$code" -eq 1 ] && [ "$docs" -eq 0 ]; then
-            echo "[hooks] code changed, no docs touched -- check if docs/mds need an update after this change" >&2
-          fi
-        } || true
-        exit 0
-
-    # Runs the repo's own lint/typecheck, declared in the "## preship config"
-    # block (exact heading + yaml fence) of the repo's CLAUDE.md. Blocks BY
-    # DESIGN when lint/typecheck fail; everything else is fail-soft BY
-    # CONSTRUCTION: the config-reading machinery is guarded, so a crash there
-    # (parse error, missing command) leaves the commands empty and falls
-    # through to the loud warning + exit 0 — never a stray 127 blocking.
-    # Completed tasks left in the backlog: preship DELEGATES archiving to pm-tasks,
-    # but a cycle that closes WITHOUT a formal /preship leaves the [x] items sitting
-    # in TASK_TODO.md, and the monthly archive silently stops answering "what was
-    # built this month". Field feedback: a whole session's [x] items were only
-    # caught by hand. Advisory, never blocks: the whole body is one guarded group.
+      script: docs-nudge.sh
+      runner: sh
+      args: "{push_files}"
     - name: tasks-archive-nudge
-      run: |
-        {
-          todo=""
-          for f in docs/TASK_TODO.md TASK_TODO.md; do
-            [ -f "$f" ] && { todo="$f"; break; }
-          done
-          if [ -n "$todo" ]; then
-            n="$(grep -cE '^[[:space:]]*[-*][[:space:]]+\[[xX]\]' "$todo" 2>/dev/null || true)"
-            if [ "${n:-0}" -gt 0 ]; then
-              echo "[hooks] $n completed task(s) still in $todo -- run: /pm-tasks archive"
-              echo "[hooks]   (they belong in docs/TASK_COMPLETED/YYMM.md; the monthly file"
-              echo "[hooks]    answers 'what was built this month'. Does not block.)"
-            fi
-          fi
-        } 2>/dev/null || true
-
-    # Every PUSHED commit gets the secret scan, not only what was staged: commits
-    # made with hooks off (/ship watch, a GUI client, a bypass) are caught here.
+      script: tasks-archive-nudge.sh
+      runner: sh
     - name: gitleaks-pushed
+      script: gitleaks-pushed.sh
+      runner: sh
       use_stdin: true
-      run: |
-        set -u
-        command -v gitleaks >/dev/null 2>&1 || {
-          echo "[hooks] gitleaks not installed -- pushed-commit scan SKIPPED" >&2; exit 0; }
-        if [ -f .gitleaks.toml ]; then
-          cfg=".gitleaks.toml"
-        else
-          cfg="$(find "$(git rev-parse --git-common-dir)/info/lefthook-remotes" \
-            -path '*/hooks/.gitleaks.toml' 2>/dev/null | head -1)"
-        fi
-        rc=0
-        while read -r _lref lsha _rref rsha; do
-          case "$lsha" in ''|*[!0]*) ;; *) continue ;; esac
-          [ -n "$lsha" ] || continue
-          case "$rsha" in
-            *[!0]*) range="$rsha..$lsha" ;;
-            *) range="$lsha --not --remotes" ;;
-          esac
-          set -- git --redact --no-banner --log-opts="$range"
-          [ -n "$cfg" ] && set -- "$@" --config "$cfg"
-          [ -f .gitleaks-baseline.json ] && set -- "$@" --baseline-path .gitleaks-baseline.json
-          gitleaks "$@" || rc=1
-        done
-        [ "$rc" = 0 ] || echo "[hooks] secret in a pushed commit -- rotate it, then rewrite or annotate (gitleaks:allow)" >&2
-        exit "$rc"
-
     - name: ship-config-gate
-      run: |
-        set -u
-        warn() { printf '[hooks] %s\n' "$*" >&2; }
-        skip=""
-        root=""
-        lint_cmd=""
-        type_cmd=""
-        {
-          # pre-quoted per-file list from lefthook -- positional consumption
-          # shellcheck disable=SC1083
-          set -- {push_files}
-
-          # skip total: nothing pushed (branch deletions / tag-only moves)
-          if [ "$#" -eq 0 ]; then
-            skip="empty"
-          fi
-
-          # skip lint: docs-only push (every pushed file is .md)
-          if [ -z "$skip" ]; then
-            only_md=1
-            for f in "$@"; do
-              case "$f" in
-                *.md) ;;
-                *) only_md=0; break ;;
-              esac
-            done
-            if [ "$only_md" -eq 1 ]; then
-              skip="docs"
-            fi
-          fi
-
-          # parse the "## preship config" block from the local CLAUDE.md
-          root="$(git rev-parse --show-toplevel)"
-          block=""
-          if [ -n "$root" ] && [ -f "$root/CLAUDE.md" ]; then
-            # shellcheck disable=SC2016  # backtick fences are literal, not expansions
-            block="$(sed -nE '/^## (pre)?ship config$/,/^## /p' "$root/CLAUDE.md" \
-              | sed -n '/^```yaml$/,/^```$/p' | sed '1d;$d')"
-          fi
-          if [ -n "$block" ]; then
-            lint_cmd="$(printf '%s\n' "$block" | sed -n 's/^lint:[[:space:]]*//p' \
-              | sed 's/[[:space:]]*#.*$//' | head -1)"
-            type_cmd="$(printf '%s\n' "$block" | sed -n 's/^typecheck:[[:space:]]*//p' \
-              | sed 's/[[:space:]]*#.*$//' | head -1)"
-          fi
-        } || true
-        [ "$skip" = "empty" ] && exit 0
-        if [ "$skip" = "docs" ]; then
-          warn "docs-only push — lint/typecheck skipped"
-          exit 0
-        fi
-        if [ -z "$lint_cmd" ] && [ -z "$type_cmd" ]; then
-          warn "=============================================================="
-          warn "no preship config block -- pre-push runs without lint"
-          warn "add a '## preship config' block (yaml fence with lint:/typecheck:)"
-          warn "to CLAUDE.md — this push goes through UNCHECKED."
-          warn "=============================================================="
-          exit 0
-        fi
-
-        rc=0
-        if [ -n "$lint_cmd" ]; then
-          warn "lint: $lint_cmd"
-          ( cd "$root" && eval "$lint_cmd" ) || rc=1
-        else
-          warn "preship config has no lint: key — lint skipped"
-        fi
-        if [ -n "$type_cmd" ]; then
-          warn "typecheck: $type_cmd"
-          ( cd "$root" && eval "$type_cmd" ) || rc=1
-        else
-          warn "preship config has no typecheck: key — typecheck skipped"
-        fi
-        if [ "$rc" -ne 0 ]; then
-          warn "pre-push FAILED — fix and push again (never --no-verify / LEFTHOOK=0)"
-        fi
-        exit "$rc"
+      script: ship-config-gate.sh
+      runner: sh
+      args: "{push_files}"
 
 commit-msg:
   jobs:
-    # authorship stays human — the person is the author, agents are tools.
-    # Strips agent attribution trailers (Co-authored-by / Generated with /
-    # Created by, plus "🤖 Generated with" footers). Keeps the message intact
-    # if stripping would empty it. First line of defense is
-    # includeCoAuthoredBy: false in Claude Code settings; this is the net.
     - name: strip-agent-attribution
-      run: |
-        set -u
-        msg="{1}"
-        [ -f "$msg" ] || exit 0
-        tmp="$msg.strip"
-        agents='claude|anthropic|devin|codex|openai|chatgpt|gpt-[0-9]|copilot|cursor|windsurf'
-        grep -viE "^[[:space:]]*(co-authored-by:.*($agents)|(.*[[:space:]])?generated with[[:space:]]+\[?($agents)|created (by|with)[[:space:]]+\[?($agents))|🤖.*generated with" \
-          "$msg" > "$tmp" 2>/dev/null || true
-        # grep filtered everything out -> keep the original message
-        if [ -s "$tmp" ] && ! cmp -s "$tmp" "$msg"; then
-          # collapse trailing blank lines the removal left behind
-          awk '{lines[NR]=$0} END{n=0; for(i=NR;i>0;i--) if(lines[i]!~/^[[:space:]]*$/){n=i;break}; for(i=1;i<=n;i++) print lines[i]}' \
-            "$tmp" > "$msg"
-        fi
-        rm -f "$tmp"
-        exit 0
+      script: strip-agent-attribution.sh
+      runner: sh

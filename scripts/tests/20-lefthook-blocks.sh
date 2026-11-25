@@ -1,43 +1,43 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2154  # TMP/REPO_DIR/BASE_YML come from 00-helpers.sh via the runner
 # shellcheck disable=SC2034  # BLOCKS/WRAPPER are consumed by 30-ship-wrapper.sh
-# ── lefthook run blocks: extraction + shellcheck of every .sh in the repo ───
+# ── hook scripts: copies for the block tests + shellcheck of every .sh ───
 
+# Each job is a script in .lefthook/<hook>/. The copies get a `set -- <template>`
+# line so modules simulate lefthook's args with a sed on the literal template.
 extract_blocks() {
-  if command -v yq >/dev/null 2>&1; then
-    local i=0 hook job n
-    for hook in pre-commit pre-push commit-msg; do
-      n="$(yq ".\"$hook\".jobs | length" "$BASE_YML")"
-      for ((job = 0; job < n; job++)); do
-        i=$((i + 1))
-        yq -r ".\"$hook\".jobs[$job].run" "$BASE_YML" > "$TMP/block$i.sh"
-      done
-    done
-  else
-    awk -v out="$TMP/block" '
-      /run: \|/ { n++; f = out n ".sh"; match($0, /^ */); base = RLENGTH; strip = 0; grab = 1; next }
-      grab {
-        if ($0 ~ /^ *$/) { print "" > f; next }
-        match($0, /^ */); ind = RLENGTH
-        if (ind <= base) { grab = 0; close(f); next }
-        if (!strip) strip = ind
-        print substr($0, strip + 1) > f
-      }
-    ' "$BASE_YML"
-  fi
+  local i=0
+  while IFS='|' read -r hook script args; do
+    i=$((i + 1))
+    awk -v a="$args" '{print} /^set -u$/ && a != "" && !d {print "set -- " a; d=1}' \
+      "$REPO_DIR/.lefthook/$hook/$script" \
+      | sed "s|^FK_LIB_DIR=.*|FK_LIB_DIR=\"$REPO_DIR/.lefthook/lib\"|" > "$TMP/block$i.sh"
+  done < <(awk '
+    /^[a-z-]+:$/ { if (s != "") print hook "|" s "|" a; s = ""; hook = substr($0, 1, length($0) - 1) }
+    /^ +script:/ { if (s != "") print hook "|" s "|" a; s = $2; a = "" }
+    /^ +args:/ { a = $2; gsub(/"/, "", a) }
+    END { if (s != "") print hook "|" s "|" a }
+  ' "$BASE_YML" | sed 's/^commit-msg|\(.*\)|$/commit-msg|\1|{1}/')
 }
 
 extract_blocks
 BLOCKS=("$TMP"/block*.sh)
-if [[ "${#BLOCKS[@]}" -ge 6 ]]; then
-  ok "extracted ${#BLOCKS[@]} run blocks from lefthook-base.yml"
+if [[ "${#BLOCKS[@]}" -ge 11 ]]; then
+  ok "extracted ${#BLOCKS[@]} hook scripts named by lefthook-base.yml"
 else
-  nope "expected >= 6 run blocks, got ${#BLOCKS[@]}"
+  nope "expected >= 11 hook scripts, got ${#BLOCKS[@]}"
+fi
+missing=""
+for f in "$REPO_DIR"/.lefthook/*/*.sh; do
+  case "$f" in */lib/*) continue ;; esac
+  grep -q "script: $(basename "$f")$" "$BASE_YML" || missing="$missing $(basename "$f")"
+done
+if [[ -z "$missing" ]]; then
+  ok "every .lefthook script is wired in lefthook-base.yml"
+else
+  nope "scripts not wired in lefthook-base.yml:$missing"
 fi
 
-# locate the pre-push ship-config-gate block by a marker UNIQUE to it: `lint_cmd`
-# (the loc-warning block now also reads the "## ship config" heading for loc_limit,
-# so 'ship config' matches both -- lint_cmd does not).
 WRAPPER="$(grep -l 'lint_cmd' "$TMP"/block*.sh | head -1 || true)"
 if [[ -n "$WRAPPER" ]]; then
   ok "pre-push ship-config wrapper located ($(basename "$WRAPPER"))"
@@ -48,16 +48,16 @@ fi
 if ! command -v shellcheck >/dev/null 2>&1; then
   nope "shellcheck not installed (brew install shellcheck)"
 else
-  for b in "${BLOCKS[@]}"; do
-    if shellcheck -s sh "$b"; then
-      ok "shellcheck clean: $(basename "$b") (lefthook run block, sh dialect)"
+  for b in "$REPO_DIR"/.lefthook/*/*.sh; do
+    if ( cd "$REPO_DIR" && shellcheck -x -s sh "$b" ); then
+      ok "shellcheck clean: ${b#"$REPO_DIR"/} (hook script, sh dialect)"
     else
-      nope "shellcheck FAILED: $(basename "$b")"
+      nope "shellcheck FAILED: ${b#"$REPO_DIR"/}"
     fi
   done
   for s in "$REPO_DIR/bin/flowkit" "$REPO_DIR"/scripts/*.sh "$REPO_DIR"/scripts/lib/*.sh \
            "$REPO_DIR"/scripts/tests/*.sh "$REPO_DIR"/hooks/harness/*.sh; do
-    if shellcheck "$s"; then
+    if ( cd "$REPO_DIR" && shellcheck -x "$s" ); then
       ok "shellcheck clean: ${s#"$REPO_DIR"/}"
     else
       nope "shellcheck FAILED: ${s#"$REPO_DIR"/}"
