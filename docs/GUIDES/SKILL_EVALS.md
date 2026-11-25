@@ -30,12 +30,13 @@ evals/
   <case>/fixture.sh            # symlink to ../_fixtures/<repo>.sh
   <case>/prompt.md             # informal prompt, the way the user really types it
   <case>/graders/*.md          # one check per file
-  _graders/*.md                # shared checks (skill fired, no edits/moves), symlinked in
+  _graders/*.md                # shared checks (skill fired or silent, no edits/moves), symlinked in
 ```
 
 Tags are a flow list (`tags: [doctos]`, negatives `tags: [doctos, negative]`).
 
-`scripts/tests/15-skills-meta.sh` fails when a skill has no behavior case tagged with its name.
+`scripts/tests/15-skills-meta.sh` fails when a skill lacks a behavior case or a negative-trigger
+case tagged with its name.
 
 ## Designing a case
 
@@ -47,6 +48,10 @@ might not do on its own. Three kinds per skill:
 | Behavior | `llm` rubric, `regex`, `file_exists` | the case that produces a delta |
 | Discipline | `tool_used` with `min: 0, max: 0, arm: both` | "never writes / moves / commits / kills" |
 | Negative trigger | `tool_used: Skill` with `max: 0, arm: both` | a sibling's phrase must not fire it; delta is 0 by design |
+
+`no-skill-on-bugfix` guards the whole set: a plain code bug must fire none of the skills.
+Descriptions compete for the same prompts, so over-triggering is a suite-level risk, not a
+per-skill one.
 
 The positive `tool_used: Skill` grader is an indicator, not part of the score: it tells you
 whether the description matched the prompt.
