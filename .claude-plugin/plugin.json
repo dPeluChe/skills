@@ -1,0 +1,10 @@
+{
+  "name": "dpeluche",
+  "description": "Agent skills born from real workflows: kickoff, doctos, pm-tasks, standup, preship, deploy-doctor, writer, social-posts.",
+  "author": {
+    "name": "Antonio Martinez (dPeluChe)",
+    "url": "https://dpeluche.dev"
+  },
+  "homepage": "https://github.com/dPeluChe/skills",
+  "license": "MIT"
+}

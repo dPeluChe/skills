@@ -1,23 +1,15 @@
 ---
 name: preship
 description: >
-  Run the mechanical gates BEFORE a PR and produce verifiable evidence: repo/branch identity, a
-  tree holding only the intended files, lint 0 warnings, build/tests in a fresh clone, LOC limit,
-  secret scan on the diff, quality pass, task bookkeeping, ending with an evidence table
-  (command + output). Then hand off: where Claude Code's built-in /ship exists (CLI, GitHub repo)
-  it opens, reviews and watches the PR; otherwise preship opens the PR on the CURRENT branch and
-  merges per the repo's merge policy (auto | ask). Use whenever the user wants work validated or
-  closed as a PR: "valida lint y build", "preship", "listo para merge?", "haz pr merge", "cierra
-  este pr", "cerremos los prs", "hagamos elmerge", "hay que hacer el pr", "valida y haz el pr".
-  The user almost never types the slash; trigger from informal prose and typos. Disambiguation:
-  the built-in /ship commits, opens, reviews and watches a PR but runs none of the repo's own
-  gates, and its watch pushes with git hooks off; preship is the gate layer that runs first.
-  standup closes a SESSION (journal across PRs); preship closes ONE PR cycle and its evidence
-  table feeds standup. /simplify is a quality pass preship INVOKES; pm-tasks does the archiving
-  preship DELEGATES. Request-only: fire ONLY when the user explicitly asks to validate or close
-  work as a PR (the phrasings above count). NEVER invoke on your own initiative just because a
-  feature or session finished; not every project has a PR flow. When work wraps and the user has
-  not asked, stop or offer standup.
+  Mechanical gates BEFORE a PR with verifiable evidence: repo/branch identity, only the
+  intended files, lint 0 warnings, build/tests, LOC, secret scan, quality pass, bookkeeping, and
+  an evidence table (command + output). Then hands off to Claude Code's built-in /ship where it
+  exists (it runs none of the repo's gates and its watch pushes with hooks off); elsewhere it
+  opens the PR on the current branch and merges per policy. Trigger from informal prose and
+  typos: "valida lint y build", "preship", "listo para merge?", "haz pr merge", "cierra este pr",
+  "cerremos los prs", "hagamos elmerge", "valida y haz el pr". Request-only: fire only when the
+  user asks to validate or close work as a PR, never just because work finished (offer standup).
+  standup closes a session; preship closes one PR cycle.
 allowed-tools: Read, Glob, Grep, Bash, Edit, Write, Skill
 ---
 

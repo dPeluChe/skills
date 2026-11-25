@@ -1,17 +1,13 @@
 ---
 name: pm-tasks
 description: >
-  Manage project task lifecycle: audit TASK_TODO.md for completed items, archive them to monthly files,
-  scan code for TODO comments, and initialize task tracking structure. Use this skill whenever the user
-  mentions task management, backlog cleanup, archiving completed tasks, reviewing pending work, scanning
-  for TODOs in code, or wants to organize their docs/TASK_TODO.md and docs/TASK_COMPLETED/ files.
-  Also trigger when the user says things like "what tasks are done", "clean up the backlog",
-  "move completed tasks", "check for TODOs", "init docs structure", or references TASK_TODO.md.
-  Trigger even if they just say "tasks", "backlog", "pending", or "que tareas faltan". The user
-  almost never types the slash. Trigger from informal prose and typos: "que hay pendiente",
-  "que nos falta", "limpia las tareas", "archiva lo completado", "actualiza el backlog".
-  Disambiguation: use standup instead when the user wants a progress report over recent work (not
-  lifecycle changes); use doctos instead when the issue is doc structure/naming, not task content.
+  Task lifecycle: audits docs/TASK_TODO.md for completed items, checks they really
+  shipped, archives them to monthly docs/TASK_COMPLETED/ files, scans code for TODO comments and
+  initializes the structure. Trigger on tasks, backlog or pending work, slash or not, typos
+  included: "que tareas faltan", "que hay pendiente", "que nos falta", "limpia las tareas",
+  "archiva lo completado", "actualiza el backlog", "clean up the backlog", "what tasks are done",
+  "check for TODOs", or any mention of TASK_TODO.md. Not standup (progress report, no lifecycle
+  changes); not doctos (doc structure and naming, not task content).
 allowed-tools: Read, Glob, Grep, Bash, Edit, Write
 ---
 

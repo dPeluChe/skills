@@ -3,11 +3,33 @@
 # ── chain: skills symlink chain (sync/check/prune) + FLOW + flowkit link ───
 # Sourced by scripts/install.sh (the entrypoint); never executed directly.
 
+# ── skill metadata: what the harness reads before any body loads ───────────
+skill_meta_problems() { # $1 = skill dir; prints one problem per line, nothing when clean
+  local dir="$1" name fm desc
+  name="$(basename "$dir")"
+  fm="$(awk 'NR == 1 && $0 != "---" { exit } NR > 1 && /^---$/ { exit } NR > 1' "$dir/SKILL.md")"
+  [[ -n "$fm" ]] || { echo "no frontmatter"; return 0; }
+  # folded/literal block (description: > or |) or a one-line value, flattened
+  desc="$(printf '%s\n' "$fm" | awk '
+    /^description:/ { sub(/^description:[[:space:]]*[>|]?-?[[:space:]]*/, ""); d = $0; on = 1; next }
+    on && /^[[:space:]]/ { d = d " " $0; next }
+    { on = 0 }
+    END { print d }' | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
+  grep -qx "name: $name" <<<"$fm" || echo "name must match the folder"
+  if [[ -z "$desc" ]]; then echo "no description"
+  elif (( ${#desc} > 1024 )); then echo "description ${#desc} chars > 1024 (the skill listing truncates it)"
+  fi
+  grep -q '^allowed-tools:' <<<"$fm" || echo "no allowed-tools"
+  if grep -q $'\xe2\x80\x94' <<<"$fm"; then echo "em dash in frontmatter"; fi
+}
+
 # ── one skill: ensure (or verify) both hops ────────────────────────────────
 sync_one() {
   local name="$1" src="$REPO_DIR/skills/$1"
   local hop1="$AGENTS_DIR/$name" hop2="$CLAUDE_DIR/$name"
   [[ -d "$src" && -f "$src/SKILL.md" ]] || { bad "unknown skill or missing SKILL.md: $name"; return 0; }
+  local p
+  while IFS= read -r p; do [[ -n "$p" ]] && bad "$name: $p"; done < <(skill_meta_problems "$src")
 
   if [[ "$COPY" == 1 ]]; then
     rm -rf "$hop2"; cp -R "$src" "$hop2"; note "-> copied  $name (single hop, legacy)"; return 0

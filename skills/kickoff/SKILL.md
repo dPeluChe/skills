@@ -1,20 +1,14 @@
 ---
 name: kickoff
 description: >
-  Analyze a project's real state before starting work: structure, actual stack, git/PR state,
-  hot modules, docs-vs-reality mismatches, and backlog health, producing a kickoff report with
-  routed findings for /doctos (docs issues) and /pm-tasks (task issues). Use this skill whenever
-  the user is starting or resuming work on a project and needs context first: "revisa el proyecto
-  para tener contexto", "retomemos este proyecto", "kickoff", "what's the state of this repo",
-  "dame un resumen del proyecto", "qué hay aquí", "catch me up on this codebase", "no he tocado
-  este repo en semanas". The user almost never types the slash. Trigger from informal prose,
-  including typo'd Spanish: "en que nos quedamos", "en qué nos quedamos?", "que quedo pendiente",
-  "donde nos quedamos", "que sigue aqui", "retomemos", "ponme al dia". These mean RESUME MODE
-  (lightweight delta, see Resume mode), not the full analysis. Also trigger at the start of a
-  session when the user asks to review the project before doing anything else, even if they don't
-  say "kickoff".
-  Disambiguation: use standup instead when the user only wants recent progress (the delta, not full
-  state); use doctos/pm-tasks to ACT on findings: kickoff only analyzes and routes.
+  Analyze a project's real state before working on it: structure, actual stack, git/PR
+  state, hot modules, docs-vs-reality mismatches and backlog health, in a report whose findings
+  are routed to doctos (docs) and pm-tasks (tasks). Trigger when starting or resuming a project,
+  slash or not, typos included: "revisa el proyecto para tener contexto", "retomemos este
+  proyecto", "kickoff", "dame un resumen del proyecto", "qué hay aquí", "catch me up on this
+  codebase", "no he tocado este repo en semanas". "en qué nos quedamos", "que quedo pendiente",
+  "que sigue aqui", "ponme al dia" mean RESUME mode (light delta), not the full analysis. Not
+  standup (recent delta only); doctos and pm-tasks ACT on findings, kickoff only analyzes.
 allowed-tools: Read, Glob, Grep, Bash, Edit, Write
 ---
 
