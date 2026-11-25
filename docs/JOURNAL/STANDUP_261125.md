@@ -27,3 +27,10 @@ Skill fixes the runs drove:
 
 The 0-delta cases (kickoff cold analysis, pm-tasks archive check, standup weekly, preship lint
 gate, writer detect) are things Sonnet already does alone on small fixtures.
+
+## Negative cases for every skill
+
+Added `pm-tasks-not-on-docs`, `writer-not-on-config` ("revisa" on a config file is not prose),
+`deploy-doctor-not-on-preship` ("valida lint y build" is preship, not runtime) and
+`no-skill-on-bugfix` (a plain bug fires none of the skills). 2 runs each, all 1.00, about $1.
+The suite now requires a negative case per skill, not only a behavior case.

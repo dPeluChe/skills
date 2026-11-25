@@ -29,13 +29,15 @@ else
   nope "skill meta: rules did not fire on the bad fixture: $probs"
 fi
 
-# every skill has a behavior case (a negative-trigger case alone does not count); social-posts is exempt
+# every skill has a behavior case and a negative-trigger case, and is in the suite-wide
+# no-skill guard; social-posts is exempt
+tags="$(grep -hE '^tags:' "$REPO_DIR"/evals/*/case.yaml 2>/dev/null)"
+pos="$(grep -v negative <<<"$tags")"; neg="$(grep negative <<<"$tags")"
+guard="$(cat "$REPO_DIR"/evals/no-skill-on-bugfix/graders/no-skill.md 2>/dev/null)"
+tagged() { grep -qE "[[ ,]$2[],]" <<<"$1"; }
 for d in "$REPO_DIR"/skills/*/; do
   s="$(basename "$d")"; [[ "$s" == social-posts ]] && continue
-  if grep -hE '^tags:' "$REPO_DIR"/evals/*/case.yaml 2>/dev/null | grep -v negative \
-     | grep -qE "[[ ,]${s}[],]"; then
-    ok "skill evals: $s"
-  else
-    nope "skill evals: $s has no behavior case in evals/ tagged with its name"
-  fi
+  if tagged "$pos" "$s"; then ok "skill evals: $s"; else nope "skill evals: $s has no behavior case tagged with its name"; fi
+  if tagged "$neg" "$s"; then ok "skill evals: $s negative"; else nope "skill evals: $s has no negative case (tags: [$s, negative])"; fi
+  if grep -qE "[:|]${s}[|)]" <<<"$guard"; then ok "skill evals: $s in no-skill guard"; else nope "skill evals: $s missing from evals/no-skill-on-bugfix/graders/no-skill.md"; fi
 done
