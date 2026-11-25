@@ -203,6 +203,7 @@ if command -v lefthook >/dev/null 2>&1; then
   LHC80="$TMP/lh-compact"
   make_repo "$LHC80"
   cp "$BASE_YML" "$LHC80/lefthook.yml"
+  cp -R "$REPO_DIR/.lefthook" "$LHC80/"
   git -C "$LHC80" config core.hooksPath "$LHC80/.git/hooks"
   echo "clean content" > "$LHC80/file.txt"
   git -C "$LHC80" add file.txt

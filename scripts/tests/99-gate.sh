@@ -59,3 +59,31 @@ if command -v gitleaks >/dev/null 2>&1; then
     nope "pre-push gitleaks-pushed block not found in lefthook-base.yml"
   fi
 fi
+
+# ── end to end through a real remote: scripts resolve from the remote clone,
+# {push_files} reaches the gate as args, lint from the config runs
+if command -v lefthook >/dev/null 2>&1; then
+  E2E="$TMP/e2e"; E2EB="$TMP/e2e-bare.git"
+  make_repo "$E2E"
+  git init -q --bare "$E2EB"
+  git -C "$E2E" remote add origin "$E2EB"
+  git -C "$E2E" push -q origin HEAD:refs/heads/main 2>/dev/null
+  printf 'remotes:\n  - git_url: %s\n    ref: main\n    configs:\n      - hooks/lefthook-base.yml\n' "$REMOTE_URL" > "$E2E/lefthook.yml"
+  # shellcheck disable=SC2016
+  printf '## preship config\n\n```yaml\nlint: printf "%%s\\n" "$PWD" > lint-ran.txt\n```\n' > "$E2E/CLAUDE.md"
+  echo 'x' > "$E2E/app.ts"
+  git -C "$E2E" add -A && git -C "$E2E" -c user.email=t@t.t -c user.name=t -c core.hooksPath=/dev/null commit -q -m e2e
+  git -C "$E2E" config core.hooksPath "$E2E/.git/hooks"
+  ( cd "$E2E" && lefthook install --force ) > "$TMP/e2e-install.log" 2>&1
+  if ( cd "$E2E" && git push -q origin HEAD:refs/heads/main ) > "$TMP/e2e-push.log" 2>&1 \
+     && [ -f "$E2E/lint-ran.txt" ] && grep -q 'lint:' "$TMP/e2e-push.log"; then
+    ok "e2e: a real push runs the remote-served gate with the pushed files (lint ran)"
+  else
+    nope "e2e: remote-served pre-push did not run the lint (see $TMP/e2e-push.log)"
+  fi
+fi
+if grep -q '^min_version: 2.0.5$' "$BASE_YML" && grep -q 'MIN_LEFTHOOK="2.0.5"' "$REPO_DIR/scripts/lib/util.sh"; then
+  ok "min lefthook version agrees: base config min_version == flowkit MIN_LEFTHOOK"
+else
+  nope "min_version in lefthook-base.yml and MIN_LEFTHOOK in util.sh disagree"
+fi

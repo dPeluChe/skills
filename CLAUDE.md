@@ -5,7 +5,7 @@
 ## preship config
 
 ```yaml
-lint: shellcheck scripts/install.sh scripts/test-hooks.sh bin/flowkit scripts/lib/*.sh scripts/tests/*.sh hooks/harness/*.sh
+lint: shellcheck -x scripts/*.sh bin/flowkit scripts/lib/*.sh scripts/tests/*.sh hooks/harness/*.sh .lefthook/*/*.sh
 # typecheck: (n/a -- shell)
 # build: (n/a -- no build artifact)
 test: bash scripts/test-hooks.sh

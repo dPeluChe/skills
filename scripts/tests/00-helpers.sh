@@ -27,6 +27,7 @@ FF_REMOTE="$TMP/ff-remote"
 mkdir -p "$FF_REMOTE/hooks"
 cp "$REPO_DIR/hooks/lefthook-base.yml" "$FF_REMOTE/hooks/"
 cp "$REPO_DIR/hooks/.gitleaks.toml" "$FF_REMOTE/hooks/"
+cp -R "$REPO_DIR/.lefthook" "$FF_REMOTE/"
 git -C "$FF_REMOTE" init -q -b main
 git -C "$FF_REMOTE" add -A
 git -C "$FF_REMOTE" -c user.email=t@t.t -c user.name=t commit -q -m hooks
