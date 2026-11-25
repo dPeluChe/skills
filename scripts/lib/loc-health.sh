@@ -3,23 +3,11 @@
 # loc-health: repo-wide file-size audit (sourced by install.sh). The pre-commit
 # loc-warning covers the diff; this covers the tree. Advisory, never blocks.
 
-# loc_limit from the repo's CLAUDE.md "## preship config" block; default 500. Same
-# block the pre-push gate reads for lint/typecheck -- one per-repo source.
-_loc_limit() { # $1 = repo root; prints the numeric limit
-  local root="$1" raw=""
-  if [[ -f "$root/CLAUDE.md" ]]; then
-    # shellcheck disable=SC2016  # backtick fences in the yaml block are literal, not expansions
-    raw="$(sed -nE '/^## (pre)?ship config$/,/^## /p' "$root/CLAUDE.md" 2>/dev/null \
-      | sed -n '/^```yaml$/,/^```$/p' | sed -n 's/^loc_limit:[[:space:]]*//p' \
-      | sed 's/[[:space:]]*#.*$//' | tr -d '[:space:]' | head -1)"
-  fi
+_loc_limit() { # $1 = repo root; prints the numeric limit (default 500)
+  local raw
+  raw="$(fk_config_get loc_limit "$1")"
   [[ "$raw" =~ ^[0-9]+$ ]] && printf '%s\n' "$raw" || printf '500\n'
 }
-
-# files that are NOT code-to-split -- lockfiles, minified, generated, maps,
-# snapshots, docs (a long CHANGELOG/guide is not a design smell; doc hygiene is
-# doctos' job), binaries. loc-health is the CODE-file size rule.
-_LOC_SKIP='(^|/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|Cargo\.lock|composer\.lock|poetry\.lock|Gemfile\.lock)$|\.min\.|\.map$|\.snap$|_generated|/generated/|\.d\.ts$|\.(md|mdx|markdown|rst|adoc)$|\.(svg|png|jpe?g|gif|webp|ico|pdf|woff2?|ttf|eot|mp4|mov|zip|gz|tgz|lock)$'
 
 run_loc_health() {
   local target="${1:-.}"
@@ -39,7 +27,7 @@ run_loc_health() {
 
   local over="" n
   for f in ${files[@]+"${files[@]}"}; do
-    printf '%s\n' "$f" | grep -qiE "$_LOC_SKIP" && continue
+    printf '%s\n' "$f" | grep -qiE "$FK_LOC_SKIP" && continue
     [[ -f "$target/$f" ]] || continue
     n="$(wc -l < "$target/$f" 2>/dev/null | tr -d ' ')"
     [[ "$n" =~ ^[0-9]+$ ]] || continue

@@ -2,10 +2,10 @@
 # shellcheck disable=SC2154  # TMP/REPO_DIR/WRAPPER come from earlier modules via the runner
 # ── ship-config wrapper fixtures + gitleaks config + nudge/commit-msg blocks ─
 
-run_wrapper() { # $1 = fixture repo dir, $2 = simulated {push_files}
-  local dir="$1" files="$2" script="$TMP/wrapper-run.sh"
-  sed "s|{push_files}|$files|" "$WRAPPER" > "$script"
-  ( cd "$dir" && sh "$script" ) > "$TMP/out.log" 2> "$TMP/err.log"
+run_wrapper() { # $1 = fixture repo dir, $2 = pushed files, shell-quoted like lefthook passes them
+  local dir="$1"
+  eval "set -- $2"
+  ( cd "$dir" && sh "$WRAPPER" "$@" ) > "$TMP/out.log" 2> "$TMP/err.log"
 }
 
 make_fixture() { # $1 = dir; CLAUDE.md content on stdin
@@ -14,7 +14,7 @@ make_fixture() { # $1 = dir; CLAUDE.md content on stdin
   cat > "$1/CLAUDE.md"
 }
 
-if [[ -n "$WRAPPER" ]]; then
+if [[ -f "$WRAPPER" ]]; then
   # fixture A: valid "## preship config" block -- commands must be extracted and run
   MARKER="$TMP/marker.txt"
   export MARKER
@@ -130,15 +130,14 @@ else
 fi
 
 # ── docs-nudge + commit-msg attribution-strip blocks ────────────────────────
-run_block() { # $1 = block file, $2 = fixture dir, $3 = simulated {push_files}
-  local script="$TMP/run-one-block.sh"
-  sed "s|{push_files}|$3|" "$1" > "$script"
-  ( cd "$2" && sh "$script" ) > "$TMP/out.log" 2> "$TMP/err.log"
+run_block() { # $1 = script, $2 = fixture dir, $3 = pushed files
+  local script="$1" dir="$2"
+  eval "set -- $3"
+  ( cd "$dir" && sh "$script" "$@" ) > "$TMP/out.log" 2> "$TMP/err.log"
 }
 
-NUDGE="$(grep -l 'no docs touched' "$TMP"/block*.sh | head -1 || true)"
-if [[ -n "$NUDGE" ]]; then
-  ok "pre-push docs-nudge block located ($(basename "$NUDGE"))"
+NUDGE="$NUDGE_SH"
+if [[ -f "$NUDGE" ]]; then
   mkdir -p "$TMP/nudge-fix"
   if run_block "$NUDGE" "$TMP/nudge-fix" "src/app.ts convex/schema.ts" \
      && grep -q "no docs touched" "$TMP/err.log"; then
@@ -162,14 +161,11 @@ else
   nope "pre-push docs-nudge block not found among extracted blocks"
 fi
 
-CMSG="$(grep -l 'co-authored-by' "$TMP"/block*.sh | head -1 || true)"
+CMSG="$CMSG_SH"
 run_cmsg() { # $1 = commit message file
-  local script="$TMP/cmsg-run.sh"
-  sed "s|{1}|$1|" "$CMSG" > "$script"
-  sh "$script" > "$TMP/out.log" 2> "$TMP/err.log"
+  sh "$CMSG" "$1" > "$TMP/out.log" 2> "$TMP/err.log"
 }
-if [[ -n "$CMSG" ]]; then
-  ok "commit-msg attribution-strip block located ($(basename "$CMSG"))"
+if [[ -f "$CMSG" ]]; then
 
   # agent trailers stripped, human co-author and body preserved
   cat > "$TMP/msg-agent.txt" <<'EOF'

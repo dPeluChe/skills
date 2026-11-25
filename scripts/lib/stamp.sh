@@ -3,26 +3,15 @@
 # ── stamp: per-repo stamps -- gitleaks baseline, FLOW import, preship config ──
 # Sourced by scripts/install.sh (the entrypoint); never executed directly.
 
-gitleaks_config_label() { # $1 = target repo; prints the label of the config the
-  # gitleaks-staged hook will use (repo-local wins over central, mirroring the
-  # precedence in hooks/lefthook-base.yml).
-  if [[ -f "$1/.gitleaks.toml" ]]; then
-    echo "repo-local .gitleaks.toml"
-  else
-    echo "central hooks/.gitleaks.toml"
-  fi
+gitleaks_config_label() { # $1 = target repo; which config the hooks will use
+  if [[ -f "$1/.gitleaks.toml" ]]; then echo "repo-local .gitleaks.toml"; else echo "central hooks/.gitleaks.toml"; fi
 }
 
 run_gitleaks_baseline() { # $1 = target repo, $2 = team (0/1)
   local target="$1" team="${2:-0}" scan="git" n cfg
   local report="$target/.gitleaks-baseline.json"
   gitleaks git --help >/dev/null 2>&1 || scan="detect"
-  # same precedence as the hook: repo-local .gitleaks.toml wins over central
-  if [[ -f "$target/.gitleaks.toml" ]]; then
-    cfg="$target/.gitleaks.toml"
-  else
-    cfg="$REPO_DIR/hooks/.gitleaks.toml"
-  fi
+  cfg="$(fk_gitleaks_cfg "$target")"
   note "-> building gitleaks baseline (full history scan, one-time; config: $(gitleaks_config_label "$target"))..."
   # scan to a temp file: a re-wire merges into the reviewed baseline, never
   # overwrites it (field: re-running flowkit hooks wiped every classification)

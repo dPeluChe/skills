@@ -9,8 +9,7 @@
 # STAGED, not weeks later in a repo audit.
 
 # Locate the effective hook block (extracted by 20-lefthook-blocks.sh into $TMP).
-LH_HOOK="$(grep -l 'lint-health: this commit changes' "$TMP"/block*.sh 2>/dev/null | head -1)"
-if [[ -n "$LH_HOOK" ]]; then
+if [[ -f "$LH_HOOK" ]]; then
   ok "hook: lint-health-staged block present in lefthook-base.yml pre-commit"
 else
   nope "hook: lint-health-staged block missing from lefthook-base.yml"
@@ -99,8 +98,7 @@ fi
 # ── lockfile nudge: a dep bump (lockfile-only diff) can silently shift lint
 # coverage -- the file the code-scoped checks skip. Staging a lockfile nudges to
 # run --canary; a non-lockfile change stays silent. Field feedback.
-LOCK_HOOK="$(grep -l 'lockfile changed' "$TMP"/block*.sh 2>/dev/null | head -1)"
-if [[ -n "$LOCK_HOOK" ]]; then
+if [[ -f "$LOCK_HOOK" ]]; then
   ok "hook: lockfile-canary-nudge block present in lefthook-base.yml pre-commit"
 else
   nope "hook: lockfile-canary-nudge block missing"
@@ -127,8 +125,7 @@ fi
 # ── default-branch nudge: committing to the default branch warns (never blocks);
 # a feature branch is silent; `default_branch_ok: true` opts out. Field feedback:
 # an agent committed to main twice and no hook chirped.
-DB_HOOK="$(grep -l 'the default branch' "$TMP"/block*.sh 2>/dev/null | head -1)"
-if [[ -n "$DB_HOOK" ]]; then
+if [[ -f "$DB_HOOK" ]]; then
   ok "hook: default-branch-nudge block present in lefthook-base.yml pre-commit"
 else
   nope "hook: default-branch-nudge block missing"
@@ -156,8 +153,7 @@ fi
 # Field feedback: `.env.ejemplo` (referenced by the repo's own setup guide as
 # `cp .env.ejemplo .env`) was blocked, forcing a rename and a doc edit. Only
 # `.env.example` had an exception. Content is still scanned by gitleaks-staged.
-ENV_HOOK="$(grep -l 'env files staged' "$TMP"/block*.sh 2>/dev/null | head -1)"
-if [[ -n "$ENV_HOOK" ]]; then
+if [[ -f "$ENV_HOOK" ]]; then
   ok "hook: block-env-files block present in lefthook-base.yml pre-commit"
   ENVREPO="$TMP/env-templates"
   make_repo "$ENVREPO"
@@ -182,8 +178,7 @@ fi
 # ── tasks-archive-nudge: completed tasks left in TASK_TODO are announced on push.
 # ship delegates archiving to pm-tasks, but a cycle closed without a formal /ship
 # leaves [x] items behind and the monthly archive stops telling the truth.
-TN_HOOK="$(grep -l 'completed task(s) still in' "$TMP"/block*.sh 2>/dev/null | head -1)"
-if [[ -n "$TN_HOOK" ]]; then
+if [[ -f "$TN_HOOK" ]]; then
   ok "hook: tasks-archive-nudge block present in lefthook-base.yml pre-push"
   TNREPO="$TMP/tasks-nudge"
   make_repo "$TNREPO"

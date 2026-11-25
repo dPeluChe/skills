@@ -20,7 +20,7 @@ of how each decision was reached lives in the PRs and `docs/JOURNAL/`.
 | `lib/lint-health*.sh`, `lib/loc-health.sh` | the advisory audits |
 | `lib/ci.sh` | `--ci`: stamp the caller of the reusable gate workflow |
 | `.lefthook/<hook>/*.sh` | the hook jobs, served to consumers from the remote clone |
-| `.lefthook/lib/common.sh` | the one preship-config parser and gitleaks-config lookup (hooks and `scripts/gate.sh`) |
+| `.lefthook/lib/common.sh` | the one copy of the preship-config parser, gitleaks config and invocation, default branch, `.env` template list and LOC skip list; sourced by the hooks, `scripts/gate.sh`, `install.sh` and secret-guard |
 
 Skills chain: `~/.claude/skills/<name> -> ~/.agents/skills/<name> -> <repo>/skills/<name>`.
 

@@ -9,11 +9,7 @@ ship_config_has_todos() { # $1 = CLAUDE.md path: TODOs left in the preship confi
     | grep -q 'TODO'
 }
 
-ship_config_block() { # $1 = target repo; prints the preship config yaml fence body
-  # shellcheck disable=SC2016  # backtick fences are literal, not expansions
-  sed -nE '/^## (pre)?ship config$/,/^## /p' "$1/CLAUDE.md" 2>/dev/null \
-    | sed -n '/^```yaml$/,/^```$/p' | sed '1d;$d'
-}
+ship_config_block() { fk_config_block "$1"; } # $1 = target repo
 
 ship_hooks_skip_reason() { # $1 = target repo, $2 = hook name; prints the skip reason, empty when not skipped.
   # reads both `hooks_skip: pre-push: "reason"` and the nested-map form

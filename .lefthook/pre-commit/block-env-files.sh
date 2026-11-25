@@ -7,8 +7,7 @@ set -u
 # templates are committable (setup guides say cp .env.ejemplo .env); gitleaks
 # still scans their content in the same commit
 bad="$(git diff --cached --name-only --diff-filter=ACMR \
-  | grep -E '(^|/)\.env(\..+)?$' \
-  | grep -Eiv '\.env\.(example|ejemplo|sample|template|dist)$' || true)"
+  | grep -E '(^|/)\.env(\..+)?$' | grep -Eiv "$FK_ENV_TEMPLATE_RE" || true)"
 if [ -n "$bad" ]; then
   fk_warn "BLOCKED -- .env files staged (secrets never enter a commit):"
   echo "$bad" >&2

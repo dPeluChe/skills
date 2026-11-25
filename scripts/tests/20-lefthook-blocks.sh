@@ -1,32 +1,21 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2154  # TMP/REPO_DIR/BASE_YML come from 00-helpers.sh via the runner
-# shellcheck disable=SC2034  # BLOCKS/WRAPPER are consumed by 30-ship-wrapper.sh
-# ── hook scripts: copies for the block tests + shellcheck of every .sh ───
+# shellcheck disable=SC2034  # the script paths are consumed by later modules
+# ── hook scripts: paths for the later modules + shellcheck of every .sh ───
 
-# Each job is a script in .lefthook/<hook>/. The copies get a `set -- <template>`
-# line so modules simulate lefthook's args with a sed on the literal template.
-extract_blocks() {
-  local i=0
-  while IFS='|' read -r hook script args; do
-    i=$((i + 1))
-    awk -v a="$args" '{print} /^set -u$/ && a != "" && !d {print "set -- " a; d=1}' \
-      "$REPO_DIR/.lefthook/$hook/$script" \
-      | sed "s|^FK_LIB_DIR=.*|FK_LIB_DIR=\"$REPO_DIR/.lefthook/lib\"|" > "$TMP/block$i.sh"
-  done < <(awk '
-    /^[a-z-]+:$/ { if (s != "") print hook "|" s "|" a; s = ""; hook = substr($0, 1, length($0) - 1) }
-    /^ +script:/ { if (s != "") print hook "|" s "|" a; s = $2; a = "" }
-    /^ +args:/ { a = $2; gsub(/"/, "", a) }
-    END { if (s != "") print hook "|" s "|" a }
-  ' "$BASE_YML" | sed 's/^commit-msg|\(.*\)|$/commit-msg|\1|{1}/')
-}
+# jobs are scripts with real argv: tests call them by path, from a fixture dir
+HOOKS="$REPO_DIR/.lefthook"
+WRAPPER="$HOOKS/pre-push/ship-config-gate.sh"
+NUDGE_SH="$HOOKS/pre-push/docs-nudge.sh"
+CMSG_SH="$HOOKS/commit-msg/strip-agent-attribution.sh"
+PP_HOOK="$HOOKS/pre-push/gitleaks-pushed.sh"
+TN_HOOK="$HOOKS/pre-push/tasks-archive-nudge.sh"
+LH_HOOK="$HOOKS/pre-commit/lint-health-staged.sh"
+LOCK_HOOK="$HOOKS/pre-commit/lockfile-canary-nudge.sh"
+DB_HOOK="$HOOKS/pre-commit/default-branch-nudge.sh"
+ENV_HOOK="$HOOKS/pre-commit/block-env-files.sh"
+LC_HOOK="$HOOKS/pre-commit/loc-warning.sh"
 
-extract_blocks
-BLOCKS=("$TMP"/block*.sh)
-if [[ "${#BLOCKS[@]}" -ge 11 ]]; then
-  ok "extracted ${#BLOCKS[@]} hook scripts named by lefthook-base.yml"
-else
-  nope "expected >= 11 hook scripts, got ${#BLOCKS[@]}"
-fi
 missing=""
 for f in "$REPO_DIR"/.lefthook/*/*.sh; do
   case "$f" in */lib/*) continue ;; esac
@@ -36,13 +25,6 @@ if [[ -z "$missing" ]]; then
   ok "every .lefthook script is wired in lefthook-base.yml"
 else
   nope "scripts not wired in lefthook-base.yml:$missing"
-fi
-
-WRAPPER="$(grep -l 'lint_cmd' "$TMP"/block*.sh | head -1 || true)"
-if [[ -n "$WRAPPER" ]]; then
-  ok "pre-push ship-config wrapper located ($(basename "$WRAPPER"))"
-else
-  nope "pre-push ship-config wrapper not found among extracted blocks"
 fi
 
 if ! command -v shellcheck >/dev/null 2>&1; then

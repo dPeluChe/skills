@@ -34,22 +34,18 @@ cd "$TARGET" || { echo "x gate: no such dir $TARGET" >&2; exit 2; }
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "x gate: not a git repo" >&2; exit 2; }
 cd "$ROOT" || exit 2
 
-default_range() {
-  local def base
-  def="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)"
-  [[ -n "$def" ]] || for b in origin/main origin/master main master; do
-    git rev-parse --verify --quiet "$b" >/dev/null && { def="$b"; break; }
-  done
-  [[ -n "$def" ]] || return 1
-  base="$(git merge-base HEAD "$def" 2>/dev/null)" || return 1
-  [[ "$base" == "$(git rev-parse HEAD)" ]] && return 1
-  printf '%s..HEAD\n' "$(git rev-parse --short "$base")"
-}
-
 # same parser and gitleaks lookup as the hooks
 FK_LIB_DIR="$SELF_DIR/../.lefthook/lib"
 # shellcheck source=.lefthook/lib/common.sh
 . "$FK_LIB_DIR/common.sh"
+
+default_range() {
+  local def base
+  def="$(fk_default_branch)" || return 1
+  base="$(git merge-base HEAD "$def" 2>/dev/null)" || return 1
+  [[ "$base" == "$(git rev-parse HEAD)" ]] && return 1
+  printf '%s..HEAD\n' "$(git rev-parse --short "$base")"
+}
 
 FAILED=0
 report() { # $1 = ok|x|-, rest = message
@@ -69,11 +65,7 @@ if ! command -v gitleaks >/dev/null 2>&1; then
 elif [[ -z "$RANGE" ]]; then
   report - "secrets: no commits ahead of the default branch -- nothing to scan"
 else
-  set -- git --redact --no-banner --verbose --log-opts="$RANGE"
-  cfg="$(fk_gitleaks_cfg)"
-  [[ -n "$cfg" ]] && set -- "$@" --config "$cfg"
-  [[ -f .gitleaks-baseline.json ]] && set -- "$@" --baseline-path .gitleaks-baseline.json
-  if out="$(gitleaks "$@" 2>&1)"; then
+  if out="$(fk_gitleaks git --redact --no-banner --verbose --log-opts="$RANGE" 2>&1)"; then
     report ok "secrets: no leaks in $RANGE"
   else
     printf '%s\n' "$out" | grep -E '^(RuleID|File|Line|Commit):' | sed 's/^/    /' | head -20
@@ -82,17 +74,16 @@ else
 fi
 
 run_key() { # $1 = config key
-  local cmd
+  local cmd out
   cmd="$(fk_config_get "$1")"
   if [[ -z "$cmd" ]]; then
     report - "$1: not declared in the preship config"
-  elif ( eval "$cmd" ) > "${TMPDIR:-/tmp}/flowkit-gate-$1.log" 2>&1; then
+  elif out="$( (eval "$cmd") 2>&1 )"; then
     report ok "$1: $cmd"
   else
-    tail -15 "${TMPDIR:-/tmp}/flowkit-gate-$1.log" | sed 's/^/    /'
+    printf '%s\n' "$out" | tail -15 | sed 's/^/    /'
     report x "$1: $cmd"
   fi
-  rm -f "${TMPDIR:-/tmp}/flowkit-gate-$1.log"
 }
 
 if [[ "$SECRETS_ONLY" == 0 ]]; then

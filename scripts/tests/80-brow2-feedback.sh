@@ -11,14 +11,12 @@ inject_crash() { # $1 = src script, $2 = dst, $3 = line injected after the first
 # ── (1) docs-nudge INCAPABLE of blocking: crash injected inside the guarded
 # group must still exit 0 -- under plain sh AND sh -e (errexit is how the
 # field 127 killed pushes) ──
-NUDGE80="$(grep -l 'no docs touched' "$TMP"/block*.sh | head -1 || true)"
-if [[ -n "$NUDGE80" ]]; then
+if [[ -f "$NUDGE_SH" ]]; then
   mkdir -p "$TMP/nb80-fix"
-  sed "s|{push_files}|src/app.ts|" "$NUDGE80" > "$TMP/nb80-sub.sh"
-  inject_crash "$TMP/nb80-sub.sh" "$TMP/nb80-crash.sh" "  flowkit_missing_cmd_127_fixture"
+  inject_crash "$NUDGE_SH" "$TMP/nb80-crash.sh" "  flowkit_missing_cmd_127_fixture"
   if grep -q "flowkit_missing_cmd_127_fixture" "$TMP/nb80-crash.sh" \
-     && ( cd "$TMP/nb80-fix" && sh "$TMP/nb80-crash.sh" ) >/dev/null 2>&1 \
-     && ( cd "$TMP/nb80-fix" && sh -e "$TMP/nb80-crash.sh" ) >/dev/null 2>&1; then
+     && ( cd "$TMP/nb80-fix" && FK_LIB_DIR="$HOOKS/lib" sh "$TMP/nb80-crash.sh" src/app.ts ) >/dev/null 2>&1 \
+     && ( cd "$TMP/nb80-fix" && FK_LIB_DIR="$HOOKS/lib" sh -e "$TMP/nb80-crash.sh" src/app.ts ) >/dev/null 2>&1; then
     ok "docs-nudge: injected crash in the body still exits 0 (sh + sh -e) -- no-block by construction"
   else
     nope "docs-nudge: a crash in the body must never block (expected exit 0)"
@@ -29,7 +27,7 @@ fi
 
 # ── (1) ship-config-gate structural fail-soft: config-reading machinery
 # crash degrades to warning + exit 0; deliberate lint failures still block ──
-if [[ -n "$WRAPPER" ]]; then
+if [[ -f "$WRAPPER" ]]; then
   make_fixture "$TMP/fix80-valid" <<'EOF'
 # Test repo
 
@@ -39,10 +37,9 @@ if [[ -n "$WRAPPER" ]]; then
 lint: true
 ```
 EOF
-  sed "s|{push_files}|src/app.ts|" "$WRAPPER" > "$TMP/gate80-sub.sh"
   # sabotage sed: block extraction dies -> empty commands -> fail-soft path
-  inject_crash "$TMP/gate80-sub.sh" "$TMP/gate80-crash.sh" '  sed() { return 127; }'
-  if ( cd "$TMP/fix80-valid" && sh -e "$TMP/gate80-crash.sh" ) \
+  inject_crash "$WRAPPER" "$TMP/gate80-crash.sh" '  sed() { return 127; }'
+  if ( cd "$TMP/fix80-valid" && FK_LIB_DIR="$HOOKS/lib" sh -e "$TMP/gate80-crash.sh" src/app.ts ) \
        > "$TMP/out.log" 2> "$TMP/err.log"; then
     if grep -q "no preship config block" "$TMP/err.log"; then
       ok "ship-config-gate: wrapper crash (sed sabotaged, sh -e) degrades to warning + exit 0"
@@ -62,8 +59,8 @@ EOF
 lint: false
 ```
 EOF
-  inject_crash "$TMP/gate80-sub.sh" "$TMP/gate80-crash2.sh" "  flowkit_missing_cmd_127_fixture"
-  if ( cd "$TMP/fix80-failing" && sh -e "$TMP/gate80-crash2.sh" ) \
+  inject_crash "$WRAPPER" "$TMP/gate80-crash2.sh" "  flowkit_missing_cmd_127_fixture"
+  if ( cd "$TMP/fix80-failing" && FK_LIB_DIR="$HOOKS/lib" sh -e "$TMP/gate80-crash2.sh" src/app.ts ) \
        > "$TMP/out.log" 2> "$TMP/err.log"; then
     nope "ship-config-gate: real lint failure must still block despite a stray crash"
   else

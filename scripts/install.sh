@@ -75,6 +75,9 @@ case "${1:-}" in
     ;;
 esac
 
+FK_LIB_DIR="$SCRIPT_DIR/../.lefthook/lib"
+# shellcheck source=.lefthook/lib/common.sh
+. "$FK_LIB_DIR/common.sh"
 for _mod in util chain repo-wire stamp stamp-shipconfig verify lifecycle lint-health lint-canary loc-health ci; do
   # shellcheck disable=SC1090  # module set is fixed; path resolved via resolve_self
   source "$SCRIPT_DIR/lib/$_mod.sh"
