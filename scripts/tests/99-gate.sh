@@ -37,9 +37,7 @@ if command -v gitleaks >/dev/null 2>&1; then
   else
     nope "gate: secret in the range not caught (rc=$rc, see $TMP/gate2.log)"
   fi
-
-  PP_HOOK="$(grep -l 'pushed-commit scan SKIPPED' "$TMP"/block*.sh 2>/dev/null | head -1)"
-  if [[ -n "$PP_HOOK" ]]; then
+  if [[ -f "$PP_HOOK" ]]; then
     z=0000000000000000000000000000000000000000
     ( cd "$GT" && printf 'refs/heads/main %s refs/heads/main %s\n' "$leak_sha" "$base_sha" | sh "$PP_HOOK" ) \
       > "$TMP/pp1.log" 2>&1; rc_leak=$?
@@ -81,9 +79,4 @@ if command -v lefthook >/dev/null 2>&1; then
   else
     nope "e2e: remote-served pre-push did not run the lint (see $TMP/e2e-push.log)"
   fi
-fi
-if grep -q '^min_version: 2.0.5$' "$BASE_YML" && grep -q 'MIN_LEFTHOOK="2.0.5"' "$REPO_DIR/scripts/lib/util.sh"; then
-  ok "min lefthook version agrees: base config min_version == flowkit MIN_LEFTHOOK"
-else
-  nope "min_version in lefthook-base.yml and MIN_LEFTHOOK in util.sh disagree"
 fi

@@ -4,7 +4,7 @@ FK_LIB_DIR="${FK_LIB_DIR:-$(dirname "$0")/../lib}"
 # shellcheck source=.lefthook/lib/common.sh
 . "$FK_LIB_DIR/common.sh"
 set -u
-# args = the pushed files; never blocks BY CONSTRUCTION (one guarded group)
+# args = the pushed files. Never blocks BY CONSTRUCTION: one guarded group.
 {
   code=0
   docs=0

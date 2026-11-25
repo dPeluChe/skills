@@ -81,8 +81,7 @@ else
 fi
 
 # ── (5) pre-commit hook: warn ONLY on files THIS commit grows past loc_limit ──
-LC_HOOK="$(grep -l 'grew it' "$TMP"/block*.sh 2>/dev/null | head -1)"
-if [[ -n "$LC_HOOK" ]]; then
+if [[ -f "$LC_HOOK" ]]; then
   ok "hook: loc-warning (diff-aware) block present in lefthook-base.yml pre-commit"
 else
   nope "hook: diff-aware loc-warning block missing"

@@ -17,8 +17,8 @@ make hooks REPO=/path/to/repo TEAM=1    # team repo → lefthook-local.yml (glob
 
 **Where the hook code lives.** `hooks/lefthook-base.yml` only names the jobs; each job is a
 POSIX sh script in `.lefthook/<hook>/`, served from the same remote clone, and
-`.lefthook/lib/common.sh` holds the one preship-config parser and gitleaks-config lookup that
-the hooks and `flowkit gate` share. The base config declares `min_version: 2.0.5` (script
+`.lefthook/lib/common.sh` holds the one copy of the config parser and the gitleaks, branch and
+`.env` rules, shared by the hooks, `flowkit gate`, the installer and secret-guard. The base config declares `min_version: 2.0.5` (script
 `args`): an older lefthook stops with an error instead of running the pre-push gate without
 its file list. Fix: `brew upgrade lefthook`.
 

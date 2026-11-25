@@ -6,6 +6,9 @@ set -uo pipefail
 # pwd -P resolves the ~/.agents/hooks-harness directory symlink to the repo
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 CONFIG="$SCRIPT_DIR/../.gitleaks.toml"
+FK_LIB_DIR="$SCRIPT_DIR/../../.lefthook/lib"
+# shellcheck source=.lefthook/lib/common.sh
+. "$FK_LIB_DIR/common.sh"
 
 RAW="$(cat 2>/dev/null || true)"
 [[ -n "$RAW" ]] || exit 0
@@ -39,8 +42,7 @@ fi
 base="$(basename "${FILE_PATH:-x}")"
 case "$base" in
   .env | .env.*)
-    # same template list as the pre-commit block-env-files job
-    if ! [[ "$base" =~ ^\.env\.(example|ejemplo|sample|template|dist)$ ]]; then
+    if ! printf '%s\n' "$base" | grep -Eiq "^$FK_ENV_TEMPLATE_RE"; then
       echo "[secret-guard] blocked: writing to $FILE_PATH -- agents never write .env files; put placeholders in .env.example and let a human fill the real one" >&2
       exit 2
     fi

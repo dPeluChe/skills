@@ -21,21 +21,8 @@ print(len(hook.get("jobs") or []) + len(hook.get("commands") or {}))
 gitleaks_allowlist_paths() { # $1 = target; prints the path patterns the ACTIVE gitleaks config never scans.
   # The allowlist is by FILE TYPE, not by whether a value is an example: a real key
   # in an allowlisted path commits clean, so verify says it out loud.
-  local cfg="" d c
-  if [[ -f "$1/.gitleaks.toml" ]]; then
-    cfg="$1/.gitleaks.toml"
-  else
-    # no nested `case` inside $( ): bash 3.2 mis-parses it there (caught by the
-    # stderr-hygiene test the moment it was introduced)
-    d="$(cd "$1" 2>/dev/null && git rev-parse --git-common-dir 2>/dev/null)" || return 0
-    [[ -n "$d" ]] || return 0
-    [[ "$d" == /* ]] || d="$1/$d"
-    # our clone is the one carrying .lefthook/lib/common.sh, not just any remote
-    for c in "$d"/info/lefthook-remotes/*/; do
-      [[ -f "$c.lefthook/lib/common.sh" && -f "${c}hooks/.gitleaks.toml" ]] && { cfg="${c}hooks/.gitleaks.toml"; break; }
-    done
-    [[ -n "$cfg" ]] || cfg="$REPO_DIR/hooks/.gitleaks.toml"
-  fi
+  local cfg
+  cfg="$(fk_gitleaks_cfg "$1")"
   [[ -n "$cfg" && -f "$cfg" ]] || return 0
   awk '/^\[allowlist\]/{f=1} f && /^paths[[:space:]]*=/{p=1; next} p && /^\]/{exit} p{print}' "$cfg" 2>/dev/null \
     | tr -d "'" | sed 's/^[[:space:]]*//; s/,[[:space:]]*$//' \
@@ -76,6 +63,9 @@ canary_secret_scan() { # $1 = target repo. Efficacy probe of the EFFECTIVE gate,
   hookfile="$(effective_hooks_dir "$target")/pre-commit"
   [[ -x "$hookfile" ]] || return 3
   tmpidx="$gitdir/flowkit-canary-index.$$"
+  # the verdict is the secret job's; skipping the advisory jobs saves ~60ms a run
+  local LEFTHOOK_EXCLUDE="block-env-files,loc-warning,lint-health-staged,lockfile-canary-nudge,default-branch-nudge"
+  export LEFTHOOK_EXCLUDE
 
   stage_one() { # $1 = filename, $2 = line content -> fresh isolated temp index
     rm -f "$tmpidx"
@@ -201,6 +191,7 @@ verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification.
      && [[ -z "$(ship_hooks_skip_reason "$target" pre-commit)" ]]; then
     jobs="$(lefthook_jobs_count "$target" pre-commit)"
     if [[ "$jobs" -gt 0 ]]; then
+      resolvable=1
       echo "ok jobs: pre-commit resolves $jobs job(s) (lefthook dump)"
     else
       if [[ -f "$target/lefthook-local.yml" && ! -f "$target/lefthook.yml" ]]; then
@@ -254,7 +245,7 @@ verify_repo_hooks() { # $1 = target repo. EFFECTIVE-state verification.
     [[ -f "$f" ]] && grep -q lefthook "$f" 2>/dev/null && { stubs=1; break; }
   done
   if [[ "$stubs" == 1 ]]; then
-    if [[ -n "$cfg" ]] && command -v lefthook >/dev/null 2>&1 \
+    if [[ "$resolvable" == 0 && -n "$cfg" ]] && command -v lefthook >/dev/null 2>&1 \
        && ( cd "$target" && lefthook dump >/dev/null 2>&1 ); then
       resolvable=1
     fi

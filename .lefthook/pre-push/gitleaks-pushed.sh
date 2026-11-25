@@ -8,7 +8,6 @@ set -u
 # hooks off (/ship watch, a GUI client) are caught here. stdin = push refs.
 command -v gitleaks >/dev/null 2>&1 || {
   fk_warn "gitleaks not installed -- pushed-commit scan SKIPPED"; exit 0; }
-cfg="$(fk_gitleaks_cfg)"
 rc=0
 while read -r _lref lsha _rref rsha; do
   [ -n "$lsha" ] || continue
@@ -17,10 +16,7 @@ while read -r _lref lsha _rref rsha; do
     *[!0]*) range="$rsha..$lsha" ;;
     *) range="$lsha --not --remotes" ;;
   esac
-  set -- git --redact --no-banner --log-opts="$range"
-  [ -n "$cfg" ] && set -- "$@" --config "$cfg"
-  [ -f .gitleaks-baseline.json ] && set -- "$@" --baseline-path .gitleaks-baseline.json
-  gitleaks "$@" || rc=1
+  fk_gitleaks git --redact --no-banner --log-opts="$range" || rc=1
 done
 [ "$rc" = 0 ] || fk_warn "secret in a pushed commit -- rotate it, then rewrite or annotate (gitleaks:allow)"
 exit "$rc"
