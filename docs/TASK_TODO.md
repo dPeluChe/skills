@@ -11,7 +11,6 @@
 
 ## preship y el /ship nativo
 
-- [ ] **Estampar `.claude/skills/steward/SKILL.md` desde el `## preship config`**: el watch del `/ship` nativo empuja con los hooks apagados (`core.hooksPath=/dev/null`) y lee ese archivo para saber qué checks importan. flowkit podría generarlo con los mismos `lint`/`typecheck`/`test` para que el watch corra los gates del repo. Verificar antes cómo lo lee el watch (docs: code.claude.com/docs/en/ship-command). `added: 2026-11-24`
 - [ ] **Migrar repos ya conectados a `## preship config`**: el encabezado viejo se sigue leyendo, así que no urge; `flowkit hooks` podría ofrecer renombrarlo. `added: 2026-11-24`
 
 ## Research en pausa

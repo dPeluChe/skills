@@ -11,6 +11,7 @@
 #   lib/verify.sh     --repo --verify: effective hook state + canary probe
 #   lib/lifecycle.sh  --unhook, --about, --harness, --upgrade
 #   lib/lint-health.sh / lib/loc-health.sh  --lint-health, --loc-health audits
+#   lib/ci.sh         --ci: stamp the caller of the reusable flowkit-gate workflow
 #
 # Skills chain synced here:
 #   ~/.claude/skills/<name> -> ~/.agents/skills/<name> -> <repo>/skills/<name>
@@ -107,13 +108,17 @@ case "${1:-}" in
       esac
     done
     ;;
+  --ci)
+    MODE="ci"; shift
+    TARGET_REPO="${1:?usage: install.sh --ci <path>}"; shift
+    ;;
   --unhook)
     MODE="unhook"; shift
     TARGET_REPO="${1:?usage: install.sh --unhook <path>}"; shift
     ;;
 esac
 
-for _mod in util chain repo-wire stamp stamp-shipconfig verify lifecycle lint-health loc-health; do
+for _mod in util chain repo-wire stamp stamp-shipconfig verify lifecycle lint-health loc-health ci; do
   # shellcheck disable=SC1090  # module set is fixed; path resolved via resolve_self
   source "$SCRIPT_DIR/lib/$_mod.sh"
 done
@@ -125,6 +130,7 @@ case "$MODE" in
   unhook)  run_unhook ;;
   about)   run_about ;;
   harness) install_harness ;;
+  ci)      run_ci_stamp "$TARGET_REPO" ;;
   upgrade) run_upgrade ;;
   lint-health)
     if [[ "$LINT_CANARY" -eq 1 ]]; then run_lint_canary "${TARGET_REPO:-.}"

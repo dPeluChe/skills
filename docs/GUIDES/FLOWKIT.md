@@ -25,8 +25,12 @@ flowkit hooks --verify   # check the EFFECTIVE hook state: config + hooksPath + 
 flowkit unhook     # clean removal from the current repo: stubs, OUR configs, OUR exclude entries
 flowkit upgrade    # lefthook/gitleaks versions + clone freshness (exit 1 if pending);
                    # inside a wired repo it also refreshes that repo's lefthook remotes cache
+flowkit gate       # the repo's gates as one command: secret scan over the branch's commits +
+                   # lint/typecheck from the preship config (--full, --range A..B, --secrets-only)
+flowkit ci         # opt-in: stamp .github/workflows/flowkit-gate.yml (CI runs flowkit gate per PR)
+flowkit harness    # wire the Claude Code harness guards into ~/.claude/settings.json
 flowkit about      # what flowkit is + this repo's detected flow status (for agents landing cold)
-flowkit version    # flowkit 0.1.4 (<short sha>), also --version / -v
+flowkit version    # flowkit 0.1.x (<short sha>), also --version / -v
 ```
 
 `flowkit hooks` accepts `--team` and `--include-parent`: same semantics as the

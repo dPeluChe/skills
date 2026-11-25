@@ -85,7 +85,7 @@ As a Claude Code plugin instead:
 
 ## Git hooks
 
-`flowkit hooks` wires centralized pre-commit and pre-push guarantees into any repo, served
+`flowkit hooks` wires centralized pre-commit and pre-push checks into any repo, served
 from this one via lefthook `remotes`, so no config is copied and every wired repo stays in
 sync. It covers secret scanning (gitleaks, with a canary that proves the hook actually
 blocks), lint health, file size, and the Claude Code harness guards.

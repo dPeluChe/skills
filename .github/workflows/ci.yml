@@ -50,6 +50,12 @@ jobs:
           path: ${{ runner.temp }}/diag
           if-no-files-found: warn
 
+  # ── dogfood the reusable CI backstop on Linux: same gate.sh consumers call ──
+  flowkit-gate:
+    uses: ./.github/workflows/gate.yml
+    with:
+      flowkit-ref: ${{ github.head_ref || github.ref_name }}
+
   # ── diagnose (manual): the green-run counterpart of gate's failure artifact.
   diagnose:
     if: github.event_name == 'workflow_dispatch'

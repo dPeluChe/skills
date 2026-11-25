@@ -23,6 +23,7 @@
 #   96-lint-health-hook.sh pre-commit lint-health-staged + default-branch nudge
 #   97-loc-health.sh       loc-health audit + diff-aware loc-warning hook
 #   98-rewire-safety.sh    re-wire keeps baseline classifications and lefthook.yml jobs
+#   99-gate.sh             flowkit gate + pre-push scan of every pushed commit
 #
 # Modules are sourced here in lexical order, in ONE shell, so they share the
 # helpers and accumulate into the same counters. Output contract (consumed by
