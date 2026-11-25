@@ -1,23 +1,15 @@
 ---
 name: standup
 description: >
-  Generate a progress report for a project over a recent time window (last week by default):
-  what shipped, what's in progress, new pendings, and what's next, in human language, not raw
-  commit messages. Runs in two cadences: micro-standup during development (close a work session,
-  check what the change impacts, append to the journal) and full report (weekly/client). Use this
-  skill whenever the user wants to review or communicate recent progress: "qué avanzamos esta
-  semana", "standup", "resumen de cambios", "reporta avances", "what changed since Monday",
-  "update de los últimos días", "genera el update para el cliente", "qué se hizo en este proyecto
-  últimamente". ALSO trigger after finishing a feature or work session: "cierra la sesión",
-  "registra lo que avanzamos", "¿esto que hice afecta docs o tareas?", "wrap up what we did".
-  Also trigger when the user needs a status update for a client, team, or stakeholder, even if
-  they don't say "standup". The user almost never types the slash: trigger from informal prose
-  and typos: "que avanzamos hoy", "cerramos por hoy", "registra esto", "dame un prompt de donde
-  debe retomar el agente" (that last one = micro-standup WITH handoff prompt).
-  Disambiguation: use kickoff instead when the user is resuming work and needs full project state
-  (standup covers only the recent delta); use pm-tasks to actually archive or modify tasks; use
-  preship to CLOSE one PR cycle with gates: preship's evidence table feeds standup's journal entry,
-  and "cierra el pr" is preship, while "cierra la sesión" is standup.
+  Progress report for a recent window (last week by default): what shipped, what is in
+  progress, new pendings and what's next, in human language, not commit messages. Two cadences:
+  micro (close a work session, check what the change impacts, append to the journal) and full
+  (weekly or client update). Trigger from informal prose and typos, the slash is rare: "qué
+  avanzamos esta semana", "standup", "reporta avances", "genera el update para el cliente",
+  "what changed since Monday", "cierra la sesión", "cerramos por hoy", "registra lo que
+  avanzamos", "¿esto afecta docs o tareas?", "que avanzamos hoy", "dame un prompt de donde debe
+  retomar el agente" (micro WITH a handoff prompt). Not kickoff (full state when resuming), not
+  pm-tasks (changes tasks), not preship: "cierra el pr" is preship, "cierra la sesión" is standup.
 allowed-tools: Read, Glob, Grep, Bash, Write
 ---
 

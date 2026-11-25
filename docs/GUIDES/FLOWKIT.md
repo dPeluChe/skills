@@ -43,8 +43,7 @@ that touches the tooling, PRs touching `bin/` `scripts/` `hooks/` bump VERSION p
 ### Claude Code (plugin)
 
 ```bash
-/plugin marketplace add dPeluChe/skills
-/plugin install doctos@dpeluche-skills
+/plugin install dpeluche --marketplace dPeluChe/skills   # all eight skills, one plugin
 ```
 
 ### Manual (make / scripts, alternative)

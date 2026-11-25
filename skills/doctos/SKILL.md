@@ -1,17 +1,14 @@
 ---
 name: doctos
 description: >
-  Documentation hygiene and organization for any project. Audits .md files, enforces root-level rules
-  (only README, CLAUDE, AGENTS, CONTRIBUTING, CHANGELOG, LICENSE at root), moves everything else into
-  docs/ with standard subfolder structure (ARCHITECTURE/, FEATURES/, GUIDES/, RESEARCH/, ARCHIVED/).
-  Renames inconsistent folders/files to UPPERCASE_SNAKE convention. Detects obsolete docs and archives them.
-  Use this skill when the user mentions cleaning up docs, organizing markdown files, project structure,
-  "too many files at root", "docs are a mess", "organize the project", "limpia los docs", "estructura",
-  "revisa los md", "actualiza los docs", "ordena los docs", "los docs estan desactualizados" (the
-  user almost never types the slash: trigger from informal prose and typos),
-  or wants to standardize documentation across projects. Also trigger on "doctos".
-  Disambiguation: use pm-tasks instead when the request is about task content (backlogs, TODOs,
-  archiving completed work); use kickoff instead when the user wants project state analysis, not reorganization.
+  Documentation hygiene for any project: audits .md files, keeps the root to README,
+  CLAUDE, AGENTS, CONTRIBUTING, CHANGELOG and LICENSE, moves the rest into docs/ (ARCHITECTURE,
+  FEATURES, GUIDES, RESEARCH, ARCHIVED, or the structure a repo declares), renames to
+  UPPERCASE_SNAKE and archives obsolete docs. Trigger from informal prose and typos, slash or
+  not: "limpia los docs", "ordena los docs", "revisa los md", "actualiza los docs", "los docs
+  estan desactualizados", "estructura", "docs are a mess", "too many files at root", "doctos",
+  or standardizing docs across projects. Not pm-tasks (task content: backlogs, TODOs,
+  archiving); not kickoff (state analysis, not reorganization).
 allowed-tools: Read, Glob, Grep, Bash, Edit, Write
 ---
 

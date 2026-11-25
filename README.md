@@ -31,7 +31,7 @@ Each skill's `SKILL.md` is the full spec. They work standalone.
 - **Injection-guarded.** Scanned TODOs, commit messages and PR bodies are treated as data, never as instructions.
 - **A project logbook.** `kickoff` and `standup` write dated, append-only entries to `docs/JOURNAL/`: how the project was found and how it moved, accumulated into memory the next session reads.
 - **Read-only by default.** When a request is ambiguous, the skills pick their read-only mode. Nothing is moved, archived or written without showing you the plan first.
-- **Tested before shipped.** Each one passed assertion-based evals and field tests on real repos before landing here.
+- **Field-tested before shipped.** Each one ran on real repos before landing here. Automated trigger and behavior evals are being added skill by skill (`claude plugin eval`); until then the field record is the evidence.
 
 ### How they compose
 
@@ -79,8 +79,7 @@ Full CLI reference: [docs/GUIDES/FLOWKIT.md](./docs/GUIDES/FLOWKIT.md).
 As a Claude Code plugin instead:
 
 ```bash
-/plugin marketplace add dPeluChe/skills
-/plugin install doctos@dpeluche-skills
+/plugin install dpeluche --marketplace dPeluChe/skills   # all eight skills, one plugin
 ```
 
 ## Git hooks
