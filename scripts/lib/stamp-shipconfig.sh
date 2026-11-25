@@ -15,12 +15,8 @@ ship_config_block() { # $1 = target repo; prints the preship config yaml fence b
     | sed -n '/^```yaml$/,/^```$/p' | sed '1d;$d'
 }
 
-ship_hooks_skip_reason() { # $1 = target repo, $2 = hook name; prints the reason
-  # a hook is consciously skipped, declared inside the preship config yaml fence
-  # of CLAUDE.md -- empty when the hook is not skipped. BOTH forms are read:
-  #   hooks_skip: pre-push: "reason"     (historical one-liner)
-  #   hooks_skip:                        (nested map -- plain YAML)
-  #     pre-push: "reason"
+ship_hooks_skip_reason() { # $1 = target repo, $2 = hook name; prints the skip reason, empty when not skipped.
+  # reads both `hooks_skip: pre-push: "reason"` and the nested-map form
   local block reason
   block="$(ship_config_block "$1")"
   reason="$(printf '%s\n' "$block" \
@@ -153,13 +149,9 @@ else:
 PY
 }
 
-npm_ship_lines() { # $1 = target repo; prints "key<TAB>ship-config-line" for
-  # lint/typecheck/build/test derived from the REAL package.json scripts.
-  # Field case (walter-client): the static npm template suggested `npm run lint`
-  # / `npm test` that did not exist there. Now: suggest the scripts actually
-  # present, name absent ones explicitly, keep the project-references tsconfig
-  # fix for typecheck, and label the stack Next/Vite. No scripts at all -> the
-  # generic TODOs (each line says the script is absent).
+npm_ship_lines() { # $1 = target repo; prints "key<TAB>ship-config-line" for lint/typecheck/build/test.
+  # suggests only scripts package.json really has (a template once suggested
+  # `npm test` where none existed); absent ones are named as absent
   local target="$1" pkg="$1/package.json" fw fwc="" scripts s ts_script="" test_script="" tc_cmd=""
   fw="$(detect_npm_framework "$pkg")"
   [[ -n "$fw" ]] && fwc=" [$fw]"
@@ -178,13 +170,8 @@ npm_ship_lines() { # $1 = target repo; prints "key<TAB>ship-config-line" for
     printf 'typecheck\ttypecheck: npm run %s # from package.json scripts\n' "$ts_script"
   elif [[ -f "$target/tsconfig.json" ]] \
        && grep -q '"references"' "$target/tsconfig.json" 2>/dev/null; then
-    # a root tsconfig that is a project-references stub ("files": [] +
-    # "references": [...]) makes `tsc --noEmit` a NO-OP that passes green while
-    # checking nothing -- point at the real project tsconfig instead.
-    # Sibling dirs with their OWN tsconfig that the root does NOT reference
-    # (convex/, functions/, workers/, server/) are checked by NEITHER
-    # `tsc --noEmit` NOR `tsc -b` NOR the framework build -- field case: a repo
-    # shipped green with convex/ broken. Chain a -p check per unreferenced sibling.
+    # a project-references stub makes `tsc --noEmit` a green no-op: point at the real
+    # tsconfig, and chain -p for sibling dirs (convex/, server/...) it does not reference
     sib=""
     for d in convex functions workers server supabase/functions; do
       if [[ -f "$target/$d/tsconfig.json" ]] \
@@ -233,12 +220,8 @@ ci_grep_cmd() { # $1 = target, $2 = ERE; prints "cmd<TAB>workflow" of the first
 }
 
 ensure_ship_config_template() { # $1 = target repo: stamp the block if missing.
-  # Values come from the repo's CI workflows when extractable (marked
-  # "# from <workflow> -- verify"); fallback is stack-flavored TODO examples.
-  # ONE space before a trailing comment, never aligned padding: prettier collapses
-  # runs of spaces in markdown, so an aligned block makes `prettier --check` fail
-  # the moment flowkit stamps it. In one repo that check gates deploy, so
-  # installing flowkit left the deploy door red. The YAML parses identically.
+  # values from the repo's CI when extractable, else stack TODOs. ONE space before a
+  # trailing comment: prettier collapses aligned padding and `prettier --check` fails
   local target="$1" cmd="$1/CLAUDE.md" stack suggest fill_action hit from
   stack="$(detect_stack_name "$target")"
   suggest="$(stack_suggested_cmds "$stack")"
@@ -305,11 +288,8 @@ ensure_ship_config_template() { # $1 = target repo: stamp the block if missing.
     from="${hit#*$'\t'}"; test_line="test: ${hit%%$'\t'*} # from $from -- verify"; ci_used=1
   fi
 
-  # If CLAUDE.md already documents a max-lines-per-file convention, honor IT
-  # instead of the 500 default -- else the stamp overrides a rule the repo
-  # already wrote and every repo corrects it by hand (field: two repos said
-  # 400, stamp put 500). Take the largest 3-4 digit number on a line that
-  # mentions both a limit word and "line/línea" (the max, not the warn-at).
+  # honor a max-lines rule CLAUDE.md already states instead of the 500 default:
+  # the largest 3-4 digit number on a line naming a limit and lines/líneas
   local loc_limit="500" loc_note=""
   if [[ -f "$cmd" ]]; then
     local found

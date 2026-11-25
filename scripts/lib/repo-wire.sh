@@ -66,13 +66,9 @@ chain_husky() { # $1 = target repo; append lefthook to husky hooks, never replac
   echo "  NOTE: hooks stay husky-managed; lefthook runs as the last step of each."
 }
 
-warn_displaced_hooks() { # $1 = target. `lefthook install` backs a pre-existing
-  # .git/hooks/<hook> up to <hook>.old and does not run it -- the repo's OWN hook
-  # silently stops firing. We do NOT auto-chain it: appending its run to the stub
-  # makes ITS exit code the hook's final one, which MASKS a lefthook block (an
-  # `exit 0` old hook would let a caught secret through -- verified). So flowkit
-  # SURFACES it (same as the tracked-hooksPath case: warn + migrate, never a silent
-  # or a dangerous auto-fix); verify keeps FAILing until it's resolved.
+warn_displaced_hooks() { # $1 = target. `lefthook install` backs a pre-existing .git/hooks/<hook> up to <hook>.old and never runs it.
+  # flowkit surfaces it instead of chaining: chaining makes the old hook's exit code
+  # final, so an `exit 0` hook would mask a blocked secret. See docs/ARCHITECTURE/FLOWKIT_INTERNALS.md
   local target="$1" gitdir hk old found=""
   gitdir="$(git -C "$target" rev-parse --absolute-git-dir 2>/dev/null)" || return 0
   for hk in pre-commit pre-push commit-msg; do
@@ -86,7 +82,7 @@ warn_displaced_hooks() { # $1 = target. `lefthook install` backs a pre-existing
   fi
 }
 
-# Global core.hooksPath is NOT a blocker when it holds CHAIN wrappers — files
+# Global core.hooksPath is NOT a blocker when it holds CHAIN wrappers -- files
 # that delegate to $(git rev-parse --git-dir)/hooks/<hook> when it exists, so
 # locally installed lefthook hooks still run through the chain.
 global_hookspath_status() { # prints: none | chained | broken:<missing hooks>
@@ -146,11 +142,9 @@ verify_tracked_hooks_dir_clean() { # $1 = target repo, $2 = tracked hooks dir
   fi
 }
 
-cleanup_team_autocreated_yml() { # $1 = target repo, $2 = lefthook.yml existed
-  # before install (0/1). 'lefthook install' auto-creates lefthook.yml when the
-  # repo has none ("Config not found, creating..."); in team mode that leaves a
-  # committable file this tool never meant to add. Remove it when it is
-  # untracked AND lefthook-made; a tracked one belongs to the project.
+cleanup_team_autocreated_yml() { # $1 = target repo, $2 = lefthook.yml existed before install (0/1).
+  # `lefthook install` creates lefthook.yml when missing; in team mode that is a
+  # committable file we never meant to add, so drop it if untracked and lefthook-made
   local target="$1" existed="$2" yml="$1/lefthook.yml"
   [[ -f "$yml" ]] || return 0
   if git -C "$target" ls-files --error-unmatch lefthook.yml >/dev/null 2>&1; then
@@ -224,14 +218,8 @@ wire_repo_hooks() { # $1 = target repo (absolute); full wiring of ONE repo, no e
   elif [[ "$hookspath" == broken:* ]]; then
     bad "global core.hooksPath set but chain wrapper(s) missing for: ${hookspath#broken:} -- each wrapper must delegate to \$(git rev-parse --git-dir)/hooks/<hook>; add them and re-run"
   elif [[ "$hookspath" == "chained" ]]; then
-    # lefthook installs into `git rev-parse --git-path hooks`, which honors the
-    # GLOBAL core.hooksPath. A GIT_CONFIG_* scope override used to keep the stubs
-    # in .git/hooks, but lefthook 2.x reads the global scope directly and answers
-    # "Installing hooks anyway in <global>": it CLOBBERS the chain wrappers and
-    # never writes the repo's lefthook.checksum, so every later hook run retries
-    # the sync and reprints the ~30-line hooksPath warning, forever. Pin a LOCAL
-    # core.hooksPath instead: local beats global, git runs .git/hooks directly,
-    # lefthook installs there, the checksum sticks and the warning stops.
+    # lefthook 2.x installs into a GLOBAL core.hooksPath and clobbers the chain;
+    # a LOCAL pin wins over global, so stubs and checksum stay in .git/hooks
     gitdir="$(git -C "$target" rev-parse --absolute-git-dir)"
     # say it out loud when an already-wired repo is being brought up to the
     # current convention: this is the moment the recurring warning stops, and
@@ -254,10 +242,8 @@ wire_repo_hooks() { # $1 = target repo (absolute); full wiring of ONE repo, no e
   warn_displaced_hooks "$target"   # never silently drop a repo's own pre-existing hook
 
   run_gitleaks_baseline "$target" "$team"
-  # never stamped automatically: a generic fixed-length regex is a false-positive
-  # decision only the project can make -- the agent block carries the nudge.
-  # Only on the FIRST wiring (no pre-existing lefthook.yml): it's a once-per-repo
-  # decision, so re-runs shouldn't reprint the paragraph (field feedback).
+  # a repo-local gitleaks rule is the project's false-positive call, never stamped;
+  # the nudge prints only on the first wiring
   if [[ "$had_lefthook_yml" == 0 && ! -f "$target/.gitleaks.toml" ]]; then
     agent_action "Secret scanning uses the central rules (dpat_/GitHub-PAT/AWS/Sentry/Postgres/ITERIS + docs allowlist). ONLY if this repo mints its OWN token format that none of those cover, add a repo-local .gitleaks.toml -- but note it REPLACES the central config, so it MUST start with '[extend] useDefault = true' AND re-declare the central rules you still need, or you downgrade coverage. If the repo only consumes standard tokens (JWT, BYO keys), do NOT add one -- central already covers it."
   fi

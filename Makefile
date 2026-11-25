@@ -1,4 +1,4 @@
-# dPeluChe/skills — thin wrappers over scripts/. `make help` lists everything.
+# dPeluChe/skills -- thin wrappers over scripts/. `make help` lists everything.
 .DEFAULT_GOAL := help
 
 REPO ?=
@@ -14,7 +14,7 @@ help: ## list available targets
 install: ## sync all skills into the symlink chain (~/.claude → ~/.agents → repo) + ~/bin/flowkit
 	./scripts/install.sh
 
-check: ## doctor mode — validate every link, change nothing (exit 0/1)
+check: ## doctor mode -- validate every link, change nothing (exit 0/1)
 	./scripts/install.sh --check
 
 prune: ## sync + remove orphan links left by renamed/deleted skills

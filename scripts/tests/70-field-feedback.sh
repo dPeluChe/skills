@@ -344,7 +344,7 @@ EOF
     nope "flowkit help: unhook/--verify missing (see $TMP/ff-help.log)"
   fi
 else
-  echo "· lefthook/gitleaks not installed — field-feedback fixtures skipped (non-fatal)"
+  echo "· lefthook/gitleaks not installed -- field-feedback fixtures skipped (non-fatal)"
 fi
 
   # ── stderr hygiene: a wiring run must emit NO shell errors. This whole class

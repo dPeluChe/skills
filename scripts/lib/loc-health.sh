@@ -1,16 +1,7 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2154  # globals come from install.sh
-# ── loc-health: file-size audit (the one mechanical dev rule worth automating) ─
-# Sourced by scripts/install.sh (the entrypoint); never executed directly.
-#
-# Team rule (dpeluche.dev docs/profile/13-development-rules.md): 400-500 LOC max
-# per file. The OTHER rules (reuse-before-write, anti-N+1, materialize) are
-# judgment and stay in the doc; THIS one is mechanical and verifiable, so it is
-# the one that earns automation. Advisory everywhere -- never blocks.
-#
-# Two surfaces: the pre-commit hook warns about files THIS diff grows past the
-# limit (in hooks/lefthook-base.yml, diff-scoped); `flowkit loc-health` audits
-# the whole repo on demand (here).
+# loc-health: repo-wide file-size audit (sourced by install.sh). The pre-commit
+# loc-warning covers the diff; this covers the tree. Advisory, never blocks.
 
 # loc_limit from the repo's CLAUDE.md "## preship config" block; default 500. Same
 # block the pre-push gate reads for lint/typecheck -- one per-repo source.

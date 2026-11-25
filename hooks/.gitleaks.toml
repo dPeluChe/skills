@@ -1,4 +1,4 @@
-# dPeluChe hooks — gitleaks config. Extends the default ruleset with the
+# dPeluChe hooks -- gitleaks config. Extends the default ruleset with the
 # token shapes that actually circulate in these repos, plus an allowlist for
 # lockfiles, docs and documented placeholders.
 

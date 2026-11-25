@@ -46,7 +46,7 @@ missing_lines() { # $1 = file, rest = required literals -> prints the absent one
 ok()   { echo "✓ $*"; PASS=$((PASS + 1)); }
 nope() { echo "✗ $*"; FAIL=$((FAIL + 1)); }
 
-make_repo() { # $1 = dir — git repo with one commit
+make_repo() { # $1 = dir -- git repo with one commit
   mkdir -p "$1"
   git -C "$1" init -q
   git -C "$1" -c user.email=t@t.t -c user.name=t commit -q --allow-empty -m init

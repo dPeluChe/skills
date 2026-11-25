@@ -1,50 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034  # most globals set here are consumed by the lib/ modules
-# Entry point for the skills + hooks + flow layer. Thin by design: parse the
-# mode/flags, source the domain modules from scripts/lib/, dispatch. ALL the
-# logic lives in the modules:
-#   lib/util.sh       output helpers, versions, constants, shared git plumbing
-#   lib/chain.sh      skills symlink chain (sync/check/prune) + FLOW + flowkit link
-#   lib/repo-wire.sh  --repo: wire centralized git hooks into target repos
-#   lib/stamp.sh      per-repo stamps: gitleaks baseline, FLOW import
-#   lib/stamp-shipconfig.sh  the '## preship config' block: stack detection, parsing
-#   lib/verify.sh     --repo --verify: effective hook state + canary probe
-#   lib/lifecycle.sh  --unhook, --about, --harness, --upgrade
-#   lib/lint-health.sh / lib/loc-health.sh  --lint-health, --loc-health audits
-#   lib/ci.sh         --ci: stamp the caller of the reusable flowkit-gate workflow
-#
-# Skills chain synced here:
-#   ~/.claude/skills/<name> -> ~/.agents/skills/<name> -> <repo>/skills/<name>
-# (~/.agents/skills is the shared hub so every agent harness serves the same skills.)
-#
-# Usage:
-#   ./scripts/install.sh              # sync ALL repo skills (create/fix missing links)
-#   ./scripts/install.sh preship      # sync one skill
-#   ./scripts/install.sh --check      # doctor mode: validate everything, change nothing (exit 0/1)
-#   ./scripts/install.sh --prune      # sync + remove orphan links that point into this repo
-#   ./scripts/install.sh --copy X     # legacy: copy instead of link (single hop, discouraged)
-#   ./scripts/install.sh --repo <path> [--team] [--children-only|--include-parent]
-#                                     # phase 2: wire centralized git hooks (lefthook
-#                                     # remotes + gitleaks baseline + FLOW_CLAUDE.md
-#                                     # import) into a target repo. A WORKSPACE (git
-#                                     # repo whose 1st-level children are git repos)
-#                                     # gets each child wired; the parent is skipped
-#                                     # unless --include-parent.
-#   ./scripts/install.sh --repo <path> --verify
-#                                     # verify the EFFECTIVE hook state of <path>:
-#                                     # config + effective hooksPath invokes lefthook
-#                                     # + merged jobs + gitleaks + canary -- exit 0/1
-#   ./scripts/install.sh --unhook <path>
-#                                     # clean removal from <path>: lefthook stubs, OUR
-#                                     # config files and OUR .git/info/exclude entries
-#   ./scripts/install.sh --upgrade    # report lefthook/gitleaks versions vs minimums
-#                                     # (+ brew outdated) and this clone vs origin/main
-#   ./scripts/install.sh --about      # orientation for agents landing cold (exit 0)
-#   ./scripts/install.sh --harness    # wire the Claude Code harness hooks (PreToolUse
-#                                     # git-guard + secret-guard) into ~/.claude/settings.json
-#
-# Sync mode also links ~/bin/flowkit -> bin/flowkit (the CLI front-end that
-# dispatches every subcommand back to this script); --check validates that link.
+# Entry point: parse mode/flags, source scripts/lib/*.sh, dispatch. Modes:
+# docs/GUIDES/FLOWKIT.md (or `flowkit help`); module map: docs/ARCHITECTURE/FLOWKIT_INTERNALS.md
 set -euo pipefail
 
 resolve_self() { # portable readlink -f: follow symlinks to the real script path
@@ -118,7 +75,7 @@ case "${1:-}" in
     ;;
 esac
 
-for _mod in util chain repo-wire stamp stamp-shipconfig verify lifecycle lint-health loc-health ci; do
+for _mod in util chain repo-wire stamp stamp-shipconfig verify lifecycle lint-health lint-canary loc-health ci; do
   # shellcheck disable=SC1090  # module set is fixed; path resolved via resolve_self
   source "$SCRIPT_DIR/lib/$_mod.sh"
 done

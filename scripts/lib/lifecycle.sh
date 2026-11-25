@@ -340,7 +340,7 @@ run_upgrade() {
     fi
   fi
 
-  # this skills clone vs its public remote — report only, never pull
+  # this skills clone vs its public remote -- report only, never pull
   local behind
   if git -C "$REPO_DIR" fetch --quiet origin 2>/dev/null; then
     behind="$(git -C "$REPO_DIR" rev-list --count HEAD..origin/main 2>/dev/null || echo "?")"

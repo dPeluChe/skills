@@ -8,7 +8,7 @@
 CH="$TMP/chain-home"
 mkdir -p "$CH/.agents/skills" "$CH/.claude/skills" "$CH/bin"
 
-run_chain_install() { # $@ = install.sh args — fully isolated env, no rc writes
+run_chain_install() { # $@ = install.sh args -- fully isolated env, no rc writes
   AGENTS_SKILLS_DIR="$CH/.agents/skills" CLAUDE_SKILLS_DIR="$CH/.claude/skills" \
     FLOWKIT_BIN_DIR="$CH/bin" FLOWKIT_NO_RC=1 \
     CLAUDE_SETTINGS_FILE="$CH/settings.json" AGENTS_HOOKS_DIR="$CH/hooks-harness" \

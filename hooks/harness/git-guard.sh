@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Claude Code PreToolUse hook (matcher: Bash) — blocks destructive git before it runs.
+# Claude Code PreToolUse hook (matcher: Bash) -- blocks destructive git before it runs.
 # stdin: hook JSON ({.tool_input.command}); exit 2 + stderr = block, the model
 # reads the reason. Escape hatch: FLOWKIT_GIT_GUARD=off passes with a warning.
 set -uo pipefail
@@ -20,12 +20,8 @@ except Exception:
 fi
 [[ -n "${CMD:-}" ]] || exit 0
 
-# Normalize newlines to ';' -- an agent command is almost always multiline, and
-# a bypass/destructive form on line 2+ must anchor like it does after a ';'. The
-# regex `^` in bash =~ matches start of STRING only, so without this a
-# `true<newline>LEFTHOOK=0 git push` slipped the guard (field report).
-# heredoc bodies are data (a commit message file, a doc), not commands, unless
-# the heredoc feeds a shell: then the body IS the command and stays scanned
+# Newlines become ';' so a bypass on line 2+ anchors like after ';' (bash =~ ^ is
+# start of string). Heredoc bodies are data and dropped, unless they feed a shell.
 CMD="$(printf '%s\n' "$CMD" | awk '
   skip { t = $0; if (dash) sub(/^\t+/, "", t); if (t == word) skip = 0; next }
   { print }
@@ -36,13 +32,8 @@ CMD="$(printf '%s\n' "$CMD" | awk '
   }')"
 CMD="$(printf '%s' "$CMD" | tr '\n\r' ';;')"
 
-# Bypass-var detection runs on the command with QUOTED SPANS STRIPPED: an
-# assignment inside single/double quotes is data (a grep pattern, a PR body, a
-# doc line), never an assignment the shell would honor. Field false positives:
-# `grep '|LEFTHOOK='` and `gh pr create --body "...LEFTHOOK=0..."` blocked
-# because the guard saw the text as an assignment. Walk char by char, dropping
-# everything inside a quote (emit a space so token boundaries survive); an
-# escaped or unterminated quote just drops the rest, which is safe (it is data).
+# Bypass vars are checked with quoted spans stripped: text inside quotes (a grep
+# pattern, a PR body) is data. Each quote becomes a space to keep token boundaries.
 strip_quotes() {
   local s="$1" out="" i c q=""
   for (( i = 0; i < ${#s}; i++ )); do
@@ -60,13 +51,8 @@ strip_quotes() {
 }
 CMD_NOQ="$(strip_quotes "$CMD")"
 
-# Bypass vars count only in ASSIGNMENT POSITION: at a command start (^ ; & |
-# parens), optionally behind env/export or other leading VAR=val words. A
-# prose mention (PR body, echo, docs) is data, not an assignment — it never
-# triggers the guard (quotes are already stripped in CMD_NOQ).
-# assignment position includes after do/then/else/{ so the escape hatch works
-# inside loops and conditionals -- the documented remedy must work where the
-# need is (deleting N branches in a loop is THE use case)
+# Bypass vars count only in assignment position: command start, after env/export or
+# other VAR=val words, or after do/then/else/{ (the escape hatch must work in loops).
 re_assign_pre='(^|[;&|({]|[[:space:]](do|then|else)[[:space:]])[[:space:]]*((env|export)[[:space:]]+)?([A-Za-z_][A-Za-z_0-9]*=[^[:space:]]*[[:space:]]+)*'
 re_lefthook0=${re_assign_pre}'LEFTHOOK='
 re_guard_off=${re_assign_pre}'FLOWKIT_GIT_GUARD=off([[:space:]]|$)'
@@ -80,7 +66,7 @@ fi
 
 # escape hatch: honored from the hook's env OR assigned on the command itself
 if [[ "${FLOWKIT_GIT_GUARD:-}" == "off" || "$CMD_NOQ" =~ $re_guard_off ]]; then
-  echo "[git-guard] FLOWKIT_GIT_GUARD=off — destructive-git protection disabled for this command" >&2
+  echo "[git-guard] FLOWKIT_GIT_GUARD=off -- destructive-git protection disabled for this command" >&2
   exit 0
 fi
 

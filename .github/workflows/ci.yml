@@ -1,6 +1,6 @@
 name: ci
 
-# Runs the hook suite on macOS — the platform flowkit actually targets (agents
+# Runs the hook suite on macOS -- the platform flowkit actually targets (agents
 # and devs are on macOS/BSD; the suite has never been ported to Linux/GNU). The
 # suite is network-free (00-helpers.sh points lefthook `remotes` at a local
 # git_url), so CI never clones from github and never hits a rate limit.

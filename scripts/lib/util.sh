@@ -4,10 +4,7 @@
 # Sourced by scripts/install.sh (the entrypoint); never executed directly.
 
 note() { echo "$@"; }
-# bad() also ACCUMULATES the problem line so the summary can repeat it: a verify
-# run prints "x <problem>" up top, then ~28 lines of checks, then the count -- the
-# one line that matters ends far from the verdict (field feedback). PROBLEM_LINES
-# lets the summary echo the problems right next to "N problem(s) found".
+# bad() also collects the line so the summary repeats each problem next to the count
 PROBLEM_LINES=""
 bad()  { echo "x $*"; PROBLEMS=$((PROBLEMS + 1)); PROBLEM_LINES+="    x $*"$'\n'; }
 problem_summary() { # "N problem(s) found" + each problem repeated next to it
@@ -41,7 +38,7 @@ print_agent_actions() {
   echo "---- end ----"
 }
 
-# ver_ge <have> <need> — numeric dotted-version compare
+# ver_ge <have> <need> -- numeric dotted-version compare
 ver_ge() {
   [[ "$(printf '%s\n%s\n' "$2" "$1" | sort -t. -k1,1n -k2,2n -k3,3n | head -1)" == "$2" ]]
 }

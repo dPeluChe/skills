@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# flowkit — CLI entry point for dPeluChe/skills: the skills + hooks + flow layer.
-# Pure dispatch: every subcommand forwards to scripts/install.sh, which owns ALL
-# the logic. This script only resolves its own real location (it normally runs
-# through a ~/bin symlink) and maps subcommands to installer flags.
+# flowkit: CLI for dPeluChe/skills. Pure dispatch to scripts/install.sh; it only
+# resolves its real path (it usually runs through a ~/bin symlink).
 set -euo pipefail
 
 resolve_self() { # portable readlink -f: follow symlinks to the real script path
@@ -24,15 +22,11 @@ REPO_DIR="$(cd "$(dirname "$SELF")/.." && pwd)"
 INSTALL="$REPO_DIR/scripts/install.sh"
 [[ -f "$INSTALL" ]] || { echo "x flowkit: scripts/install.sh not found under $REPO_DIR" >&2; exit 1; }
 
-fk_version() { # prints "flowkit <VERSION> (<short sha>)"
-  local v sha
-  v="$(cat "$REPO_DIR/VERSION" 2>/dev/null || echo 0.0.0)"
-  sha="$(git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
-  printf 'flowkit %s (%s)\n' "$v" "$sha"
-}
+# shellcheck source=scripts/lib/util.sh
+. "$REPO_DIR/scripts/lib/util.sh"
 
 usage() {
-  echo "$(fk_version) -- manager for the skills + hooks + flow layer"
+  echo "$(flowkit_version) -- manager for the skills + hooks + flow layer"
   cat <<'EOF'
 
 Usage: flowkit <subcommand>
@@ -91,7 +85,7 @@ case "$cmd" in
   lint-health) exec bash "$INSTALL" --lint-health "$@" ;;
   loc-health)  exec bash "$INSTALL" --loc-health "$@" ;;
   about)   exec bash "$INSTALL" --about "$@" ;;
-  version|--version|-v) fk_version ;;
+  version|--version|-v) flowkit_version ;;
   help|-h|--help) usage ;;
   *)
     usage >&2

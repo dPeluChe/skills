@@ -36,11 +36,8 @@ run_gitleaks_baseline() { # $1 = target repo, $2 = team (0/1)
     bad "gitleaks baseline scan produced no report -- run it manually"
     return 0
   fi
-  # REWRITE the baseline file, don't just count: (a) dedup by (File,StartLine,
-  # RuleID) -- a history scan reports the same leak once per commit that carried
-  # it, so the FILE itself carried duplicates (field: one DSN twice); (b) add
-  # empty classification/note fields so the review PERSISTS in the baseline
-  # instead of evaporating each session (field: the classify demand was one-shot).
+  # rewrite, not count: dedup by (File, StartLine, RuleID), since history scans
+  # repeat a leak per commit, and add classification/note fields that persist
   n="$(python3 - "$fresh" "$report" <<'PY' 2>/dev/null || { [[ -f "$report" ]] || cp "$fresh" "$report"; grep -c '"RuleID"' "$report"; } || echo "?"
 import json, os, sys
 fresh, p = sys.argv[1], sys.argv[2]
@@ -165,10 +162,7 @@ PY
   # for HISTORY (which cannot be annotated backward), NOT a decision to hide
   # current findings -- say so, so flowkit does not look like it overrode a choice.
   local n_allow
-  # `grep -c` PRINTS 0 and EXITS 1 when nothing matches, so a `|| echo 0` fallback
-  # appended a SECOND line and every arithmetic test below crashed on "0\n0".
-  # That is the common case (a repo with no inline gitleaks:allow), so it fired on
-  # nearly every wiring, on stderr, where stdout-only assertions never saw it.
+  # grep -c prints 0 AND exits 1 on no match: a `|| echo 0` would add a 2nd line
   n_allow="$(grep -rIl 'gitleaks:allow' "$target" 2>/dev/null \
     | grep -vcE '/\.git/|/node_modules/' 2>/dev/null || true)"
   n_allow="${n_allow%%$'\n'*}"      # first line only
@@ -234,7 +228,7 @@ ensure_flow_import() { # $1 = target repo, $2 = team (0/1): @import FLOW.
 check_agent_docs_fences() { # $1 = target repo: agent instruction files must
   # reference paths, never embed code. Count ``` fences in CLAUDE.md/AGENTS.md,
   # excluding the canonical yaml fence of the "## preship config" section.
-  # Detect + recommend only — the agent running the install launches /doctos.
+  # Detect + recommend only -- the agent running the install launches /doctos.
   local target="$1" file count=0 n detail=""
   for file in CLAUDE.md AGENTS.md; do
     [[ -f "$target/$file" ]] || continue

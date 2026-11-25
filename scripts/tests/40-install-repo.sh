@@ -333,5 +333,5 @@ EOF
     nope "--upgrade: unexpected output or exit code $rc (see $TMP/out.log)"
   fi
 else
-  echo "· lefthook/gitleaks not installed — install.sh --repo fixtures skipped (non-fatal)"
+  echo "· lefthook/gitleaks not installed -- install.sh --repo fixtures skipped (non-fatal)"
 fi

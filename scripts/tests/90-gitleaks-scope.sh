@@ -34,7 +34,7 @@ if command -v lefthook >/dev/null 2>&1 && command -v gitleaks >/dev/null 2>&1; t
   }
 
   # browv2-style CSPRNG token: 40 hex chars, shape invisible to the default +
-  # central rules (entropy below the generic threshold) — assembled at runtime
+  # central rules (entropy below the generic threshold) -- assembled at runtime
   # so this source file never carries a secret-shaped literal
   GS_TOK="$(printf '4f9d8c2b1e%.0s' {1..4})"
 
@@ -362,7 +362,7 @@ EOF
     nope "displaced hook: must scream + warn + keep the gate intact (see $TMP/gs-disp.log)"
   fi
 else
-  echo "· lefthook/gitleaks not installed — gitleaks-scope fixtures skipped (non-fatal)"
+  echo "· lefthook/gitleaks not installed -- gitleaks-scope fixtures skipped (non-fatal)"
 fi
 
 # ── problem_summary repeats each problem next to the count -- the problem line
