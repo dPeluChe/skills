@@ -24,6 +24,7 @@
 | To use the CLI | [`GUIDES/FLOWKIT.md`](./GUIDES/FLOWKIT.md) |
 | To understand what `flowkit hooks` wires into a repo | [`GUIDES/HOOKS.md`](./GUIDES/HOOKS.md) |
 | To know why the prose rules are what they are | [`GUIDES/DESLOP_AND_HYGIENE_DOCTRINE.md`](./GUIDES/DESLOP_AND_HYGIENE_DOCTRINE.md) |
+| To write or grow a skill | [`GUIDES/SKILL_AUTHORING.md`](./GUIDES/SKILL_AUTHORING.md), then [`GUIDES/SKILL_EVALS.md`](./GUIDES/SKILL_EVALS.md) |
 
 ## Root-level files
 

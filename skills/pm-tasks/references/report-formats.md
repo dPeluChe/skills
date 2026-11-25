@@ -2,6 +2,13 @@
 
 Full example reports for AUDIT and SCAN modes. Match this structure and level of detail; adapt language and task keys to the project.
 
+## Contents
+
+- AUDIT report example
+- SCAN report example
+- Duplicate / Mergeable detection example
+- Standardization plan example
+
 ## AUDIT report example
 
 ```

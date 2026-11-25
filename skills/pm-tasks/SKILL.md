@@ -20,9 +20,11 @@ Manages the flow of tasks from code TODOs to TASK_TODO.md to monthly completion 
 
 | Load | When |
 |---|---|
-| `references/report-formats.md` | Producing a report or plan for the user: the AUDIT report, the SCAN report, the duplicate/mergeable groups, or the INIT standardization plan |
-| `references/templates.md` | Writing a file: the `TASK_TODO.md` and `TASK_COMPLETED/README.md` scaffolds, an archive entry, or the rich session-based archive format |
-| `references/external-trackers.md` | The repo also tracks work in GitHub Issues or another tracker: how to detect one, the cross-check duties, and the per-tracker listing commands |
+| `references/report-formats.md` | Writing any report or plan (AUDIT, SCAN, merge groups, INIT plan) |
+| `references/templates.md` | Writing a file: scaffolds, archive entries, the `added:` date format |
+| `references/init.md` | Running INIT: its three branches step by step |
+| `references/scan.md` | Running SCAN |
+| `references/external-trackers.md` | The repo also tracks work in GitHub Issues or another tracker |
 
 ## The standard structure
 
@@ -216,7 +218,7 @@ Read all pending tasks and analyze them for overlap. This is about finding tasks
 - Tasks that touch the same module/service: "add rate limiting to auth" + "add retry logic to auth" → "Auth service hardening"
 - Sequential tasks that make more sense together: "create user table" + "add user API endpoints" + "build user settings page" → might stay separate but should be noted as a sequence
 
-**How to report:** group the overlapping tasks, name a suggested merged task, and note possible duplicates for review. Full example: `references/report-formats.md` § Duplicate / Mergeable detection example.
+**How to report:** group the overlapping tasks and name a suggested merged task (example: `references/report-formats.md`).
 
 Ask the user which groups they want to merge. When merging:
 - Keep the oldest task key (it may already be referenced elsewhere)
@@ -237,19 +239,16 @@ Moves completed tasks from TASK_TODO.md into monthly archive files.
 1. **Run audit logic**: identify all completed tasks. **Exclude process activities** (see "Project task vs process activity"): a completed errand ("called 071", "collected the signatures") is NOT archived to `YYMM.md`, because the monthly file answers "what was built this month". Mark it done where it lives, next to its record.
 1b. **Evidence check (the mark is a claim, not a fact).** For each task about to be archived,
    look for evidence it actually happened: a `STANDUP_*` entry in `docs/JOURNAL/` covering it, or
-   a related commit in `git log --oneline -30`. This is the SAME skim step 2 of "Enriching
-   entries" already does for Notes, read as a check instead of only as context. Three outcomes:
+   a related commit in `git log --oneline -30`. This is the same skim the Notes enrichment does
+   (`references/templates.md` § Archive entry rules), read as a check instead of only as context. Three outcomes:
    **evidenced** (archive normally, cite the commit or entry), **no evidence found** (archive
    only after the user confirms, and say so plainly: "claimed done, no commit or journal entry
    found"), **contradicted** (the repo shows the opposite: the file, command or folder the task
    claims to have created is absent). A contradicted task is NOT archived; report it and let the
    user decide whether it goes back to pending.
 
-   Why this is worth a step: `YYMM.md` answers "what was built this month" and is never revisited.
-   A `[x]` that was optimistic becomes a permanent false record the moment it is archived, and
-   nobody rereads the archive to catch it. Field case: a backlog line read "companion skill in the
-   skills repo ✓ done" for a month while the file had never entered the repo. The check costs one
-   git skim that the archive step already runs.
+   Why: an optimistic `[x]` becomes a permanent false record once archived, and nobody rereads
+   the archive.
 
 2. **Show the user** what will be archived and ask for confirmation
 3. **Determine target file**: `docs/TASK_COMPLETED/YYMM.md` using today's date
@@ -265,26 +264,11 @@ Moves completed tasks from TASK_TODO.md into monthly archive files.
 
 ### Archive entry format
 
-Each entry is a dated `## YYYY-MM-DD` header, the task key and title, its completed `- [x]` items with file/function references (never code blocks), and a Notes line for context. Full template: `references/templates.md` § Archive entry format.
-
-### Enriching entries
-
-The Notes section wants context: why the work was done, what was decided. Two sources, in order:
-
-1. **The journal first**: if `docs/JOURNAL/` has `STANDUP_*` entries covering when these tasks were completed, the context is already written there (delta, decisions, impact). Pull it instead of reconstructing.
-2. **Git as fallback**: skim `git log --oneline -20` for related commits and add commit references.
-
-This connects the archive to the project's own memory without duplicating code.
-
-### What does NOT belong in archive entries
-
-- **Code blocks**: code belongs in git. Pasting it creates stale duplicates. Instead: "Modified `auth_service.rs` lines 45-60, added rate limiting to `validate_token()`"
-- **Validation scripts or test commands**: those belong in the test suite
-- **Full file listings**: keep "Files Changed" to 3-5 paths max with one-line descriptions
-
-### Suggested rich format (optional)
-
-Some projects benefit from a richer session-based archive format that captures the "why" behind decisions and the alternatives that were discarded. For small tasks the simple format above is fine; for architectural changes or multi-day work, read `references/templates.md` (section "Rich session-based archive format") and suggest it to the user.
+A dated `## YYYY-MM-DD` header, the task key and title, the `- [x]` items with file/function
+references, and a Notes line with the why: pulled from `docs/JOURNAL/` STANDUP entries first,
+git log as fallback. Never code blocks, test commands or long file lists. Template, enrichment
+and the optional rich format: `references/templates.md` (§ Archive entry format, § Archive entry
+rules). Load it before writing an entry.
 
 ---
 
@@ -296,78 +280,20 @@ The most thorough mode. Scans three layers: code comments, scattered task files,
 
 ### Steps
 
-#### Part 1: Code TODOs
+Three parts, each with its exact search patterns, exclusions and per-file-type actions in
+`references/scan.md`. Load it before searching.
 
-1. **Search** for patterns using Grep:
-   - `TODO`, `FIXME`, `HACK`, `XXX`
-   - All comment styles: `//`, `#`, `/* */`, `--`, `<!-- -->`
-2. **Exclude** dependency and build directories:
-   - `node_modules`, `.git`, `dist`, `build`, `target`, `venv`, `__pycache__`, `.next`, `.turbo`, `out`, `coverage`, `vendor`, `pkg`, `.cargo`
-3. **Filter noise**. Skip vague TODOs:
-   - "TODO: fix later", "TODO: cleanup", bare "TODO" with no description
-   - Anything inside generated or dependency files
-4. **Cross-reference with TASK_TODO.md**: if a code TODO references a known task key (e.g., `// TODO(KB-004): implement search`), mark it as already tracked
-5. **Report** grouped by file with line numbers, separating tracked from untracked
+1. **Code TODOs:** `TODO`/`FIXME`/`HACK`/`XXX` in every comment style, dependency and build dirs
+   excluded, vague ones skipped, tracked (a known task key) separated from untracked.
+2. **Scattered task files:** `*TODO*`, `*TASK*`, `*BACKLOG*`, `*MIGRATION*` `.md` outside
+   `docs/TASK_TODO.md` and `docs/TASK_COMPLETED/`, with counts and overlap.
+3. **Markdown contamination:** `- [ ]`/`- [x]` in any other `.md`. Checklists in README,
+   CHANGELOG, CLAUDE.md or AGENTS.md are always violations; guide steps and quality
+   checklists are legitimate and skipped.
 
-#### Part 2: Scattered task files
-
-6. **Search** the project for task-related markdown files outside the standard location:
-   - `*TODO*.md`, `*TASK*.md`, `*BACKLOG*.md`, `*MIGRATION*.md` anywhere in the project
-   - Exclude `docs/TASK_TODO.md` and `docs/TASK_COMPLETED/*` (those are standard)
-7. **For each found file**, read it and summarize:
-   - How many tasks/items it contains
-   - How many are pending vs completed
-   - Whether its content overlaps with TASK_TODO.md
-8. **Suggest consolidation**: pending items should merge into TASK_TODO.md, completed items should archive to TASK_COMPLETED/
-
-#### Part 3: Markdown contamination sweep
-
-This is critical for keeping task tracking centralized. Many projects accumulate `- [ ]` and `- [x]` checklists in random .md files over time: architecture docs, feature specs, meeting notes, etc. These become stale shadow backlogs that nobody maintains.
-
-9. **Search ALL `.md` files** in the project for checkbox patterns (`- [ ]`, `- [x]`) EXCEPT:
-   - `docs/TASK_TODO.md` (that's the source of truth)
-   - `docs/TASK_COMPLETED/*.md` (that's the archive)
-   - `docs/TASK_COMPLETED/README.md` (that has example checkboxes in its rules)
-   - Files inside `node_modules/`, `.git/`, etc.
-
-10. **For each file with checkboxes**, classify what you find:
-    - **README.md, CHANGELOG.md, CLAUDE.md or AGENTS.md**: these are protected zones. Task checklists here are always violations. Extract and clean.
-    - **Feature specs / architecture docs** (e.g., `docs/features/*.md`, `ARCHITECTURE.md`): checkboxes here might be task lists disguised as "requirements". If they look like actionable tasks, flag them.
-    - **Setup / installation guides**: checkboxes might be legitimate step-by-step instructions (not tasks). Use judgment: "- [ ] Install Node.js 18+" is a guide step, not a task. "- [ ] Implement OAuth flow" is a task. Skip guide steps.
-    - **Agent / prompt docs**: checkboxes in quality checklists or validation prompts are legitimate. Skip these.
-
-11. **For each flagged file**, read it and report:
-    - File path
-    - Number of pending `[ ]` and completed `[x]` items found
-    - Whether they look like tasks vs guide steps
-    - Recommended action
-
-12. **Recommended actions per file type**:
-
-    **For protected zones (README.md / CHANGELOG.md / CLAUDE.md / AGENTS.md):**
-    - Extract all task items (pending → TASK_TODO.md, completed → TASK_COMPLETED/)
-    - Remove the checklist section from the file
-    - Add a reference line: `> Task tracking: see [docs/TASK_TODO.md](./docs/TASK_TODO.md)`
-    - This keeps each file focused on its actual purpose (overview, releases, agent instructions)
-
-    **For feature specs and other docs:**
-    - Extract task items to TASK_TODO.md or TASK_COMPLETED/
-    - In the original file, replace the checklist with a reference:
-      ```markdown
-      > Tasks extracted to [TASK_TODO.md](../TASK_TODO.md) on YYYY-MM-DD.
-      > See TASK-KEY-1, TASK-KEY-2 for current status.
-      ```
-    - This preserves the document's context while pointing to the single source of truth
-
-    **For files that should keep their checkboxes** (setup guides, quality checklists):
-    - Skip. Note in the report that these were reviewed and deemed legitimate
-
-#### Report format
-
-Sections: code TODOs (untracked vs tracked tables), scattered task files (per-file counts + recommendation), markdown contamination (per-file classification + action), centralization offer, status line. Full example: `references/report-formats.md` § SCAN. Read it before writing the report.
-
-13. **Ask user** before making any changes: show the full plan
-14. If confirmed, execute all actions:
+4. **Report.** Sections: code TODOs (untracked vs tracked tables), scattered task files (per-file counts + recommendation), markdown contamination (per-file classification + action), centralization offer, status line. Full example: `references/report-formats.md` § SCAN. Read it before writing the report.
+5. **Ask user** before making any changes: show the full plan
+6. If confirmed, execute all actions:
     - Add code TODOs to TASK_TODO.md
     - Consolidate scattered task files
     - Extract tasks from contaminated .md files
@@ -381,58 +307,16 @@ Sections: code TODOs (untracked vs tracked tables), scattered task files (per-fi
 
 Creates the standard structure from scratch OR standardizes an existing non-standard setup. This is the "make it right" command: it both creates and fixes.
 
-### Steps
-
-1. **Scan the project** for existing task infrastructure (same detection as Step 0)
-2. **Branch based on what's found**:
-
-#### A) Nothing exists: fresh setup
-
-- Create `docs/` directory
-- Create `docs/TASK_TODO.md` from template (detect project name from package.json, Cargo.toml, or directory)
-- Create `docs/TASK_COMPLETED/` with `README.md`
-- Report what was created
-
-#### B) Non-standard setup found: standardize
-
-Show the user a migration plan before doing anything, grouped into Files to move/rename, Files to create, Files to consolidate, and Content updates, ending in "Proceed? (y/n)". Full example: `references/report-formats.md` § Standardization plan example.
-
-After confirmation:
-- Use `git mv` where possible to preserve history
-- Rename monthly files to `YYMM.md` format
-- Consolidate scattered task files
-- Add README.md to TASK_COMPLETED/ if missing
-- Update cross-references in TASK_TODO.md header
-- Clean up code blocks in existing archive files (replace with file/function references)
-
-#### C) Already standard: validate
-
-- Confirm structure is correct
-- Check for minor issues (missing README.md, stale completed tasks)
-- Report "all good" or list minor fixes
-
-### Templates
-
-The copy-paste templates for `TASK_TODO.md` and `TASK_COMPLETED/README.md` live in `references/templates.md`. Read that file when executing INIT (or when ARCHIVE needs to create the archive README). Adapt project name and language.
+Three branches: **nothing exists** (create `docs/TASK_TODO.md` and `docs/TASK_COMPLETED/README.md`
+from the templates), **non-standard setup** (show a migration plan, act only after confirmation,
+`git mv` to keep history), **already standard** (validate and report). Steps:
+`references/init.md`. Load it before running INIT.
 
 ### Task date format
 
-Every task should carry its creation date using the `added:` tag. This enables staleness detection and helps prioritize the backlog.
-
-**For tasks with headers (module-keyed or numbered):**
-```markdown
-### KB-004: Knowledge Base Improvements `added: 2026-03-18`
-- [ ] Implement cross-domain search
-- [ ] Add brief versioning
-```
-
-**For simple checkbox tasks without headers:**
-```markdown
-- [ ] Fix login timeout on mobile `added: 2026-04-01`
-```
-
-The `added:` tag goes at the end of the task title line, in backticks so it renders as inline code and is visually distinct from the task description. When creating new tasks (via SCAN or manually), always include the date. When running INIT on a project with existing tasks that lack dates, suggest adding `added: YYYY-MM-DD` using today's date as a baseline (the real creation date is unknown, but at least future staleness tracking starts now).
-
+Every task carries its creation date as `` `added: YYYY-MM-DD` `` at the end of its title line
+(it drives staleness detection). Examples and the rule for undated backlogs:
+`references/templates.md` § Task date format.
 
 ---
 

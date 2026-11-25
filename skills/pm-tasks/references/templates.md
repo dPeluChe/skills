@@ -46,7 +46,7 @@ Copy-paste templates used by INIT and ARCHIVE modes. Adapt project name and lang
 
 ## Rich session-based archive format (optional)
 
-For architectural changes or multi-day work, this format preserves the "why" behind decisions and the alternatives that were discarded. For small tasks, the simple format in SKILL.md is enough.
+For architectural changes or multi-day work, this format preserves the "why" behind decisions and the alternatives that were discarded. For small tasks, the Archive entry format below is enough.
 
 ```markdown
 ## YYYY-MM-DD: Session title
@@ -78,3 +78,38 @@ What was decided and why. Include discarded alternatives if they matter.
 
 Notes: Brief context about why this was done, key decisions, dependencies resolved. Reference commit hashes if relevant (commit abc1234).
 ```
+
+## Task date format
+
+Every task should carry its creation date using the `added:` tag. This enables staleness detection and helps prioritize the backlog.
+
+**For tasks with headers (module-keyed or numbered):**
+```markdown
+### KB-004: Knowledge Base Improvements `added: 2026-03-18`
+- [ ] Implement cross-domain search
+- [ ] Add brief versioning
+```
+
+**For simple checkbox tasks without headers:**
+```markdown
+- [ ] Fix login timeout on mobile `added: 2026-04-01`
+```
+
+The `added:` tag goes at the end of the task title line, in backticks so it renders as inline code and is visually distinct from the task description. When creating new tasks (via SCAN or manually), always include the date. When running INIT on a project with existing tasks that lack dates, suggest adding `added: YYYY-MM-DD` using today's date as a baseline (the real creation date is unknown, but at least future staleness tracking starts now).
+
+## Archive entry rules
+
+### Enriching entries
+
+The Notes section wants context: why the work was done, what was decided. Two sources, in order:
+
+1. **The journal first**: if `docs/JOURNAL/` has `STANDUP_*` entries covering when these tasks were completed, the context is already written there (delta, decisions, impact). Pull it instead of reconstructing.
+2. **Git as fallback**: skim `git log --oneline -20` for related commits and add commit references.
+
+This connects the archive to the project's own memory without duplicating code.
+
+### What does NOT belong in archive entries
+
+- **Code blocks**: code belongs in git. Pasting it creates stale duplicates. Instead: "Modified `auth_service.rs` lines 45-60, added rate limiting to `validate_token()`"
+- **Validation scripts or test commands**: those belong in the test suite
+- **Full file listings**: keep "Files Changed" to 3-5 paths max with one-line descriptions
