@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: kickoff-cold-reality
+tags: [kickoff]
+context:
+  scaffold_script: fixture.sh

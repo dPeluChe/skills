@@ -3,3 +3,4 @@ dpeluche-skills-workspace/
 .claude/
 lefthook-local.yml
 .gitleaks-baseline.json
+evals/results/

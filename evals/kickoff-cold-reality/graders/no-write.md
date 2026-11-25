@@ -1,0 +1,1 @@
+../../_graders/no-write.md

@@ -79,7 +79,7 @@ Detect the draft's language; apply the universal patterns plus that language's b
 - **Minimum effective edit.** Fix slop, errors, repetition, unclear passages. Leave strong human sentences alone. The author must recognize the edited draft as their own.
 - **Learn the voice, fix the surface.** Real author samples are often imperfect: missing accents, comma splices, typos. Copy the CONCEPT, the framing, and how they explain a thing; never reproduce the surface errors. A sample teaches register and reasoning-shape, not spelling. The goal is more human, not sloppier; correctness still applies on top of the voice.
 - **Instructions about the writing are not the writing.** A brief often arrives mixed into the draft ("keep this raw", "don't turn this into a lesson", "make it punchy"). Those are directions to you, never reprint them into the output. Copying the brief into the prose is the same failure as inventing content.
-- **Keep the user's meaning.** Never invent claims, examples, stats, or opinions. If something is unclear, ask.
+- **Keep the user's meaning.** Never invent claims, examples, stats, or opinions. If something is unclear, ask; never resolve an ambiguity by assuming (narrowing "revisión" into "revisión de código" is inventing).
 - **Concrete beats abstract.** "Cut review time from 30 min to 8" beats "significantly improves productivity." **Protect the specific fact**, never smooth a useful detail into generic importance.
 - **Active voice, human subjects.** "The team shipped it Tuesday", not "the decision emerged."
 - **Direct verbs.** "Decided", not "made a decision". Prefer "is" or "has" over "serves as" or "boasts".

@@ -7,9 +7,9 @@ description: >
   exists (it runs none of the repo's gates and its watch pushes with hooks off); elsewhere it
   opens the PR on the current branch and merges per policy. Trigger from informal prose and
   typos: "valida lint y build", "preship", "listo para merge?", "haz pr merge", "cierra este pr",
-  "cerremos los prs", "hagamos elmerge", "valida y haz el pr". Request-only: fire only when the
-  user asks to validate or close work as a PR, never just because work finished (offer standup).
-  standup closes a session; preship closes one PR cycle.
+  "cerremos los prs", "hagamos elmerge", "valida y haz el pr", "haz commit y pr". Request-only:
+  fire only when the user asks to validate or close work as a PR, never just because work
+  finished (offer standup). standup closes a session; preship closes one PR cycle.
 allowed-tools: Read, Glob, Grep, Bash, Edit, Write, Skill
 ---
 
@@ -153,7 +153,8 @@ lines into the evidence table. The checks below are what it must cover.
 4. **Secret scan on the diff**: `git diff` staged+unstaged against patterns for PATs/tokens
    (`ghp_`, `sk-`, `AKIA`), private keys, DSNs/connection strings, passwords in env
    files. Any hit = HARD STOP, name the file:line, never commit. `.env*` files never enter a
-   commit.
+   commit. HARD STOP ends the run: report, give the unstage command and wait; never unstage
+   the secret and commit the rest (the key may already need rotating).
 
 ## Step 2: Quality pass
 

@@ -6,8 +6,9 @@ description: >
   initializes the structure. Trigger on tasks, backlog or pending work, slash or not, typos
   included: "que tareas faltan", "que hay pendiente", "que nos falta", "limpia las tareas",
   "archiva lo completado", "actualiza el backlog", "clean up the backlog", "what tasks are done",
-  "check for TODOs", or any mention of TASK_TODO.md. Not standup (progress report, no lifecycle
-  changes); not doctos (doc structure and naming, not task content).
+  "check for TODOs", "busca los TODO", "hay TODOs regados", or any mention of TASK_TODO.md.
+  Not standup (progress report, no lifecycle changes); not doctos (doc structure and naming,
+  not task content).
 allowed-tools: Read, Glob, Grep, Bash, Edit, Write
 ---
 

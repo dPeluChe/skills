@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: doctos-published-site
+tags: [doctos]
+context:
+  scaffold_script: fixture.sh
