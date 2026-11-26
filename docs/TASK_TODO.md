@@ -14,6 +14,12 @@
 
 - [ ] **Migrar repos ya conectados a `## preship config`, de paso**: el encabezado viejo se sigue leyendo, así que no urge ni amerita una ronda por los ~55 repos. Que `flowkit hooks` / `flowkit upgrade` lo renombre cuando ya estén en ese repo por otra razón. `added: 2026-11-24`
 
+## Evals: pendientes para otro día
+
+- [ ] **Benchmark firme por modelo**: la suite completa a `--runs 3` por brazo en Haiku, Sonnet y Opus (unos $15 a $20), publicado en el journal como la referencia. Hoy Haiku tiene 2 corridas y Opus 1 sobre 8 casos (`docs/JOURNAL/STANDUP_261125.md`). `added: 2026-11-25`
+- [ ] **Set de triggers por skill**: 8 a 10 frases que deben activarla y otras tantas que casi la activan, al estilo skill-creator. Origen: en Haiku, pm-tasks no se activó con "que hay pendiente en este proyecto?" en 1 de 2 corridas. `added: 2026-11-25`
+- [ ] **doctos y pm-tasks bajo 5000 tokens**: quedan cerca de 5500 tras el split a references; el siguiente corte es la prosa de AUDIT. `added: 2026-11-25`
+
 ## Research en pausa
 
 - [ ] **Decidir la propuesta de `docs/RESEARCH/SKILLS_ECOSYSTEM_2611.md`** (evals, loop estilo `/correct`, anti-slop de UI, auditoría de seguridad, guard freeze). `added: 2026-11-24`
