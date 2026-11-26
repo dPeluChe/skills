@@ -145,16 +145,19 @@ lines into the evidence table. The checks below are what it must cover.
    at the committed template (`--env-file env.ejemplo`), or make the missing input explicit and
    fail with that message. When you hit one, say so and propose the corrected line for the
    repo's `## preship config` instead of silently working around it.
-3. **LOC**: a file over `loc_limit` that IS part of the current work → do the split RIGHT
-   THERE, same branch, same cycle, before creating the PR (the split is part of the work, not
-   a separate PR). A legacy file over the limit that was barely touched or only detected in
-   passing → do NOT block: create a task in docs/TASK_TODO.md (via pm-tasks) so it isn't lost,
-   and continue.
-4. **Secret scan on the diff**: `git diff` staged+unstaged against patterns for PATs/tokens
-   (`ghp_`, `sk-`, `AKIA`), private keys, DSNs/connection strings, passwords in env
-   files. Any hit = HARD STOP, name the file:line, never commit. `.env*` files never enter a
-   commit. HARD STOP ends the run: report, give the unstage command and wait; never unstage
-   the secret and commit the rest (the key may already need rotating).
+3. **LOC**: run `flowkit loc-health` when flowkit is installed (it reads `loc_limit` and lists
+   every file over it); otherwise `wc -l` the changed files.
+   A file over `loc_limit` that IS part of the current work → do the split RIGHT THERE, same
+   branch, same cycle, before creating the PR (the split is part of the work, not a separate
+   PR). A legacy file over the limit that was barely touched or only detected in passing → do
+   NOT block: create a task in docs/TASK_TODO.md (via pm-tasks) so it isn't lost, and continue.
+4. **Secret scan on the diff**: run `gitleaks git --staged --redact` when gitleaks is installed
+   (the same engine as the pre-commit hook), and read the unstaged diff too.
+   Without it, match `git diff` staged+unstaged against PATs/tokens (`ghp_`, `sk-`, `AKIA`),
+   private keys, DSNs/connection strings and passwords in env files.
+   Any hit = HARD STOP, name the file:line, never commit. `.env*` files never enter a commit.
+   HARD STOP ends the run: report, give the unstage command and wait; never unstage the secret
+   and commit the rest (the key may already need rotating).
 
 ## Step 2: Quality pass
 

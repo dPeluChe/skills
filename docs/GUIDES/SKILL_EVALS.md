@@ -11,15 +11,23 @@ matters is the **delta**: what Claude does with the skill that it would not do a
 claude plugin eval . --case kickoff-resume-light --runs 1 --ablation none \
   --model sonnet --trust-plugin --scaffold --allow-tools Bash Write Edit --no-publish
 
-# one skill, both arms
-claude plugin eval . --tag doctos --runs 2 -j 3 \
+# a verdict: both arms, 3 runs each
+claude plugin eval . --tag doctos --runs 3 -j 3 \
   --model sonnet --trust-plugin --scaffold --allow-tools Bash Write Edit --no-publish \
   --json evals/results/doctos.json
 ```
 
+Iterate with `--runs 1`; trust a delta only at `--runs 3` (2 runs hide a 1-in-3 failure).
+
+**Across models.** Skills ship to whatever model the user runs. Before a release that changes a
+skill's body, run the suite once on `--model haiku` (cheap: does the instruction hold on a
+smaller model?) and the high-delta cases on `--model opus` (does a stronger model still need
+the skill, or does the delta vanish?). A case that passes only on Sonnet is a skill written for
+one model.
+
 `--scaffold` runs the fixture scripts in `evals/_fixtures/` (ours, so trusted). Results land in
-`evals/results/` (git-ignored). Two runs per arm across the whole suite cost about $6 with Sonnet
-as the agent and Haiku as the judge.
+`evals/results/` (git-ignored). Three runs per arm across the whole suite cost about $9 with Sonnet
+as the agent and Haiku as the judge; Haiku as the agent costs well under $1.
 
 ## Layout
 
@@ -66,6 +74,9 @@ whether the description matched the prompt.
    quotes what it removed. Anchor the pattern before that heading, in both languages
    (`What changed|Qué cambié`).
 4. **Grant the tools the skill needs.** A journal case without `Write` measures the harness.
+5. **A stronger model applies rules the rubric did not foresee.** Opus folded a generic setup
+   guide into a README line (the skill's own value-to-reread rule) and the placement rubric
+   failed it. When a run fails on a better answer, widen the rubric, not the skill.
 
 ## Skill-writing lessons (apply to every new skill)
 

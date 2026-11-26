@@ -9,15 +9,20 @@ Sources: [best practices](https://platform.claude.com/docs/en/agents-and-tools/a
 [skill-creator](https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md) ·
 [plugin evals](https://code.claude.com/docs/en/plugin-evals)
 
-## Enforced (`skill_meta_problems`, runs on every sync and in the suite)
+## Enforced (`skill_meta_problems` on every sync and in the suite)
 
-- `name` matches the folder.
-- `description` present and at most 1024 characters.
+- `name` matches the folder; lowercase letters, digits and single hyphens, 64 max; no
+  `anthropic` or `claude`.
+- `description` present, at most 1024 characters, no `<` or `>`.
 - `allowed-tools` present.
 - No em dash in the frontmatter.
 - Every `references/x.md` that SKILL.md names exists, and every file in `references/` is named.
 - Every skill (except social-posts) has a behavior eval, a negative-trigger eval, and is in the
   suite-wide `no-skill-on-bugfix` guard.
+
+Local only (`16-plugin-validate.sh`, needs the claude CLI, so CI skips it): `claude plugin
+validate` on the tracked files, no errors and no warnings beyond the two allowed by design (the
+root CLAUDE.md, and no `version` so installs follow every commit).
 
 ## By hand
 
@@ -32,12 +37,10 @@ Sources: [best practices](https://platform.claude.com/docs/en/agents-and-tools/a
 | Fixed templates for short outputs, not "N lines max" | Prose limits do not hold (SKILL_EVALS lesson 1) |
 | Stops name what stopping means and the tempting wrong move | Explain the why; caps alone read as emphasis, not as a rule |
 | No dates or versions that rot; examples use clearly sample dates | Time-sensitive text goes stale silently |
-| Scripts for deterministic, repeated steps | Cheaper and exact; the skill says "run X", not "do X by hand" |
+| Scripts for deterministic, repeated steps | Cheaper and exact; the skill says "run X", not "do X by hand" (preship runs `flowkit loc-health` and `gitleaks`) |
+| Evals at `--runs 3` before a verdict, and on Haiku and Opus before a release | See SKILL_EVALS § Across models |
 
 ## Not yet done here (known gaps)
 
-- Name format check (lowercase, hyphens, 64 max) and a `<`/`>` check on descriptions.
-- Evals on Haiku and Opus, not only Sonnet; `--runs 3` before trusting a verdict.
-- A held-out should/should-not trigger set per skill (skill-creator's description tuning).
-- `claude plugin validate . --strict` in the suite.
-- Bundled scripts for the mechanical gates (preship LOC and secret scan).
+- A held-out should/should-not trigger set per skill (skill-creator's description tuning): the
+  one negative case per skill plus the suite guard is the floor, not the full set.
