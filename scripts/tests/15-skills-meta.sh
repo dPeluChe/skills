@@ -17,17 +17,28 @@ done
 SM="$TMP/skills-meta/bad-skill"
 mkdir -p "$SM"
 {
-  printf -- '---\nname: other-name\ndescription: >\n'
+  printf -- '---\nname: other-name\ndescription: >\n  Use for <task> work.\n'
   for _ in $(seq 1 30); do printf '  forty characters of trigger text here.\n'; done
   printf -- '---\n\n# body\n'
 } > "$SM/SKILL.md"
 probs="$(skill_meta_problems "$SM")"
 if grep -q 'chars > 1024' <<<"$probs" && grep -q 'name must match' <<<"$probs" \
-   && grep -q 'no allowed-tools' <<<"$probs"; then
-  ok "skill meta: a bad skill is reported (length, name, allowed-tools)"
+   && grep -q 'no allowed-tools' <<<"$probs" && grep -q 'has < or >' <<<"$probs"; then
+  ok "skill meta: a bad skill is reported (length, name, allowed-tools, angle brackets)"
 else
   nope "skill meta: rules did not fire on the bad fixture: $probs"
 fi
+
+# name format: uppercase and a reserved word are reported
+for bad in Bad_Name my-claude-skill; do
+  BN="$TMP/skills-meta/$bad"; mkdir -p "$BN"
+  printf -- '---\nname: %s\ndescription: x\nallowed-tools: Read\n---\n' "$bad" > "$BN/SKILL.md"
+  if grep -qE 'lowercase letters|reserved word' <<<"$(skill_meta_problems "$BN")"; then
+    ok "skill meta: name '$bad' is reported"
+  else
+    nope "skill meta: name '$bad' passed the format check"
+  fi
+done
 
 # reference routing: a dangling pointer and an orphan file are both reported
 RF="$TMP/skills-meta/ref-skill"

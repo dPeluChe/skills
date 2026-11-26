@@ -16,9 +16,13 @@ skill_meta_problems() { # $1 = skill dir; prints one problem per line, nothing w
     { on = 0 }
     END { print d }' | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')"
   grep -qx "name: $name" <<<"$fm" || echo "name must match the folder"
+  [[ "$name" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ && ${#name} -le 64 ]] \
+    || echo "name must be lowercase letters, digits and single hyphens, 64 max"
+  [[ "$name" == *anthropic* || "$name" == *claude* ]] && echo "name uses a reserved word (anthropic, claude)"
   if [[ -z "$desc" ]]; then echo "no description"
   elif (( ${#desc} > 1024 )); then echo "description ${#desc} chars > 1024 (the skill listing truncates it)"
   fi
+  [[ "$desc" == *[\<\>]* ]] && echo "description has < or > (no XML tags; the listing escapes them)"
   grep -q '^allowed-tools:' <<<"$fm" || echo "no allowed-tools"
   if grep -q $'\xe2\x80\x94' <<<"$fm"; then echo "em dash in frontmatter"; fi
   # progressive disclosure only works if every reference is routed from SKILL.md and exists
